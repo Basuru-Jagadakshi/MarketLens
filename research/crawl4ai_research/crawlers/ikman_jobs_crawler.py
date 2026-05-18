@@ -47,8 +47,7 @@ async def ikman_jobs_extraction(max_pages: int = 3):
    dispatcher = MemoryAdaptiveDispatcher(
        memory_threshold_percent=70.0,
        check_interval=1.0,     
-       max_session_permit=2,
-       monitor=CrawlerMonitor()
+       max_session_permit=1
    )
 
 
@@ -182,7 +181,7 @@ async def ikman_jobs_extraction(max_pages: int = 3):
 
 
            gc.collect()
-           await asyncio.sleep(2)
+           await asyncio.sleep(5)
    print(f"\n  Total jobs extracted: {len(extracted_jobs_list)}")
    return extracted_jobs_list
 
