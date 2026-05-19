@@ -30,13 +30,13 @@ async def get_last_page_from_text():
            print("Could not find the total ad count text.")
            return 1
 
-async def ikman_jobs_extraction(max_pages: int = 5):
+async def ikman_jobs_extraction(max_pages: int = 50):
 
 
    dispatcher = MemoryAdaptiveDispatcher(
-       memory_threshold_percent=70.0,
+       memory_threshold_percent=80.0,
        check_interval=1.0,     
-       max_session_permit=1
+       max_session_permit=10
    )
 
 
@@ -55,6 +55,7 @@ async def ikman_jobs_extraction(max_pages: int = 5):
 
    browser_config = BrowserConfig(
        headless=True,
+       verbose=True,
        extra_args=[
            "--disable-gpu",
            "--disable-dev-shm-usage",
@@ -111,35 +112,28 @@ async def ikman_jobs_extraction(max_pages: int = 5):
            page_timeout=60000  
        )
 
-
-       # Start the multi-page crawl
        results_generator = await crawler.arun_many(
            urls=full_urls,
            config=detail_config,
            dispatcher=dispatcher
        )
 
-
-       # Use async for to process each result as it finishes
        async for result in results_generator:
-           # 1. HANDLE TIMEOUTS / ERRORS
+           
            if not result.success:
-               # This logs the error and moves to the NEXT result automatically
+              
                print(f"SKIPPING: {result.url} | Error: {result.error_message}")
                continue
 
 
-           # 2. HANDLE SUCCESSFUL FETCH BUT EMPTY CONTENT
            if not result.extracted_content:
                print(f"WARNING: No content extracted from {result.url}")
                continue
 
 
-           # 3. ATTEMPT DATA PARSING
            try:
                data = json.loads(result.extracted_content)
               
-               # Success! Add to your list
                if isinstance(data, list):
                    extracted_jobs_list.extend(data)
                else:
