@@ -30,7 +30,7 @@ async def get_last_page_from_text():
            print("Could not find the total ad count text.")
            return 1
 
-async def ikman_jobs_extraction(max_pages: int = 200):
+async def ikman_jobs_extraction(max_pages: int = 5):
 
 
    dispatcher = MemoryAdaptiveDispatcher(
