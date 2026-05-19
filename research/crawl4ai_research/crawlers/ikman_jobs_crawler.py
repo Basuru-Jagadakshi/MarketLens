@@ -41,7 +41,7 @@ async def get_last_page_from_text():
 
 
 
-async def ikman_jobs_extraction(max_pages: int = 3):
+async def ikman_jobs_extraction(max_pages: int = 200):
 
 
    dispatcher = MemoryAdaptiveDispatcher(
@@ -81,7 +81,7 @@ async def ikman_jobs_extraction(max_pages: int = 3):
 
 
        # ── 1. Collect all job URLs from every listing page ───────────
-       max_pages    = await get_last_page_from_text()
+       #max_pages    = await get_last_page_from_text()
        all_job_urls = []
 
 
