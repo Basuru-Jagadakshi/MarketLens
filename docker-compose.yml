@@ -24,7 +24,7 @@ services:
   # BACKEND SERVICE 
   backend:
     build:
-      context: ./backend
+      context: ./engineering/backend
       dockerfile: Dockerfile.backend
     container_name: go_backend
     ports:
@@ -45,7 +45,7 @@ services:
   # FRONTEND SERVICE 
   frontend:
     build:
-      context: ./frontend/frontend
+      context: ./engineering/frontend/frontend
       dockerfile: Dockerfile.frontend
     container_name: nextjs_frontend
     ports:
