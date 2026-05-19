@@ -1,0 +1,84 @@
+version: '3.8'
+
+services:
+  # DATABASE SERVICE
+  database:
+    image: postgres:16-alpine
+    container_name: postgres_db
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app_user -d app_database"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # BACKEND SERVICE 
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.backend
+    container_name: go_backend
+    ports:
+      - "8080:8080"
+    environment:
+      - DB_HOST=database
+      - DB_PORT=5432
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - ENV=development
+    depends_on:
+      database:
+        condition: service_healthy
+    networks:
+      - app-network
+
+  # FRONTEND SERVICE 
+  frontend:
+    build:
+      context: ./frontend/frontend
+      dockerfile: Dockerfile.frontend
+    container_name: nextjs_frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8080
+    depends_on:
+      - backend
+    networks:
+      - app-network
+
+  # CRAWLER SERVICE 
+  # crawler:
+  #   build:
+  #     context: ./research/crawl4ai_research
+  #     dockerfile: Dockerfile.crawler
+  #   container_name: python_crawler
+  #   environment:
+  #     - DB_HOST=database
+  #     - DB_PORT=5432
+  #     - DB_USER=${DB_USER}
+  #     - DB_PASSWORD=${DB_PASSWORD}
+  #     - DB_NAME=${DB_NAME}
+  #     - BACKEND_URL=http://backend:8080
+  #   depends_on:
+  #     database:
+  #       condition: service_healthy
+  #   networks:
+  #     - app-network
+
+volumes:
+  pgdata:
+
+networks:
+  app-network:
+    driver: bridge
