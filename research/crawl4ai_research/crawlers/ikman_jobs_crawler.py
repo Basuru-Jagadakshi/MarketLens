@@ -31,7 +31,8 @@ async def get_last_page_from_text():
            return 1
 
 async def ikman_jobs_extraction(max_pages: int = 50):
-
+   
+   max_pages = await get_last_page_from_text()
 
    dispatcher = MemoryAdaptiveDispatcher(
        memory_threshold_percent=80.0,
