@@ -32,11 +32,11 @@ type JobPost struct {
 	Offers 							string 			`json:"offers" gorm:"type:text"`
 	IsRemote 						bool 			`json:"is_remote" gorm:"default:false"`
 	CreatedAt 						time.Time 		`json:"created_at"`
-	MetaData					 	MetaData 		`json:"meta_data" gorm:"foreignKey:JobPostID;constraint:OnDelete:CASCADE;"`
+	MetaData					 	JobMetaData 	`json:"meta_data" gorm:"foreignKey:JobPostID;constraint:OnDelete:CASCADE;"`
 	Skills 							[]Skill 		`json:"skills" gorm:"many2many:job_skills;constraint:OnDelete:CASCADE;"`
 }
 
-type MetaData struct {
+type JobMetaData struct {
 	ID 								uint			`json:"-" gorm:"primaryKey"`
 	JobPostID 						uint			`json:"-" gorm:"unique;not null"`
 	GeoID 							*uint			`json:"-"`
@@ -45,7 +45,13 @@ type MetaData struct {
 	Source 							string			`json:"source" gorm:"size:100"`
 	StandarizedCategory 			string			`json:"standardized_category" gorm:"size:100"`
 	Seniority 						string			`json:"seniority" gorm:"size:50"`
-	ConfidenceScore 				string			`json:"confidence_score" gorm:"type:decimal(3,2)"`
+	ConfidenceScore 				float64			`json:"confidence_score" gorm:"type:decimal(3,2)"`
 	AiVersion 						string			`json:"ai_version" gorm:"size:50"`
 	HasError 						bool			`json:"error" gorm:"default:false"`
+}
+
+
+
+func (JobMetaData) TableName() string {
+	return "job_metadata"
 }
