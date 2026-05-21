@@ -19,6 +19,7 @@ func main() {
 	jobCtrl := controllers.NewJobController(jobRepo)
 
 	r.POST("/api/jobs", jobCtrl.CreateJobHandler)
+	r.GET("/api/jobs", jobCtrl.GetAllJobsHandler)
 
 	r.Run(":8080")
 }

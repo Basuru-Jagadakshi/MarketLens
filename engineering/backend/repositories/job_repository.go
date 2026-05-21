@@ -3,6 +3,7 @@ package repositories
 import (
 	"errors"
 	"marketlens-go-backend/models"
+
 	"gorm.io/gorm"
 )
 
@@ -72,4 +73,18 @@ func (r *JobRepository) CreateJob(input models.JobPost) (models.JobPost, error) 
 	r.db.Preload("JobType").Preload("Metadata.Geo").Preload("Skills").First(&completeJob, input.ID)
 
 	return completeJob, nil
+}
+
+
+func (r *JobRepository) GetAllJobs() ([]models.JobPost, error) {
+	
+	var jobs []models.JobPost
+
+	err := r.db.Preload("JobType").Preload("MetaData.Geo").Preload("Skills").Find(&jobs).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	return jobs, nil
 }

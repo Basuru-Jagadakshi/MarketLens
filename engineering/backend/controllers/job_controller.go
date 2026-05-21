@@ -40,3 +40,19 @@ func (ctrl *JobController) CreateJobHandler(c *gin.Context) {
 
 	c.JSON(http.StatusCreated, createdJob)
 }
+
+
+func (ctrl *JobController) GetAllJobsHandler(c *gin.Context) {
+
+	jobs, err := ctrl.repo.GetAllJobs()
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "Failed to retrieve job listings",
+			"details": err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, jobs)
+}
