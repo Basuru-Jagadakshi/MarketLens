@@ -20,6 +20,7 @@ func main() {
 
 	r.POST("/api/jobs", jobCtrl.CreateJobHandler)
 	r.GET("/api/jobs", jobCtrl.GetAllJobsHandler)
+	r.PUT("/api/jobs/:id", jobCtrl.UpdateJobHandler)
 
 	r.Run(":8080")
 }
