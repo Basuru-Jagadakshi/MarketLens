@@ -21,6 +21,7 @@ func main() {
 	r.POST("/api/jobs", jobCtrl.CreateJobHandler)
 	r.GET("/api/jobs", jobCtrl.GetAllJobsHandler)
 	r.PUT("/api/jobs/:id", jobCtrl.UpdateJobHandler)
+	r.DELETE("/api/jobs/:id", jobCtrl.DeleteJobHandler)
 
 	r.Run(":8080")
 }

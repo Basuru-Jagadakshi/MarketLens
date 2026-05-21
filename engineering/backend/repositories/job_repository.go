@@ -153,3 +153,19 @@ func (r *JobRepository) UpdateJob(id uint, input models.JobPost) (models.JobPost
 
 	return completeJob, nil
 }
+
+
+func (r *JobRepository) DeleteJob(id uint) (uint, error) {
+
+	var job models.JobPost
+
+	if err := r.db.First(&job, id).Error; err != nil {
+		return 0,err
+	}
+
+	if err := r.db.Select("Skills").Delete(&job).Error; err != nil {
+		return 0,err
+	}
+
+	return job.ID, nil
+}

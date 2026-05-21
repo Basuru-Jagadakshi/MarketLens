@@ -88,3 +88,27 @@ func (ctrl *JobController) UpdateJobHandler(c *gin.Context) {
 
 	c.JSON(http.StatusOK, updatedJob)
 }
+
+
+func (ctrl *JobController) DeleteJobHandler(c *gin.Context) {
+	
+	idStr := c.Param("id")
+	var id uint
+	if _, err := fmt.Sscanf(idStr, "%d", &id); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid job ID format parameter"})
+		return
+	}
+
+	id, err := ctrl.repo.DeleteJob(id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "Failed to execute deletion on targeted job profile",
+			"details": err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": fmt.Sprintf("Job post with ID %d has been successfully deleted", id),
+	})
+}
