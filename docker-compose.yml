@@ -45,7 +45,7 @@ services:
   # FRONTEND SERVICE 
   frontend:
     build:
-      context: ./engineering/frontend/frontend
+      context: ./engineering/frontend
       dockerfile: Dockerfile.frontend
     container_name: nextjs_frontend
     ports:

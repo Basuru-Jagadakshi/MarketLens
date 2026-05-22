@@ -1,0 +1,394 @@
+openapi: 3.0.0
+info:
+  title: MarketLens Job Posting Management API
+  description: Backend REST API engine for creating, reading, updating, and removing job postings with relational skills, metadata, and geographical systems data.
+  version: 1.0.0
+servers:
+  - url: http://localhost:8080/api
+    description: Local Docker Compose Environment
+
+paths:
+  /jobs:
+    post:
+      summary: Create a brand-new job posting
+      description: Processes and registers a job post along with its associated metadata, resolving reference classifications for Job Types and Skills on the fly.
+      operationId: createJob
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JobPostInput'
+      responses:
+        '201':
+          description: Job posting successfully created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobPostResponse'
+        '400':
+          description: Invalid request payload configuration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error mapping records
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    get:
+      summary: Retrieve all job postings
+      description: Returns a collection list matrix of all job postings stored in the database, fully preloading related records.
+      operationId: getAllJobs
+      responses:
+        '200':
+          description: A structural listing array of job postings
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/JobPostResponse'
+        '500':
+          description: Internal storage retrieval error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /jobs/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: The internal primary database autoincrement ID index of the target job post
+        schema:
+          type: integer
+          example: 1
+
+    put:
+      summary: Update an existing job posting profile
+      description: Executes an entity graph sync update against matching job post rows, cascading modifications downstream to metadata and array-joined skills cleanly.
+      operationId: updateJob
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JobPostUpdateInputResponse'
+      responses:
+        '200':
+          description: Job posting updated successfully with fully reloaded associations
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobPostResponse'
+        '400':
+          description: Invalid path parameters or raw JSON structural parsing errors
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Failed to complete storage mapping updates or unique constraint conflicts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      summary: Remove a specific job posting
+      description: Deletes the target job post record and cascades deletions safely to metadata blocks and structural connection rows within your junction table, leaving master reference registers intact.
+      operationId: deleteJob
+      responses:
+        '200':
+          description: Clear confirmation message detailing the deleted record ID reference index
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Job post has been successfully deleted"
+                  deleted_id:
+                    type: integer
+                    example: 1
+        '400':
+          description: Invalid path format identifier parameter
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Core transactional delete operations failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    JobType:
+      type: object
+      properties:
+        name:
+          type: string
+          example: "Full Time"
+
+    Skill:
+      type: object
+      properties:
+        name:
+          type: string
+          example: "Go"
+
+    GeoData:
+      type: object
+      properties:
+        province:
+          type: string
+          example: "Western"
+
+    JobPostInput:
+      type: object
+      required:
+        - employer
+        - job_role
+      properties:
+        employer:
+          type: string
+          example: "MarketLens Analytics Inc."
+        job_role:
+          type: string
+          example: "Senior Backend Engineer (Go / Kubernetes)"
+        key_responsibilities:
+          type: string
+          example: "Design scalable cloud architectures and build high-performance microservices."
+        qualifications:
+          type: string
+          example: "3+ years of experience with Go, Docker, and relational databases."
+        location:
+          type: string
+          example: "Colombo"
+        is_remote:
+          type: boolean
+          example: true
+        job_type:
+          $ref: '#/components/schemas/JobType'
+        meta_data:
+          type: object
+          properties:
+            source:
+              type: string
+              example: "LinkedIn"
+            standardized_category:
+              type: string
+              example: "Software Engineering"
+            seniority:
+              type: string
+              example: "Senior"
+            confidence_score:
+              type: number
+              format: float
+              example: 0.98
+            ai_version:
+              type: string
+              example: "v2.4"
+            error:
+              type: boolean
+              example: false
+            geo:
+              $ref: '#/components/schemas/GeoData'
+        skills:
+          type: array
+          items:
+            $ref: '#/components/schemas/Skill'
+
+   
+    JobPostResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        employer:
+          type: string
+          example: "MarketLens Analytics Inc."
+        job_role:
+          type: string
+          example: "Senior Backend Engineer (Go / Kubernetes)"
+        key_responsibilities:
+          type: string
+          example: "Design scalable cloud architectures and build high-performance microservices."
+        qualifications:
+          type: string
+          example: "3+ years of experience with Go, Docker, and relational databases."
+        location:
+          type: string
+          example: "Colombo"
+        is_remote:
+          type: boolean
+          example: true
+        job_type_id:
+          type: integer
+          example: 2
+        job_type:
+          type: object
+          properties:
+            id:
+              type: integer
+              example: 2
+            name:
+              type: string
+              example: "Full Time"
+        meta_data:
+          type: object
+          properties:
+            id:
+              type: integer
+              example: 5
+            job_post_id:
+              type: integer
+              example: 1
+            source:
+              type: string
+              example: "LinkedIn"
+            standardized_category:
+              type: string
+              example: "Software Engineering"
+            seniority:
+              type: string
+              example: "Senior"
+            confidence_score:
+              type: number
+              format: float
+              example: 0.98
+            ai_version:
+              type: string
+              example: "v2.4"
+            error:
+              type: boolean
+              example: false
+            geo_id:
+              type: integer
+              example: 3
+            geo:
+              type: object
+              properties:
+                id:
+                  type: integer
+                  example: 3
+                province:
+                  type: string
+                  example: "Western"
+        skills:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: integer
+                example: 12
+              name:
+                type: string
+                example: "Go"
+
+    JobPostUpdateInputResponse:
+      type: object
+      properties:
+        employer:
+          type: string
+          example: "MarketLens Analytics Inc."
+        job_role:
+          type: string
+          example: "Senior Backend Engineer (Go / Kubernetes)"
+        key_responsibilities:
+          type: string
+          example: "Design scalable cloud architectures and build high-performance microservices."
+        qualifications:
+          type: string
+          example: "3+ years of experience with Go, Docker, and relational databases."
+        location:
+          type: string
+          example: "Colombo"
+        is_remote:
+          type: boolean
+          example: true
+        job_type_id:
+          type: integer
+          example: 2
+        job_type:
+          type: object
+          properties:
+            id:
+              type: integer
+              example: 2
+            name:
+              type: string
+              example: "Full Time"
+        meta_data:
+          type: object
+          properties:
+            id:
+              type: integer
+              example: 5
+            job_post_id:
+              type: integer
+              example: 1
+            source:
+              type: string
+              example: "LinkedIn"
+            standardized_category:
+              type: string
+              example: "Software Engineering"
+            seniority:
+              type: string
+              example: "Senior"
+            confidence_score:
+              type: number
+              format: float
+              example: 0.98
+            ai_version:
+              type: string
+              example: "v2.4"
+            error:
+              type: boolean
+              example: false
+            geo_id:
+              type: integer
+              example: 3
+            geo:
+              type: object
+              properties:
+                id:
+                  type: integer
+                  example: 3
+                province:
+                  type: string
+                  example: "Western"
+        skills:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: integer
+                example: 12
+              name:
+                type: string
+                example: "Go"
+
+  
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "Failed to execute modifications on targeted job profile"
+        details:
+          type: string
+          example: "ERROR: duplicate key value violates unique constraint..."
