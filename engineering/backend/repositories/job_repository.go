@@ -17,10 +17,12 @@ func NewJobRepository(db *gorm.DB) *JobRepository {
 	return &JobRepository{db: db}
 }
 
+//job create API
 func (r *JobRepository) CreateJob(input models.JobPost) (models.JobPost, error) {
 	
 	err := r.db.Transaction(func(tx *gorm.DB) error {
 
+		//This block checks whether province in json payload matches with the values in DB
 		if input.MetaData.Geo != nil && input.MetaData.Geo.Province != "" {
 			var existingGeo models.GeoData
 			err := tx.Where("province = ?", input.MetaData.Geo.Province).First(&existingGeo).Error
@@ -35,6 +37,8 @@ func (r *JobRepository) CreateJob(input models.JobPost) (models.JobPost, error) 
 			input.MetaData.Geo = nil 
 		}
 
+		//This block checks whether job type in json payload matches with the values in DB
+		//If there is no value add it as a new value.
 		if input.JobType.Name != "" {
 			var jobType models.JobType
 			if err := tx.Where(models.JobType{Name: input.JobType.Name}).FirstOrCreate(&jobType).Error; err != nil {
@@ -44,6 +48,8 @@ func (r *JobRepository) CreateJob(input models.JobPost) (models.JobPost, error) 
 			input.JobType = models.JobType{} 
 		}
 
+		//This block checks whether skills in json payload matches with the values in DB
+		//If there is no value add it as a new value.
 		var linkedSkills []models.Skill
 		for _, s := range input.Skills {
 			if s.Name == "" {
@@ -76,6 +82,7 @@ func (r *JobRepository) CreateJob(input models.JobPost) (models.JobPost, error) 
 }
 
 
+//job get all API
 func (r *JobRepository) GetAllJobs() ([]models.JobPost, error) {
 	
 	var jobs []models.JobPost
@@ -90,11 +97,12 @@ func (r *JobRepository) GetAllJobs() ([]models.JobPost, error) {
 }
 
 
-
+//job update API
 func (r *JobRepository) UpdateJob(id uint, input models.JobPost) (models.JobPost, error) {
 	
 	var existingJob models.JobPost
 	
+	//check whether job post exists or not
 	if err := r.db.Preload("MetaData").First(&existingJob, id).Error; err != nil {
 		return models.JobPost{}, err
 	}
@@ -105,6 +113,7 @@ func (r *JobRepository) UpdateJob(id uint, input models.JobPost) (models.JobPost
 
 	err := r.db.Transaction(func(tx *gorm.DB) error {
 		
+		//This block checks whether province in json payload matches with the values in DB
 		if input.MetaData.Geo != nil && input.MetaData.Geo.Province != "" {
 			var existingGeo models.GeoData
 			err := tx.Where("province = ?", input.MetaData.Geo.Province).First(&existingGeo).Error
@@ -115,6 +124,8 @@ func (r *JobRepository) UpdateJob(id uint, input models.JobPost) (models.JobPost
 			input.MetaData.Geo = nil
 		}
 
+		//This block checks whether job type in json payload matches with the values in DB.
+		//If there is no value add it as a new value.
 		if input.JobType.Name != "" {
 			var jobType models.JobType
 			if err := tx.Where(models.JobType{Name: input.JobType.Name}).FirstOrCreate(&jobType).Error; err != nil {
@@ -124,6 +135,8 @@ func (r *JobRepository) UpdateJob(id uint, input models.JobPost) (models.JobPost
 			input.JobType = models.JobType{}
 		}
 
+		//This block checks whether skills in json payload matches with the values in DB
+		//If there is no value add it as a new value.
 		var linkedSkills []models.Skill
 		for _, s := range input.Skills {
 			if s.Name == "" {
@@ -155,10 +168,12 @@ func (r *JobRepository) UpdateJob(id uint, input models.JobPost) (models.JobPost
 }
 
 
+//job update API
 func (r *JobRepository) DeleteJob(id uint) (uint, error) {
 
 	var job models.JobPost
 
+	//check whether job post exists or not
 	if err := r.db.First(&job, id).Error; err != nil {
 		return 0,err
 	}
