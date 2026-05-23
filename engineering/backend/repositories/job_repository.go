@@ -17,68 +17,59 @@ func NewJobRepository(db *gorm.DB) *JobRepository {
 	return &JobRepository{db: db}
 }
 
-//job create API
 func (r *JobRepository) CreateJob(input models.JobPost) (models.JobPost, error) {
-	
-	err := r.db.Transaction(func(tx *gorm.DB) error {
+    
+    var completeJob models.JobPost  // declare outside
 
-		//This block checks whether province in json payload matches with the values in DB
-		if input.MetaData.Geo != nil && input.MetaData.Geo.Province != "" {
-			var existingGeo models.GeoData
-			err := tx.Where("province = ?", input.MetaData.Geo.Province).First(&existingGeo).Error
-			
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				return errors.New("provided province does not match system geo registers")
-			} else if err != nil {
-				return err
-			}
-			
-			input.MetaData.GeoID = &existingGeo.ID
-			input.MetaData.Geo = nil 
-		}
+    err := r.db.Transaction(func(tx *gorm.DB) error {
 
-		//This block checks whether job type in json payload matches with the values in DB
-		//If there is no value add it as a new value.
-		if input.JobType.Name != "" {
-			var jobType models.JobType
-			if err := tx.Where(models.JobType{Name: input.JobType.Name}).FirstOrCreate(&jobType).Error; err != nil {
-				return err
-			}
-			input.JobTypeID = jobType.ID
-			input.JobType = models.JobType{} 
-		}
+        if input.MetaData.Geo != nil && input.MetaData.Geo.Province != "" {
+            var existingGeo models.GeoData
+            err := tx.Where("province = ?", input.MetaData.Geo.Province).First(&existingGeo).Error
+            if errors.Is(err, gorm.ErrRecordNotFound) {
+                return errors.New("provided province does not match system geo registers")
+            } else if err != nil {
+                return err
+            }
+            input.MetaData.GeoID = &existingGeo.ID
+            input.MetaData.Geo = nil
+        }
 
-		//This block checks whether skills in json payload matches with the values in DB
-		//If there is no value add it as a new value.
-		var linkedSkills []models.Skill
-		for _, s := range input.Skills {
-			if s.Name == "" {
-				continue
-			}
-			var skill models.Skill
-			if err := tx.Where(models.Skill{Name: s.Name}).FirstOrCreate(&skill).Error; err != nil {
-				return err
-			}
-			linkedSkills = append(linkedSkills, skill)
-		}
-		
-		input.Skills = linkedSkills
+        if input.JobType.Name != "" {
+            var jobType models.JobType
+            if err := tx.Where(models.JobType{Name: input.JobType.Name}).FirstOrCreate(&jobType).Error; err != nil {
+                return err
+            }
+            input.JobTypeID = jobType.ID
+            input.JobType = models.JobType{}
+        }
 
-		if err := tx.Create(&input).Error; err != nil {
-			return err
-		}
+        var linkedSkills []models.Skill
+        for _, s := range input.Skills {
+            if s.Name == "" {
+                continue
+            }
+            var skill models.Skill
+            if err := tx.Where(models.Skill{Name: s.Name}).FirstOrCreate(&skill).Error; err != nil {
+                return err
+            }
+            linkedSkills = append(linkedSkills, skill)
+        }
+        input.Skills = linkedSkills
 
-		return nil
-	})
+        if err := tx.Create(&input).Error; err != nil {
+            return err
+        }
 
-	if err != nil {
-		return models.JobPost{}, err
-	}
+        // Fetch complete job inside transaction while ID is guaranteed set
+        return tx.Preload("JobType").Preload("MetaData.Geo").Preload("Skills").First(&completeJob, input.ID).Error
+    })
 
-	var completeJob models.JobPost
-	r.db.Preload("JobType").Preload("MetaData.Geo").Preload("Skills").First(&completeJob, input.ID)
+    if err != nil {
+        return models.JobPost{}, err
+    }
 
-	return completeJob, nil
+    return completeJob, nil  // completeJob is fully populated
 }
 
 
