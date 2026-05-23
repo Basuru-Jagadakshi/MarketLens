@@ -41,7 +41,7 @@ type JobMetaData struct {
 	JobPostID 						uint			`json:"-" gorm:"unique;not null"`
 	GeoID 							*uint			`json:"-"`
 	Geo 							*GeoData		`json:"geo" gorm:"foreignKey:GeoID"`
-	PostedAt 						time.Time		`json:"posted_at" gorm:"type:timestamp with time zone"`
+	PostedAt 						time.Time		`json:"posted_at"`
 	Source 							string			`json:"source" gorm:"size:100"`
 	StandarizedCategory 			string			`json:"standardized_category" gorm:"size:100"`
 	Seniority 						string			`json:"seniority" gorm:"size:50"`
