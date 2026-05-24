@@ -44,10 +44,10 @@ func setupControllerTestEnv(t *testing.T) (*gorm.DB, *gin.Engine) {
 	ctrl := controllers.NewJobController(repo)
 
 	r := gin.Default()
-	r.POST("/api/jobs", ctrl.CreateJobHandler)
-	r.GET("/api/jobs", ctrl.GetAllJobsHandler)
-	r.PUT("/api/jobs/:id", ctrl.UpdateJobHandler)
-	r.DELETE("/api/jobs/:id", ctrl.DeleteJobHandler)
+	r.POST("/api/v1/jobs", ctrl.CreateJobHandler)
+	r.GET("/api/v1/jobs", ctrl.GetAllJobsHandler)
+	r.PUT("/api/v1/jobs/:id", ctrl.UpdateJobHandler)
+	r.DELETE("/api/v1/jobs/:id", ctrl.DeleteJobHandler)
 
 	return db, r
 }
@@ -66,7 +66,7 @@ func TestCreateJobHandler_Success(t *testing.T) {
 	body, _ := json.Marshal(input)
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("POST", "/api/jobs", bytes.NewBuffer(body))
+	req, _ := http.NewRequest("POST", "/api/v1/jobs", bytes.NewBuffer(body))
 	req.Header.Set("Content-Type", "application/json")
 
 	r.ServeHTTP(w, req)
@@ -83,7 +83,7 @@ func TestCreateJobHandler_InvalidJSON(t *testing.T) {
 	_, r := setupControllerTestEnv(t)
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("POST", "/api/jobs", bytes.NewBufferString("{invalid-json-structure}"))
+	req, _ := http.NewRequest("POST", "/api/v1/jobs", bytes.NewBufferString("{invalid-json-structure}"))
 	req.Header.Set("Content-Type", "application/json")
 
 	r.ServeHTTP(w, req)
@@ -105,7 +105,7 @@ func TestCreateJobHandler_RepositoryError(t *testing.T) {
 	body, _ := json.Marshal(input)
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("POST", "/api/jobs", bytes.NewBuffer(body))
+	req, _ := http.NewRequest("POST", "/api/v1/jobs", bytes.NewBuffer(body))
 	req.Header.Set("Content-Type", "application/json")
 
 	r.ServeHTTP(w, req)
@@ -122,7 +122,7 @@ func TestGetAllJobsHandler_Success(t *testing.T) {
 	db.Create(&models.JobPost{Employer: "Company B", JobRole: "Senior"})
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/jobs", nil)
+	req, _ := http.NewRequest("GET", "/api/v1/jobs", nil)
 
 	r.ServeHTTP(w, req)
 
@@ -144,7 +144,7 @@ func TestUpdateJobHandler_Success(t *testing.T) {
 	body, _ := json.Marshal(updateInput)
 
 	w := httptest.NewRecorder()
-	path := fmt.Sprintf("/api/jobs/%d", existingJob.ID)
+	path := fmt.Sprintf("/api/v1/jobs/%d", existingJob.ID)
 	req, _ := http.NewRequest("PUT", path, bytes.NewBuffer(body))
 	req.Header.Set("Content-Type", "application/json")
 
@@ -163,7 +163,7 @@ func TestUpdateJobHandler_InvalidIDFormat(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	
-	req, _ := http.NewRequest("PUT", "/api/jobs/abc", bytes.NewBufferString("{}"))
+	req, _ := http.NewRequest("PUT", "/api/v1/jobs/abc", bytes.NewBufferString("{}"))
 	req.Header.Set("Content-Type", "application/json")
 
 	r.ServeHTTP(w, req)
@@ -176,7 +176,7 @@ func TestUpdateJobHandler_InvalidJSONPayload(t *testing.T) {
 	_, r := setupControllerTestEnv(t)
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("PUT", "/api/jobs/1", bytes.NewBufferString("{broken-json-syntax}"))
+	req, _ := http.NewRequest("PUT", "/api/v1/jobs/1", bytes.NewBufferString("{broken-json-syntax}"))
 	req.Header.Set("Content-Type", "application/json")
 
 	r.ServeHTTP(w, req)
@@ -193,7 +193,7 @@ func TestUpdateJobHandler_NotFound(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	
-	req, _ := http.NewRequest("PUT", "/api/jobs/999", bytes.NewBuffer(body))
+	req, _ := http.NewRequest("PUT", "/api/v1/jobs/999", bytes.NewBuffer(body))
 	req.Header.Set("Content-Type", "application/json")
 
 	r.ServeHTTP(w, req)
@@ -210,7 +210,7 @@ func TestDeleteJobHandler_Success(t *testing.T) {
 	db.Create(&existingJob)
 
 	w := httptest.NewRecorder()
-	path := fmt.Sprintf("/api/jobs/%d", existingJob.ID)
+	path := fmt.Sprintf("/api/v1/jobs/%d", existingJob.ID)
 	req, _ := http.NewRequest("DELETE", path, nil)
 
 	r.ServeHTTP(w, req)
@@ -224,7 +224,7 @@ func TestDeleteJobHandler_InvalidIDFormat(t *testing.T) {
 	_, r := setupControllerTestEnv(t)
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("DELETE", "/api/jobs/xyz", nil)
+	req, _ := http.NewRequest("DELETE", "/api/v1/jobs/xyz", nil)
 
 	r.ServeHTTP(w, req)
 
@@ -237,7 +237,7 @@ func TestDeleteJobHandler_NotFound(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	
-	req, _ := http.NewRequest("DELETE", "/api/jobs/999", nil)
+	req, _ := http.NewRequest("DELETE", "/api/v1/jobs/999", nil)
 
 	r.ServeHTTP(w, req)
 
