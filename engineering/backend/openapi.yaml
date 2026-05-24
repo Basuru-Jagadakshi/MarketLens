@@ -8,7 +8,7 @@ servers:
     description: Local Docker Compose Environment
 
 paths:
-  /jobs:
+  /v1/jobs:
     post:
       summary: Create a brand-new job posting
       description: Processes and registers a job post along with its associated metadata, resolving reference classifications for Job Types and Skills on the fly.
@@ -59,7 +59,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /jobs/{id}:
+  /v1/jobs/{id}:
     parameters:
       - name: id
         in: path
