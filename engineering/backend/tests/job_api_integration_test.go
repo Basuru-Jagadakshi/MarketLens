@@ -47,10 +47,13 @@ func setupIntegrationTestStack(t *testing.T) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	r := gin.Default()
 
-	r.POST("/api/jobs", ctrl.CreateJobHandler)
-	r.GET("/api/jobs", ctrl.GetAllJobsHandler)
-	r.PUT("/api/jobs/:id", ctrl.UpdateJobHandler)
-	r.DELETE("/api/jobs/:id", ctrl.DeleteJobHandler)
+	v1 := r.Group("/api/v1")
+	{
+		v1.POST("/jobs", ctrl.CreateJobHandler)
+		v1.GET("/jobs", ctrl.GetAllJobsHandler)
+		v1.PUT("/jobs/:id", ctrl.UpdateJobHandler)
+		v1.DELETE("/jobs/:id", ctrl.DeleteJobHandler)
+	}
 
 	return r
 }
@@ -74,7 +77,7 @@ func TestJobLifecycle_Integration(t *testing.T) {
 	createBody, _ := json.Marshal(newJobPayload)
 
 	wCreate := httptest.NewRecorder()
-	reqCreate, _ := http.NewRequest("POST", "/api/jobs", bytes.NewBuffer(createBody))
+	reqCreate, _ := http.NewRequest("POST", "/api/v1/jobs", bytes.NewBuffer(createBody))
 	reqCreate.Header.Set("Content-Type", "application/json")
 	r.ServeHTTP(wCreate, reqCreate)
 
@@ -94,7 +97,7 @@ func TestJobLifecycle_Integration(t *testing.T) {
 	updateBody, _ := json.Marshal(updateJobPayload)
 
 	wUpdate := httptest.NewRecorder()
-	updatePath := fmt.Sprintf("/api/jobs/%d", createdJob.ID)
+	updatePath := fmt.Sprintf("/api/v1/jobs/%d", createdJob.ID)
 	reqUpdate, _ := http.NewRequest("PUT", updatePath, bytes.NewBuffer(updateBody))
 	reqUpdate.Header.Set("Content-Type", "application/json")
 	r.ServeHTTP(wUpdate, reqUpdate)
@@ -105,7 +108,7 @@ func TestJobLifecycle_Integration(t *testing.T) {
 	assert.Equal(t, "Lead Distributed Systems Architect", updatedJob.JobRole)
 
 	wGetAll := httptest.NewRecorder()
-	reqGetAll, _ := http.NewRequest("GET", "/api/jobs", nil)
+	reqGetAll, _ := http.NewRequest("GET", "/api/v1/jobs", nil)
 	r.ServeHTTP(wGetAll, reqGetAll)
 
 	assert.Equal(t, http.StatusOK, wGetAll.Code)
@@ -114,7 +117,7 @@ func TestJobLifecycle_Integration(t *testing.T) {
 	assert.True(t, len(completeList) >= 1)
 
 	wDelete := httptest.NewRecorder()
-	deletePath := fmt.Sprintf("/api/jobs/%d", createdJob.ID)
+	deletePath := fmt.Sprintf("/api/v1/jobs/%d", createdJob.ID)
 	reqDelete, _ := http.NewRequest("DELETE", deletePath, nil)
 	r.ServeHTTP(wDelete, reqDelete)
 

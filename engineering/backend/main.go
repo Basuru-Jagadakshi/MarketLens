@@ -18,10 +18,13 @@ func main() {
 	jobRepo := repositories.NewJobRepository(config.DB)
 	jobCtrl := controllers.NewJobController(jobRepo)
 
-	r.POST("/api/jobs", jobCtrl.CreateJobHandler)
-	r.GET("/api/jobs", jobCtrl.GetAllJobsHandler)
-	r.PUT("/api/jobs/:id", jobCtrl.UpdateJobHandler)
-	r.DELETE("/api/jobs/:id", jobCtrl.DeleteJobHandler)
+	v1 := r.Group("/api/v1")
+	{
+		v1.POST("/jobs", jobCtrl.CreateJobHandler)
+		v1.GET("/jobs", jobCtrl.GetAllJobsHandler)
+		v1.PUT("/jobs/:id", jobCtrl.UpdateJobHandler)
+		v1.DELETE("/jobs/:id", jobCtrl.DeleteJobHandler)
+	}
 
 	r.Run(":8080")
 }
