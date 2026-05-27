@@ -55,6 +55,20 @@ export const vacanciesService = {
         )
           return false;
         if (
+          filters.province !== undefined &&
+          filters.province !== 0
+        ) {
+          const provinceObj = MOCK_FILTER_METADATA.provinces.find(
+            (p) => p.id === filters.province
+          );
+          if (
+            !provinceObj ||
+            v.meta_data.geo.province.toLowerCase() !== provinceObj.name.toLowerCase()
+          ) {
+            return false;
+          }
+        }
+        if (
           filters.contractType &&
           filters.contractType !== "All" &&
           v.job_type.toLowerCase() !== filters.contractType.toLowerCase()

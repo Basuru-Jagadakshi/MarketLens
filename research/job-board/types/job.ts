@@ -89,6 +89,7 @@ export interface EmployerMetricsNode {
 
 // --- Geo Coordinates ---
 export interface GeoCoordinatesBlock {
+  id: number;
   lat: number;
   lng: number;
   province: string;
