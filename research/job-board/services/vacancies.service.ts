@@ -1,61 +1,104 @@
 import { apiClient } from "./api-client";
-import { MOCK_METADATA, MOCK_VACANCIES, MOCK_ANALYTICS_DATA, DashboardMetricsResponse, getDynamicDashboardMetrics } from "./mock-data";
-import { FilterMetadataResponse, JobVacancy, CategoryAnalyticsResponse } from "@/types/job";
+import {
+  MOCK_FILTER_METADATA,
+  MOCK_VACANCIES,
+  MOCK_ANALYTICS_DATA,
+  MOCK_DASHBOARD_DATA,
+} from "./mock-data";
+import {
+  FilterMetadataPayload,
+  JobVacancy,
+  CategoryAnalyticsPayload,
+  DashboardDataPayload,
+} from "@/types/job";
 
 export interface QueryParams {
   category?: string;
-  province?: string;
+  province?: number;
   contractType?: string;
   seniority?: string;
 }
 
 export const vacanciesService = {
-  async getFilterOptions(): Promise<FilterMetadataResponse> {
+  // GET /vacancies/filter-values
+  async getFilterOptions(): Promise<FilterMetadataPayload> {
     try {
-      const { data } = await apiClient.get<FilterMetadataResponse>("/vacancies/meta-options");
+      const { data } = await apiClient.get<FilterMetadataPayload>(
+        "/vacancies/filter-values"
+      );
       return data;
     } catch {
-      // Clean fallback orchestration for testing environments
-      return MOCK_METADATA;
+      return MOCK_FILTER_METADATA;
     }
   },
 
+  // GET /vacancies
   async getAllVacancies(filters: QueryParams): Promise<JobVacancy[]> {
     try {
-      const { data } = await apiClient.get<JobVacancy[]>("/vacancies", { params: filters });
+      const params: Record<string, string | number | undefined> = {};
+      if (filters.category) params.category = filters.category;
+      if (filters.province !== undefined) params.province = filters.province;
+      if (filters.contractType) params.contractType = filters.contractType;
+      if (filters.seniority) params.seniority = filters.seniority;
+
+      const { data } = await apiClient.get<JobVacancy[]>("/vacancies", {
+        params,
+      });
       return data;
     } catch {
-      // Fallback matching server-side param operations locally
+      // Local fallback: mirror server-side filter logic
       return MOCK_VACANCIES.filter((v) => {
-        if (filters.category && filters.category !== "All" && v.meta_data.standardized_category !== filters.category) return false;
-        if (filters.province && filters.province !== "All" && v.meta_data.geo.province !== filters.province) return false;
-        if (filters.contractType && filters.contractType !== "All" && v.job_type.toLowerCase() !== filters.contractType.toLowerCase()) return false;
-        if (filters.seniority && filters.seniority !== "All" && v.meta_data.seniority.toLowerCase() !== filters.seniority.toLowerCase()) return false;
+        if (
+          filters.category &&
+          filters.category !== "All" &&
+          v.meta_data.standardized_category !== filters.category
+        )
+          return false;
+        if (
+          filters.contractType &&
+          filters.contractType !== "All" &&
+          v.job_type.toLowerCase() !== filters.contractType.toLowerCase()
+        )
+          return false;
+        if (
+          filters.seniority &&
+          filters.seniority !== "All" &&
+          v.meta_data.seniority.toLowerCase() !== filters.seniority.toLowerCase()
+        )
+          return false;
         return true;
       });
     }
   },
 
-  async getAnalyticsByCategory(category: string): Promise<CategoryAnalyticsResponse> {
+  // GET /analytics/category/{category}
+  async getAnalyticsByCategory(
+    category: string
+  ): Promise<CategoryAnalyticsPayload> {
     try {
-      const normalizedCategory = category === "All Categories" ? "All" : category;
-      const { data } = await apiClient.get<CategoryAnalyticsResponse>(`/analytics/category`, {
-        params: { category: normalizedCategory },
-      });
+      const normalized =
+        category === "All Categories" ? "All" : category;
+      const { data } = await apiClient.get<CategoryAnalyticsPayload>(
+        `/analytics/category/${encodeURIComponent(normalized)}`
+      );
       return data;
     } catch {
-      // Local development environment circuit breaker fallback
-      return MOCK_ANALYTICS_DATA[category] || MOCK_ANALYTICS_DATA["All Categories"];
+      return (
+        MOCK_ANALYTICS_DATA[category] ||
+        MOCK_ANALYTICS_DATA["All Categories"]
+      );
     }
   },
 
-  async getSummaryMetrics(): Promise<DashboardMetricsResponse> {
+  // GET /analytics/dashboard
+  async getSummaryMetrics(): Promise<DashboardDataPayload> {
     try {
-      const { data } = await apiClient.get<DashboardMetricsResponse>("/dashboard/summary");
+      const { data } = await apiClient.get<DashboardDataPayload>(
+        "/analytics/dashboard"
+      );
       return data;
     } catch {
-      // Local circuit breaker fallback executing calculation over latest raw vacancies list
-      return getDynamicDashboardMetrics(MOCK_VACANCIES);
+      return MOCK_DASHBOARD_DATA;
     }
   },
 };

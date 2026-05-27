@@ -1,0 +1,611 @@
+openapi: 3.0.3
+info:
+  title: Labour Market Intelligence BFF API
+  description: >
+    Backend for Frontend (BFF) aggregator specification designed to power the 
+    National Labour Market Insights dashboard.
+  version: 1.0.0
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Local BFF Gateway Gateway
+
+paths:
+  
+  /analytics/dashboard:
+    get:
+      summary: Fetch consolidated data state for the main dashboard screen
+      description: >
+        Aggregates data for KPI metric milestones, regional geo breakdowns, 
+        sector weights, historical timeline graphs, and metadata distribution configurations.
+      operationId: getDashboardMetricsOverview
+      responses:
+        '200':
+          description: A single optimized JSON payload delivering all frontend dashboard metrics.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardDataPayload'
+        '400':
+          description: Bad Request. The client sent an invalid request (e.g., corrupted query parameters or bad headers).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized. Missing or expired JWT access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error. System failure or downstream microservice timeout during data aggregation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  
+  /vacancies/filter-values:
+    get:
+      summary: Fetch filter ledger meta options
+      description: >
+        Returns distinct arrays of categories, provinces, contract types, 
+        and seniority levels collected across all scraped job posts. 
+        Used directly to populate dropdown selection inputs.
+      operationId: getVacancyMetadataOptions
+      responses:
+        '200':
+          description: Unique filtering categories mapped straight to TanStack hook useVacancyMetadata().
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FilterMetadataPayload'
+        '500':
+          description: Internal Server Error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  
+  /vacancies:
+    get:
+      summary: Fetch filtered active job vacancies list
+      description: >
+        Returns a target list of active vacancies matched against specified system 
+        query parameters. If an option value passes "All", the engine skips that filter boundary.
+      operationId: getFilteredVacanciesList
+      parameters:
+        - name: category
+          in: query
+          required: false
+          description: Filter jobs by standardized business categories.
+          schema:
+            type: string
+            default: "All"
+            example: "IT"
+        - name: province
+          in: query
+          required: false
+          description: Target regional administrative area boundary mapping code.
+          schema:
+            type: integer
+            default: 0
+            example: 1
+        - name: contractType
+          in: query
+          required: false
+          description: Hiring arrangements profile match.
+          schema:
+            type: string
+            default: "All"
+            example: "Full Time"
+        - name: seniority
+          in: query
+          required: false
+          description: Career milestone scope boundary ranking indicator.
+          schema:
+            type: string
+            default: "All"
+            example: "Entry-level"
+      responses:
+        '200':
+          description: Filtered array matching your exact inline JobVacancy domain schema layout structure.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/JobVacancyModel'
+        '400':
+          description: Bad Request. Parameter mapping structural errors.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  
+  /analytics/category/{category}:
+    get:
+      summary: Fetch aggregated market analytics metrics by category
+      description: >
+        Returns detailed market demand curves, regional job distribution, tracked 
+        competencies, and active top hiring institutions for a specific industry category.
+        Pass "All" or "All Categories" to retrieve island-wide consolidated metrics.
+      operationId: getCategoryAnalyticsData
+      parameters:
+        - name: category
+          in: path
+          required: true
+          description: Standardized industry sector identifier value (e.g., 'IT', 'Medicine', 'Construction', or 'All').
+          schema:
+            type: string
+            example: "IT"
+      responses:
+        '200':
+          description: Deep-dive analytical data shape directly satisfying the useCategoryAnalytics hook state.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoryAnalyticsPayload'
+        '404':
+          description: Not Found. The specified category variant does not exist within the system index.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error. Aggregator parsing failures.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+
+components:
+  schemas:
+    DashboardDataPayload:
+      type: object
+      required:
+        - kpiSummary
+        - categoryData
+        - monthlyTrends
+        - ingestionSources
+        - leadingEmployers
+        - distributionTracks
+        - districtGeoData
+      properties:
+        kpiSummary:
+          $ref: '#/components/schemas/KpiSummaryBlock'
+        categoryData:
+          type: array
+          description: Top sector rankings mapped directly to your Recharts Pie Chart.
+          items:
+            $ref: '#/components/schemas/CategoryWeightNode'
+        monthlyTrends:
+          type: array
+          description: A 12-month timeline tracking domestic trends for your Recharts Area Chart.
+          items:
+            $ref: '#/components/schemas/MonthlyTrendNode'
+        ingestionSources:
+          type: array
+          description: Platform sourcing volumes mapped directly to your Recharts horizontal Bar Chart.
+          items:
+            $ref: '#/components/schemas/IngestionSourceNode'
+        leadingEmployers:
+          type: array
+          description: High volume active hiring organizations listed in the ranking table.
+          items:
+            $ref: '#/components/schemas/EmployerMetricsNode'
+        distributionTracks:
+          $ref: '#/components/schemas/DistributionTracksBlock'
+        districtGeoData:
+          type: array
+          description: Shows province-wise and district-wise job vacancies for your map aggregation.
+          items:
+            $ref: '#/components/schemas/DistrictGeoNode'
+
+    KpiSummaryBlock:
+      type: object
+      required:
+        - totalVacancies
+        - vacancyGrowthPct
+        - sectorsTracked
+        - skillsIdentified
+      properties:
+        totalVacancies:
+          type: integer
+          example: 13560
+        vacancyGrowthPct:
+          type: number
+          format: float
+          example: 12.4
+        sectorsTracked:
+          type: integer
+          example: 42
+        skillsIdentified:
+          type: integer
+          example: 846
+
+    CategoryWeightNode:
+      type: object
+      required:
+        - category
+        - vacancies
+      properties:
+        category:
+          type: string
+          example: "Software Engineering"
+        vacancies:
+          type: integer
+          example: 5400
+
+    MonthlyTrendNode:
+      type: object
+      required:
+        - month
+        - vacancies
+      properties:
+        month:
+          type: string
+          example: "May 2026"
+        vacancies:
+          type: integer
+          example: 7160
+
+    IngestionSourceNode:
+      type: object
+      required:
+        - name
+        - vacancies
+      properties:
+        name:
+          type: string
+          example: "TopJobs"
+        vacancies:
+          type: integer
+          example: 4850
+
+    DistributionTracksBlock:
+      type: object
+      required:
+        - seniority
+        - contractTypes
+        - remoteConfiguration
+      description: Structural components processing your linear progress bar elements.
+      properties:
+        seniority:
+          type: array
+          items:
+            $ref: '#/components/schemas/ShareMetricNode'
+          example:
+            - name: "Mid-Level Professional"
+              share: 45
+            - name: "Junior / Associate"
+              share: 25
+        contractTypes:
+          type: array
+          items:
+            $ref: '#/components/schemas/ShareMetricNode'
+          example:
+            - name: "Full-Time Corporate"
+              share: 70
+        remoteConfiguration:
+          type: array
+          items:
+            $ref: '#/components/schemas/ShareMetricNode'
+          example:
+            - name: "Office Based"
+              share: 65
+            - name: "Remote Available"
+              share: 35
+
+    ShareMetricNode:
+      type: object
+      required:
+        - name
+        - share
+      properties:
+        name:
+          type: string
+          description: The structural display category text label.
+          example: "Remote Available"
+        share:
+          type: integer
+          minimum: 0
+          maximum: 100
+          example: 35
+
+    DistrictGeoNode:
+      type: object
+      required:
+        - id
+        - province
+        - jobs
+      properties:
+        id:
+          type: string
+          example: "1"
+        province:
+          type: string
+          description: Regional boundary identifier name. String typed instead of strict lowercase enum to match global meta schemas.
+          example: "Western"
+        jobs:
+          type: integer
+          example: 5420
+        nationalShare:
+          type: number
+          format: float
+          example: 34.5
+
+    FilterMetadataPayload:
+      type: object
+      required:
+        - categories
+        - provinces
+        - contractTypes
+        - seniorityLevels
+      properties:
+        categories:
+          type: array
+          description: List of system-standardized business operational categories.
+          items:
+            $ref: '#/components/schemas/LookupOptionNode'
+        provinces:
+          type: array
+          description: List of geo-tracked administrative provincial boundary areas.
+          items:
+            $ref: '#/components/schemas/ProvinceDataNode'
+        contractTypes:
+          type: array
+          description: Unique employment contract arrangements available.
+          items:
+            $ref: '#/components/schemas/LookupOptionNode'
+        seniorityLevels:
+          type: array
+          description: Career classification and experience tier scopes.
+          items:
+            $ref: '#/components/schemas/LookupOptionNode'
+
+    # ============================================================================
+    # Consolidated Domain Model Nodes
+    # ============================================================================
+    LookupOptionNode:
+      type: object
+      required:
+        - value
+      properties:
+        value:
+          type: string
+          description: Standardized system string token used for engine lookups, query parameters, and dropdown list strings.
+          example: "IT"
+
+    ProvinceDataNode:
+      type: object
+      required:
+        - id
+        - name
+      properties:
+        id:
+          type: integer
+          description: Database unique auto-increment mapping identifier key.
+          example: 1
+        name:
+          type: string
+          description: Standard visual target display string of the administrative province.
+          example: "Western"
+        vacancies:
+          type: integer
+          description: Total calculated real-time open positions. Optional when embedded inside filter metadata listings.
+          example: 2840
+
+    EmployerMetricsNode:
+      type: object
+      required:
+        - name
+        - openRoles
+      properties:
+        name:
+          type: string
+          example: "WSO2"
+        location:
+          type: string
+          description: Physical operations headquarters coordinates info text.
+          example: "Colombo, Western"
+        sector:
+          type: string
+          description: Primary tracked business operational group.
+          example: "Technology"
+        openRoles:
+          type: integer
+          description: Volume count of active hiring pipelines inside the current scope.
+          example: 142
+
+    # ============================================================================
+    # Base Job Board Object Frameworks
+    # ============================================================================
+    JobVacancyModel:
+      type: object
+      required:
+        - id
+        - employer
+        - job_role
+        - job_type
+        - key_responsibilities
+        - qualifications
+        - location
+        - offers
+        - is_remote
+        - skills
+        - meta_data
+      properties:
+        id:
+          type: integer
+          example: 1
+        employer:
+          type: string
+          example: "Rimaco Furniture Pvt Ltd."
+        job_role:
+          type: string
+          example: "3D Sketchup Designer"
+        job_type:
+          type: string
+          example: "Full Time"
+        key_responsibilities:
+          type: string
+          example: "Creating 3D designs using Sketchup software for MDF furniture manufacturing."
+        qualifications:
+          type: string
+          example: "Ordinary Level (OL) education; ability to type in English and Sinhala; age above 18; no prior experience required."
+        location:
+          type: string
+          example: "Boralesgamuwa, Colombo"
+        offers:
+          type: string
+          example: "Salary negotiable; priority given to applicants from Maharagama and Boralesgamuwa areas."
+        is_remote:
+          type: boolean
+          example: false
+        skills:
+          type: array
+          items:
+            type: string
+          example: ["Sketchup", "3D Design", "MDF Manufacturing"]
+        meta_data:
+          $ref: '#/components/schemas/VacancyMetaBlock'
+
+    VacancyMetaBlock:
+      type: object
+      required:
+        - posted_at
+        - source
+        - standardized_category
+        - seniority
+        - geo
+        - confidence_score
+        - ai_version
+        - error
+      properties:
+        posted_at:
+          type: string
+          format: date-time
+          example: "2026-05-14T08:30:00Z"
+        source:
+          type: string
+          example: "TopJobs.lk"
+        standardized_category:
+          type: string
+          example: "IT"
+        seniority:
+          type: string
+          example: "Entry-level"
+        geo:
+          $ref: '#/components/schemas/GeoCoordinatesBlock'
+        confidence_score:
+          type: number
+          format: float
+          example: 0.98
+        ai_version:
+          type: string
+          example: "gemini-2.0-flash-v1"
+        error:
+          type: boolean
+          example: false
+
+    GeoCoordinatesBlock:
+      type: object
+      required:
+        - lat
+        - lng
+        - province
+      properties:
+        lat:
+          type: number
+          format: float
+          example: 6.8488
+        lng:
+          type: number
+          format: float
+          example: 79.9101
+        province:
+          type: string
+          example: "Western"
+
+    CategoryAnalyticsPayload:
+      type: object
+      required:
+        - skills
+        - provinces
+        - employers
+      properties:
+        skills:
+          type: array
+          description: Ranked competencies based on job post demand volume.
+          items:
+            $ref: '#/components/schemas/SkillCompetencyNode'
+        provinces:
+          type: array
+          description: Province-wise job distributions matching the horizontal Recharts display graph components.
+          items:
+            $ref: '#/components/schemas/ProvinceDataNode'
+        employers:
+          type: array
+          description: Dynamic registry tracker monitoring highly active operations within this segment context.
+          items:
+            $ref: '#/components/schemas/EmployerMetricsNode'
+
+    SkillCompetencyNode:
+      type: object
+      required:
+        - skill
+        - demand
+        - category
+      properties:
+        skill:
+          type: string
+          example: "React"
+        demand:
+          type: integer
+          description: Total number of active vacancies explicitly requiring this tech stack component.
+          example: 412
+        category:
+          type: string
+          description: Standardized primary market domain used for frontend layout colors.
+          example: "IT"
+
+    
+    ErrorResponse:
+      type: object
+      required:
+        - timestamp
+        - status
+        - error
+        - message
+        - path
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+          example: "2026-05-27T10:57:26Z"
+        status:
+          type: integer
+          description: HTTP Status code mimicking the wrapper response envelope.
+          example: 500
+        error:
+          type: string
+          description: Short error type identifier phrase.
+          example: "Internal Server Error"
+        message:
+          type: string
+          description: Human readable explanation of what went wrong.
+          example: "Downstream Job Ingestion DB service timed out after 5000ms."
+        path:
+          type: string
+          description: Request endpoint URI path where the execution error occurred.
+          example: "/api/v1/analytics/dashboard"
