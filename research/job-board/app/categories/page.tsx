@@ -54,7 +54,7 @@ export default function CategoryPage() {
     );
   }
 
-  const categoriesOptions = ["All Categories", ...(metadata?.categories || [])];
+  const categoriesOptions = ["All Categories", ...(metadata?.categories?.map(c => c.value) || [])];
   const chartSkillsList = analytics.skills.slice(0, 15);
 
   return (
@@ -114,7 +114,7 @@ export default function CategoryPage() {
             <ResponsiveContainer width="100%" height={380}>
               <BarChart data={analytics.provinces} margin={{ bottom: 10, left: 10, right: 10 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f8f9fa" />
-                <XAxis dataKey="province" tick={{ fontSize: 11 }} />
+                <XAxis dataKey="name" tick={{ fontSize: 11 }} />
                 <YAxis tick={{ fontSize: 11 }} />
                 <Tooltip formatter={(value) => [`${value} Open Positions`, "Vacancies"]} />
                 <Bar dataKey="vacancies" radius={[4, 4, 0, 0]}>

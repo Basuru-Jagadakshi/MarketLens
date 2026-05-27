@@ -1,175 +1,134 @@
-import {SkillDemand, ProvinceVacancy, HiringEmployer, CategoryAnalyticsResponse, FilterMetadataResponse, JobVacancy} from "@/types/job";
+import {
+  JobVacancy,
+  CategoryAnalyticsPayload,
+  FilterMetadataPayload,
+  DashboardDataPayload,
+} from "@/types/job";
 
+// ============================================================================
+// Mock: GET /vacancies/filter-values
+// ============================================================================
+export const MOCK_FILTER_METADATA: FilterMetadataPayload = {
+  categories: [
+    { value: "IT" },
+    { value: "Medicine" },
+    { value: "Construction" },
+    { value: "Furniture Design" },
+    { value: "Marketing" },
+    { value: "Human Resources" },
+    { value: "Banking & Finance" },
+    { value: "Retail" },
+    { value: "Supply Chain" },
+    { value: "Quality Assurance" },
+    { value: "Healthcare Administration" },
+    { value: "Customer Service" },
+  ],
+  provinces: [
+    { id: 1, name: "Western", vacancies: 2840 },
+    { id: 2, name: "Central", vacancies: 980 },
+    { id: 3, name: "Southern", vacancies: 760 },
+    { id: 4, name: "Northern", vacancies: 310 },
+    { id: 5, name: "Eastern", vacancies: 420 },
+    { id: 6, name: "North Western", vacancies: 640 },
+    { id: 7, name: "North Central", vacancies: 390 },
+    { id: 8, name: "Uva", vacancies: 270 },
+    { id: 9, name: "Sabaragamuwa", vacancies: 310 },
+  ],
+  contractTypes: [
+    { value: "Full Time" },
+    { value: "Part Time" },
+    { value: "Contract" },
+    { value: "Freelance" },
+    { value: "Internship" },
+  ],
+  seniorityLevels: [
+    { value: "Entry-level" },
+    { value: "Junior" },
+    { value: "Mid Level" },
+    { value: "Senior" },
+  ],
+};
 
-//Dashboard Page
-export interface KpiSummary {
-  totalVacancies: number;
-  vacancyGrowthPct: number;
-  sectorsTracked: number;
-  skillsIdentified: number;
-}
-
-export interface MonthlyTrend {
-  month: string;
-  domestic: number;
-  overseas: number;
-}
-
-export interface SectorShare {
-  sector: string;
-  vacancies: number;
-}
-
-export interface IngestionSource {
-  name: string;
-  vacancies: number;
-}
-
-export interface LeadingEmployer {
-  name: string;
-  activePosts: number;
-  sector: string;
-}
-
-export interface ShareDistribution {
-  level?: string;
-  type?: string;
-  share: number;
-}
-
-export interface DistrictVacancy {
-  id: string;
-  name: string;
-  province: string;
-  jobs: number;
-  path: string;
-}
-
-export interface DashboardMetricsResponse {
-  kpiSummary: KpiSummary;
-  monthlyTrends: MonthlyTrend[];
-  sectorDistribution: SectorShare[];
-  ingestionSources: IngestionSource[];
-  leadingEmployers: LeadingEmployer[];
-  seniorityData: ShareDistribution[];
-  contractTypes: ShareDistribution[];
-  remoteConfiguration: ShareDistribution[];
-  regionalVacancies: DistrictVacancy[];
-}
-
-export function getDynamicDashboardMetrics(vacanciesList: JobVacancy[]): DashboardMetricsResponse {
-  const totalVacancies = vacanciesList.length;
-  
-  const sectors = new Set<string>();
-  const skills = new Set<string>();
-  
-  const sectorCounts: Record<string, number> = {};
-  const sourceCounts: Record<string, number> = {};
-  const employerMap: Record<string, { posts: number; sector: string }> = {};
-  const seniorityCounts: Record<string, number> = {};
-  const contractCounts: Record<string, number> = {};
-  
-  let remoteCount = 0;
-  const regionalMap: Record<string, number> = {};
-
-  vacanciesList.forEach((vac) => {
-    const category = vac.meta_data.standardized_category || "Unassigned";
-    const source = vac.meta_data.source || "Unknown";
-    const seniority = vac.meta_data.seniority || "Not Specified";
-    const contract = vac.job_type || "Full Time";
-    const districtName = vac.location.split(",").pop()?.trim() || "Colombo";
-
-    sectors.add(category);
-    vac.skills.forEach(s => skills.add(s));
-
-    sectorCounts[category] = (sectorCounts[category] || 0) + 1;
-    sourceCounts[source] = (sourceCounts[source] || 0) + 1;
-    seniorityCounts[seniority] = (seniorityCounts[seniority] || 0) + 1;
-    contractCounts[contract] = (contractCounts[contract] || 0) + 1;
-    regionalMap[districtName.toLowerCase()] = (regionalMap[districtName.toLowerCase()] || 0) + 1;
-
-    if (vac.is_remote) remoteCount++;
-
-    if (!employerMap[vac.employer]) {
-      employerMap[vac.employer] = { posts: 0, sector: category };
-    }
-    employerMap[vac.employer].posts++;
-  });
-
-  const sectorDistribution = Object.entries(sectorCounts)
-    .map(([sector, vacancies]) => ({ sector, vacancies }))
-    .sort((a, b) => b.vacancies - a.vacancies);
-
-  const ingestionSources = Object.entries(sourceCounts)
-    .map(([name, vacancies]) => ({ name, vacancies }))
-    .sort((a, b) => b.vacancies - a.vacancies);
-
-  const leadingEmployers = Object.entries(employerMap)
-    .map(([name, data]) => ({ name, activePosts: data.posts, sector: data.sector }))
-    .sort((a, b) => b.activePosts - a.activePosts)
-    .slice(0, 5);
-
-  const calcShare = (count: number) => totalVacancies > 0 ? Math.round((count / totalVacancies) * 100) : 0;
-
-  const seniorityData = Object.entries(seniorityCounts).map(([level, count]) => ({
-    level,
-    share: calcShare(count)
-  }));
-
-  const contractTypes = Object.entries(contractCounts).map(([type, count]) => ({
-    type,
-    share: calcShare(count)
-  }));
-
-  const remoteAvailableShare = calcShare(remoteCount);
-  const remoteConfiguration = [
-    { type: "Office Based", share: 100 - remoteAvailableShare },
-    { type: "Remote Available", share: remoteAvailableShare }
-  ];
-
-  const baseDistricts = [
-    { id: "LK-11", name: "Colombo", province: "western", path: "M 115,220 L 125,230..." },
-    { id: "LK-12", name: "Gampaha", province: "western", path: "M 100,190 L 115,210..." },
-    { id: "LK-13", name: "Kalutara", province: "western", path: "M 120,260 L 130,280..." },
-    { id: "LK-21", name: "Kandy", province: "central", path: "M 160,210 L 175,230..." },
-    { id: "LK-31", name: "Galle", province: "southern", path: "M 140,320 L 150,340..." },
-    { id: "LK-41", name: "Kurunegala", province: "northwestern", path: "M 90,150 L 110,170..." },
-    { id: "LK-42", name: "Puttalam", province: "northwestern", path: "M 70,120 L 85,140..." }
-  ];
-
-  const regionalVacancies: DistrictVacancy[] = baseDistricts.map(d => ({
-    ...d,
-    jobs: regionalMap[d.name.toLowerCase()] || 0
-  }));
-
-  return {
-    kpiSummary: {
-      totalVacancies,
-      vacancyGrowthPct: 14.2,
-      sectorsTracked: sectors.size,
-      skillsIdentified: skills.size
-    },
-    monthlyTrends: [
-      { month: "Jan", domestic: Math.round(totalVacancies * 0.8), overseas: Math.round(totalVacancies * 0.2) },
-      { month: "Feb", domestic: Math.round(totalVacancies * 0.85), overseas: Math.round(totalVacancies * 0.15) },
-      { month: "Mar", domestic: totalVacancies, overseas: Math.round(totalVacancies * 0.22) }
+// ============================================================================
+// Mock: GET /analytics/dashboard
+// ============================================================================
+export const MOCK_DASHBOARD_DATA: DashboardDataPayload = {
+  kpiSummary: {
+    totalVacancies: 13560,
+    vacancyGrowthPct: 12.4,
+    sectorsTracked: 42,
+    skillsIdentified: 846,
+  },
+  categoryData: [
+    { category: "Software Engineering", vacancies: 5400 },
+    { category: "Data Science & AI", vacancies: 2800 },
+    { category: "DevOps & Cloud Systems", vacancies: 2100 },
+    { category: "Product Management", vacancies: 1800 },
+    { category: "Quality Assurance Automation", vacancies: 1460 },
+  ],
+  monthlyTrends: [
+    { month: "Jun 2025", vacancies: 5300 },
+    { month: "Jul 2025", vacancies: 5750 },
+    { month: "Aug 2025", vacancies: 6200 },
+    { month: "Sep 2025", vacancies: 6700 },
+    { month: "Oct 2025", vacancies: 6850 },
+    { month: "Nov 2025", vacancies: 6900 },
+    { month: "Dec 2025", vacancies: 7500 },
+    { month: "Jan 2026", vacancies: 7750 },
+    { month: "Feb 2026", vacancies: 8300 },
+    { month: "Mar 2026", vacancies: 8700 },
+    { month: "Apr 2026", vacancies: 9050 },
+    { month: "May 2026", vacancies: 9560 },
+  ],
+  ingestionSources: [
+    { name: "TopJobs", vacancies: 4850 },
+    { name: "Ikman Jobs", vacancies: 3920 },
+    { name: "XpressJobs", vacancies: 2840 },
+    { name: "LinkedIn Native", vacancies: 1950 },
+  ],
+  leadingEmployers: [
+    { name: "WSO2", openRoles: 142, location: "Colombo, Western", sector: "Technology" },
+    { name: "Dialog Axiata", openRoles: 98, location: "Colombo, Western", sector: "Telecommunications" },
+    { name: "John Keells Holdings", openRoles: 84, location: "Colombo, Western", sector: "Conglomerate" },
+    { name: "IFS Sri Lanka", openRoles: 76, location: "Colombo, Western", sector: "Technology" },
+    { name: "LSEG Technology", openRoles: 69, location: "Colombo, Western", sector: "Fintech" },
+  ],
+  distributionTracks: {
+    seniority: [
+      { name: "Mid-Level Professional", share: 45 },
+      { name: "Junior / Associate", share: 25 },
+      { name: "Senior Staff", share: 22 },
+      { name: "Lead / Principal Architect", share: 8 },
     ],
-    sectorDistribution,
-    ingestionSources,
-    leadingEmployers,
-    seniorityData,
-    contractTypes,
-    remoteConfiguration,
-    regionalVacancies
-  };
-}
+    contractTypes: [
+      { name: "Full-Time Corporate", share: 70 },
+      { name: "Independent Contract", share: 15 },
+      { name: "Part-Time Engagement", share: 10 },
+      { name: "Graduate Internship", share: 5 },
+    ],
+    remoteConfiguration: [
+      { name: "Office Based", share: 65 },
+      { name: "Remote Available", share: 35 },
+    ],
+  },
+  // Province-level — province string matches the lowercase province key used in SRI_LANKA_DISTRICTS
+  districtGeoData: [
+    { id: "western",      province: "Western",      jobs: 8740, nationalShare: 34.5 },
+    { id: "central",      province: "Central",      jobs: 4250, nationalShare: 16.8 },
+    { id: "southern",     province: "Southern",     jobs: 2760, nationalShare: 10.9 },
+    { id: "northern",     province: "Northern",     jobs: 1890, nationalShare: 7.5  },
+    { id: "eastern",      province: "Eastern",      jobs: 1320, nationalShare: 5.2  },
+    { id: "northwestern", province: "North Western", jobs: 2050, nationalShare: 8.1 },
+    { id: "northcentral", province: "North Central", jobs: 1120, nationalShare: 4.4 },
+    { id: "uva",          province: "Uva",          jobs: 840,  nationalShare: 3.3  },
+    { id: "sabaragamuwa", province: "Sabaragamuwa", jobs: 590,  nationalShare: 2.3  },
+  ],
+};
 
-
-
-
-
-//Categories Page
-export const MOCK_ANALYTICS_DATA: Record<string, CategoryAnalyticsResponse> = {
+// ============================================================================
+// Mock: GET /analytics/category/{category}
+// ============================================================================
+export const MOCK_ANALYTICS_DATA: Record<string, CategoryAnalyticsPayload> = {
   "All Categories": {
     skills: [
       { skill: "TypeScript / React", demand: 4250, category: "IT" },
@@ -178,13 +137,15 @@ export const MOCK_ANALYTICS_DATA: Record<string, CategoryAnalyticsResponse> = {
       { skill: "BIM Modelling (Revit)", demand: 2450, category: "Construction" },
     ],
     provinces: [
-      { province: "Western", vacancies: 14850 },
-      { province: "Central", vacancies: 5900 },
-      { province: "Southern", vacancies: 4200 },
+      { id: 1, name: "Western", vacancies: 14850 },
+      { id: 2, name: "Central", vacancies: 5900 },
+      { id: 3, name: "Southern", vacancies: 4200 },
+      { id: 6, name: "North Western", vacancies: 2100 },
+      { id: 4, name: "Northern", vacancies: 1800 },
     ],
     employers: [
-      { name: "Virtusa Labs", openRoles: 320, location: "Western Province" },
-      { name: "Asiri Health Group", openRoles: 240, location: "Multi-Region" },
+      { name: "Virtusa Labs", openRoles: 320, location: "Western Province", sector: "IT" },
+      { name: "Asiri Health Group", openRoles: 240, location: "Multi-Region", sector: "Medicine" },
     ],
   },
   "IT": {
@@ -192,57 +153,56 @@ export const MOCK_ANALYTICS_DATA: Record<string, CategoryAnalyticsResponse> = {
       { skill: "TypeScript / React", demand: 4250, category: "IT" },
       { skill: "Cloud Architecture (AWS/Azure)", demand: 3800, category: "IT" },
       { skill: "Python & Machine Learning", demand: 3100, category: "IT" },
+      { skill: "Node.js & REST APIs", demand: 2800, category: "IT" },
+      { skill: "DevOps / Kubernetes", demand: 2200, category: "IT" },
     ],
     provinces: [
-      { province: "Western", vacancies: 11800 },
-      { province: "Central", vacancies: 1400 },
+      { id: 1, name: "Western", vacancies: 11800 },
+      { id: 2, name: "Central", vacancies: 1400 },
+      { id: 3, name: "Southern", vacancies: 900 },
     ],
     employers: [
-      { name: "Virtusa Labs", openRoles: 320, location: "Western Province" },
-      { name: "Sysco LABS", openRoles: 180, location: "Western Province" },
+      { name: "Virtusa Labs", openRoles: 320, location: "Western Province", sector: "IT" },
+      { name: "Sysco LABS", openRoles: 180, location: "Western Province", sector: "IT" },
     ],
   },
   "Medicine": {
     skills: [
       { skill: "Critical Care Nursing", demand: 3900, category: "Medicine" },
       { skill: "Health Informatics & EHR", demand: 2600, category: "Medicine" },
+      { skill: "Surgical Assistance", demand: 1800, category: "Medicine" },
     ],
     provinces: [
-      { province: "Western", vacancies: 4100 },
-      { province: "Central", vacancies: 2600 },
+      { id: 1, name: "Western", vacancies: 4100 },
+      { id: 2, name: "Central", vacancies: 2600 },
+      { id: 3, name: "Southern", vacancies: 1500 },
     ],
     employers: [
-      { name: "Asiri Health Group", openRoles: 240, location: "Multi-Region" },
-      { name: "Nawaloka Hospitals", openRoles: 140, location: "Western Province" },
+      { name: "Asiri Health Group", openRoles: 240, location: "Multi-Region", sector: "Medicine" },
+      { name: "Nawaloka Hospitals", openRoles: 140, location: "Western Province", sector: "Medicine" },
     ],
   },
   "Construction": {
     skills: [
       { skill: "BIM Modelling (Revit)", demand: 2450, category: "Construction" },
       { skill: "Structural Engineering CAD", demand: 2200, category: "Construction" },
+      { skill: "Project Management (PMP)", demand: 1600, category: "Construction" },
     ],
     provinces: [
-      { province: "Western", vacancies: 5200 },
-      { province: "Central", vacancies: 1900 },
+      { id: 1, name: "Western", vacancies: 5200 },
+      { id: 2, name: "Central", vacancies: 1900 },
+      { id: 3, name: "Southern", vacancies: 1200 },
     ],
     employers: [
-      { name: "Access Engineering", openRoles: 195, location: "Western Province" },
-      { name: "MAGA Engineering", openRoles: 160, location: "Western Province" },
+      { name: "Access Engineering", openRoles: 195, location: "Western Province", sector: "Construction" },
+      { name: "MAGA Engineering", openRoles: 160, location: "Western Province", sector: "Construction" },
     ],
   },
 };
 
-
-
-
-//Vcancies Page
-export const MOCK_METADATA: FilterMetadataResponse = {
-  categories: ["IT", "Medicine", "Construction", "Furniture Design"],
-  provinces: ["Western", "Central", "Southern", "North Western", "Northern", "Eastern", "Sabaragamuwa", "Uva", "North Central"],
-  contractTypes: ["Full Time", "Contract", "Part Time", "Freelance", "Internship"],
-  seniorityLevels: ["Entry-level", "Junior", "Mid Level", "Senior"],
-};
-
+// ============================================================================
+// Mock: GET /vacancies
+// ============================================================================
 export const MOCK_VACANCIES: JobVacancy[] = [
   {
     id: "vac_001",
@@ -266,7 +226,6 @@ export const MOCK_VACANCIES: JobVacancy[] = [
       error: false,
     },
   },
-
   {
     id: "vac_002",
     employer: "Softlogic Holdings PLC",
@@ -289,7 +248,6 @@ export const MOCK_VACANCIES: JobVacancy[] = [
       error: false,
     },
   },
-
   {
     id: "vac_003",
     employer: "Dialog Axiata PLC",
@@ -305,14 +263,13 @@ export const MOCK_VACANCIES: JobVacancy[] = [
       posted_at: "2026-05-10T11:15:00Z",
       source: "TopJobs.lk",
       standardized_category: "Customer Service",
-      seniority: "Mid-level",
+      seniority: "Mid Level",
       geo: { lat: 7.2906, lng: 80.6337, province: "Central" },
       confidence_score: 0.96,
       ai_version: "gemini-2.0-flash-v1",
       error: false,
     },
   },
-
   {
     id: "vac_004",
     employer: "MAS Holdings",
@@ -335,7 +292,6 @@ export const MOCK_VACANCIES: JobVacancy[] = [
       error: false,
     },
   },
-
   {
     id: "vac_005",
     employer: "Commercial Bank of Ceylon",
@@ -358,7 +314,6 @@ export const MOCK_VACANCIES: JobVacancy[] = [
       error: false,
     },
   },
-
   {
     id: "vac_006",
     employer: "Virtusa Sri Lanka",
@@ -374,14 +329,13 @@ export const MOCK_VACANCIES: JobVacancy[] = [
       posted_at: "2026-05-11T14:40:00Z",
       source: "LinkedIn",
       standardized_category: "Quality Assurance",
-      seniority: "Associate",
+      seniority: "Junior",
       geo: { lat: 6.9344, lng: 79.8428, province: "Western" },
       confidence_score: 0.98,
       ai_version: "gemini-2.0-flash-v1",
       error: false,
     },
   },
-
   {
     id: "vac_007",
     employer: "Cargills Food City",
@@ -404,7 +358,6 @@ export const MOCK_VACANCIES: JobVacancy[] = [
       error: false,
     },
   },
-
   {
     id: "vac_008",
     employer: "PickMe",
@@ -420,14 +373,13 @@ export const MOCK_VACANCIES: JobVacancy[] = [
       posted_at: "2026-05-09T12:30:00Z",
       source: "LinkedIn",
       standardized_category: "Marketing",
-      seniority: "Mid-level",
+      seniority: "Mid Level",
       geo: { lat: 6.8916, lng: 79.8547, province: "Western" },
       confidence_score: 0.97,
       ai_version: "gemini-2.0-flash-v1",
       error: false,
     },
   },
-
   {
     id: "vac_009",
     employer: "Lanka Hospitals",
@@ -450,7 +402,6 @@ export const MOCK_VACANCIES: JobVacancy[] = [
       error: false,
     },
   },
-
   {
     id: "vac_010",
     employer: "Hayleys PLC",
@@ -466,7 +417,7 @@ export const MOCK_VACANCIES: JobVacancy[] = [
       posted_at: "2026-05-17T13:25:00Z",
       source: "Observer Jobs",
       standardized_category: "Supply Chain",
-      seniority: "Mid-level",
+      seniority: "Mid Level",
       geo: { lat: 7.4863, lng: 80.3623, province: "North Western" },
       confidence_score: 0.96,
       ai_version: "gemini-2.0-flash-v1",

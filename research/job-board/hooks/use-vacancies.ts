@@ -4,7 +4,6 @@ import { vacanciesService, QueryParams } from "@/services/vacancies.service";
 export const vacancyKeys = {
   all: ["vacancies"] as const,
   meta: () => [...vacancyKeys.all, "metadata"] as const,
-  // 2. Change parameter type from Record<string, unknown> directly to QueryParams
   lists: (filters: QueryParams) => [...vacancyKeys.all, "list", filters] as const,
   analytics: (category: string) => [...vacancyKeys.all, "analytics", category] as const,
   dashboard: () => [...vacancyKeys.all, "dashboard-summary"] as const,
@@ -22,7 +21,7 @@ export function useVacanciesList(filters: QueryParams) {
   return useQuery({
     queryKey: vacancyKeys.lists(filters),
     queryFn: () => vacanciesService.getAllVacancies(filters),
-    staleTime: 1000 * 60 * 2, // Re-verify freshness bounds every 2 mins
+    staleTime: 1000 * 60 * 2, // Re-verify freshness every 2 mins
   });
 }
 
@@ -30,7 +29,7 @@ export function useCategoryAnalytics(category: string) {
   return useQuery({
     queryKey: vacancyKeys.analytics(category),
     queryFn: () => vacanciesService.getAnalyticsByCategory(category),
-    staleTime: 1000 * 60 * 5, // Cache analytics views for 5 minutes
+    staleTime: 1000 * 60 * 5,
   });
 }
 
@@ -38,7 +37,7 @@ export function useDashboardSummary() {
   return useQuery({
     queryKey: vacancyKeys.dashboard(),
     queryFn: vacanciesService.getSummaryMetrics,
-    staleTime: 1000 * 60 * 5, // Cache dashboard calculations for 5 minutes
+    staleTime: 1000 * 60 * 5,
     refetchOnWindowFocus: false,
   });
 }

@@ -1,45 +1,114 @@
-export interface Job {
-  employer: string;
-  job_role: string;
-  job_type: string;
-  key_responsibilities: string;
-  qualifications: string;
-  location: string;
-  offers: string;
+// ============================================================================
+// BFF API — OpenAPI 3.0.3 Schema Types
+// Labour Market Intelligence BFF API
+// ============================================================================
+
+// --- KPI Summary ---
+export interface KpiSummaryBlock {
+  totalVacancies: number;
+  vacancyGrowthPct: number;
+  sectorsTracked: number;
+  skillsIdentified: number;
 }
 
-export interface SkillDemand {
-  skill: string;
-  demand: number;
+// --- Category Weight (Pie Chart) ---
+export interface CategoryWeightNode {
   category: string;
-}
-
-export interface ProvinceVacancy {
-  province: string;
   vacancies: number;
 }
 
-export interface HiringEmployer {
+// --- Monthly Trend (Area Chart) ---
+export interface MonthlyTrendNode {
+  month: string;
+  vacancies: number;
+}
+
+// --- Ingestion Source (Bar Chart) ---
+export interface IngestionSourceNode {
+  name: string;
+  vacancies: number;
+}
+
+// --- Share Metric (Progress Bars) ---
+export interface ShareMetricNode {
+  name: string;
+  share: number;
+}
+
+// --- Distribution Tracks Block ---
+export interface DistributionTracksBlock {
+  seniority: ShareMetricNode[];
+  contractTypes: ShareMetricNode[];
+  remoteConfiguration: ShareMetricNode[];
+}
+
+// --- District Geo Node (Map) ---
+export interface DistrictGeoNode {
+  id: string;
+  province: string;
+  jobs: number;
+  nationalShare?: number;
+}
+
+// --- Dashboard Data Payload ---
+export interface DashboardDataPayload {
+  kpiSummary: KpiSummaryBlock;
+  categoryData: CategoryWeightNode[];
+  monthlyTrends: MonthlyTrendNode[];
+  ingestionSources: IngestionSourceNode[];
+  leadingEmployers: EmployerMetricsNode[];
+  distributionTracks: DistributionTracksBlock;
+  districtGeoData: DistrictGeoNode[];
+}
+
+// --- Filter Metadata ---
+export interface LookupOptionNode {
+  value: string;
+}
+
+export interface ProvinceDataNode {
+  id: number;
+  name: string;
+  vacancies?: number;
+}
+
+export interface FilterMetadataPayload {
+  categories: LookupOptionNode[];
+  provinces: ProvinceDataNode[];
+  contractTypes: LookupOptionNode[];
+  seniorityLevels: LookupOptionNode[];
+}
+
+// --- Employer Metrics ---
+export interface EmployerMetricsNode {
   name: string;
   openRoles: number;
-  location: string;
+  location?: string;
+  sector?: string;
 }
 
-export interface CategoryAnalyticsResponse {
-  skills: SkillDemand[];
-  provinces: ProvinceVacancy[];
-  employers: HiringEmployer[];
+// --- Geo Coordinates ---
+export interface GeoCoordinatesBlock {
+  lat: number;
+  lng: number;
+  province: string;
 }
 
-export interface FilterMetadataResponse {
-  categories: string[];
-  provinces: string[];
-  contractTypes: string[];
-  seniorityLevels: string[];
+// --- Vacancy Meta Block ---
+export interface VacancyMetaBlock {
+  posted_at: string;
+  source: string;
+  standardized_category: string;
+  seniority: string;
+  geo: GeoCoordinatesBlock;
+  confidence_score: number;
+  ai_version: string;
+  error: boolean;
 }
 
-export interface JobVacancy {
-  id: string; // Added ID for key tracking loops
+// --- Job Vacancy Model ---
+export interface JobVacancyModel {
+  id: number;
   employer: string;
   job_role: string;
   job_type: string;
@@ -49,78 +118,78 @@ export interface JobVacancy {
   offers: string;
   is_remote: boolean;
   skills: string[];
-  meta_data: {
-    posted_at: string;
-    source: string;
-    standardized_category: string;
-    seniority: string;
-    geo: {
-      lat: number;
-      lng: number;
-      province: string;
-    };
-    confidence_score: number;
-    ai_version: string;
-    error: boolean;
-  };
+  meta_data: VacancyMetaBlock;
 }
 
-export interface KpiSummary {
-  totalVacancies: number;
-  vacancyGrowthPct: number;
-  sectorsTracked: number;
-  skillsIdentified: number;
+// --- Skill Competency Node ---
+export interface SkillCompetencyNode {
+  skill: string;
+  demand: number;
+  category: string;
 }
 
-export interface MonthlyTrend {
-  month: string;
-  domestic: number;
-  overseas: number;
+// --- Category Analytics Payload ---
+export interface CategoryAnalyticsPayload {
+  skills: SkillCompetencyNode[];
+  provinces: ProvinceDataNode[];
+  employers: EmployerMetricsNode[];
 }
 
-export interface SectorShare {
-  sector: string;
-  vacancies: number;
-}
-
-export interface IngestionSource {
-  name: string;
-  vacancies: number;
-}
-
-export interface LeadingEmployer {
-  name: string;
-  activePosts: number;
-  sector: string;
-}
-
-export interface ShareDistribution {
-  level?: string;
-  type?: string;
-  share: number;
-}
-
-export interface DistrictVacancy {
-  id: string;
-  name: string;
-  province: string;
-  jobs: number;
+// --- Error Response ---
+export interface ErrorResponse {
+  timestamp: string;
+  status: number;
+  error: string;
+  message: string;
   path: string;
 }
 
-export interface ContractType {
+// ============================================================================
+// Backward-Compatible Aliases (used by mock-data helpers & legacy hooks)
+// ============================================================================
+
+/** @deprecated Use JobVacancyModel. Kept for mock-data compatibility. */
+export interface JobVacancy {
   id: string;
-  name: string;
+  employer: string;
+  job_role: string;
+  job_type: string;
+  key_responsibilities: string;
+  qualifications: string;
+  location: string;
+  offers: string;
+  is_remote: boolean;
+  skills: string[];
+  meta_data: VacancyMetaBlock;
 }
 
-export interface DashboardMetricsResponse {
-  kpiSummary: KpiSummary;
-  monthlyTrends: MonthlyTrend[];
-  sectorDistribution: SectorShare[];
-  ingestionSources: IngestionSource[];
-  leadingEmployers: LeadingEmployer[];
-  seniorityData: ShareDistribution[];
-  contractTypes: ShareDistribution[];
-  remoteConfiguration: ShareDistribution[];
-  regionalVacancies: DistrictVacancy[];
+/** @deprecated Use SkillCompetencyNode */
+export type SkillDemand = SkillCompetencyNode;
+
+/** @deprecated Use ProvinceDataNode */
+export interface ProvinceVacancy {
+  province: string;
+  vacancies: number;
+}
+
+/** @deprecated Use EmployerMetricsNode */
+export interface HiringEmployer {
+  name: string;
+  openRoles: number;
+  location: string;
+}
+
+/** @deprecated Use CategoryAnalyticsPayload */
+export interface CategoryAnalyticsResponse {
+  skills: SkillCompetencyNode[];
+  provinces: ProvinceVacancy[];
+  employers: HiringEmployer[];
+}
+
+/** @deprecated Use FilterMetadataPayload */
+export interface FilterMetadataResponse {
+  categories: string[];
+  provinces: string[];
+  contractTypes: string[];
+  seniorityLevels: string[];
 }

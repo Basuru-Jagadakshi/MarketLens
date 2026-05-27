@@ -9,7 +9,7 @@ export default function VacanciesPage() {
   // Query UI State Controls
   const [search, setSearch] = useState("");
   const [selectedSector, setSelectedSector] = useState("All Categories");
-  const [selectedProvince, setSelectedProvince] = useState("All Provinces");
+  const [selectedProvince, setSelectedProvince] = useState<number>(0);
   const [selectedContract, setSelectedContract] = useState("All Contracts");
   const [selectedSeniority, setSelectedSeniority] = useState("All Seniorities");
   const [selectedVacancy, setSelectedVacancy] = useState<JobVacancy | null>(null);
@@ -19,7 +19,7 @@ export default function VacanciesPage() {
 
   const { data: activeVacancies = [], isLoading: isListLoading } = useVacanciesList({
     category: selectedSector !== "All Categories" ? selectedSector : "All",
-    province: selectedProvince !== "All Provinces" ? selectedProvince : "All",
+    province: selectedProvince !== 0 ? selectedProvince : undefined,
     contractType: selectedContract !== "All Contracts" ? selectedContract : "All",
     seniority: selectedSeniority !== "All Seniorities" ? selectedSeniority : "All",
   });
@@ -56,11 +56,14 @@ export default function VacanciesPage() {
     );
   }
 
-  // Formatting response items safely for fallback states
-  const sectorsList = ["All Categories", ...(metadata?.categories || [])];
-  const provincesList = ["All Provinces", ...(metadata?.provinces || [])];
-  const contractsList = ["All Contracts", ...(metadata?.contractTypes || [])];
-  const senioritiesList = ["All Seniorities", ...(metadata?.seniorityLevels || [])];
+  // Formatting response items safely for fallback states mapping metadata lookup objects
+  const sectorsList = ["All Categories", ...(metadata?.categories?.map(c => c.value) || [])];
+  const provincesList = [
+    { id: 0, name: "All Provinces" },
+    ...(metadata?.provinces || [])
+  ];
+  const contractsList = ["All Contracts", ...(metadata?.contractTypes?.map(ct => ct.value) || [])];
+  const senioritiesList = ["All Seniorities", ...(metadata?.seniorityLevels?.map(sl => sl.value) || [])];
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -104,11 +107,11 @@ export default function VacanciesPage() {
               <label className="block text-xs text-gray-500 mb-1 font-medium">Province</label>
               <select
                 value={selectedProvince}
-                onChange={(e) => setSelectedProvince(e.target.value)}
+                onChange={(e) => setSelectedProvince(Number(e.target.value))}
                 className="px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white outline-none focus:ring-2 focus:ring-zinc-900"
               >
                 {provincesList.map((p) => (
-                  <option key={p} value={p}>{p}</option>
+                  <option key={p.id} value={p.id}>{p.name}</option>
                 ))}
               </select>
             </div>
