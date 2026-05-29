@@ -56,9 +56,9 @@ describe("Vacancy Service Unit Tests", () => {
       meta_data: {
         id: 2,
         job_post_id: 2,
-        standardized_category: "Data Science", // ◄ Restored to Data Science to test unique categorization matrix
+        standardized_category: "Data Science", 
         source: "LinkedIn",
-        seniority: "Junior", // ◄ Keeps Junior intact
+        seniority: "Junior", 
         confidence_score: 98.9,
         ai_version: "chatgpt",
         error: false,
@@ -108,16 +108,15 @@ describe("Vacancy Service Unit Tests", () => {
     it("should correctly isolate records based on multiple filter parameters simultaneously", async () => {
       vi.mocked(fetchAllJobsFromCore).mockResolvedValue(mockDataset);
 
-      // We are looking for Software Engineering + Senior (Job 101)
       const activeFilters = {
         category: "Software Engineering",
-        seniority: "Senior", // ◄ Fixed: Switched from Junior to Senior
+        seniority: "Senior", 
       };
 
       const results = await getFilteredVacancies(activeFilters);
 
       expect(results).toHaveLength(1);
-      expect(results[0].id).toBe(101); // ◄ Passes perfectly now
+      expect(results[0].id).toBe(101); 
       expect(results[0].employer).toBe("WSO2");
     });
 
@@ -166,7 +165,7 @@ describe("Vacancy Service Unit Tests", () => {
           meta_data: {
             id: 2,
             job_post_id: 2,
-            standardized_category: "Data Science", // Duplicate entry for verification
+            standardized_category: "Data Science", 
             source: "LinkedIn",
             seniority: "Junior",
             confidence_score: 98.9,
@@ -183,12 +182,10 @@ describe("Vacancy Service Unit Tests", () => {
 
       const metadata = await getFilterLookupMetadata();
 
-      // Verified: 2 Categories exist now (Software Engineering and Data Science)
       expect(metadata.categories).toHaveLength(2);
       expect(metadata.categories).toContainEqual({ value: "Software Engineering" });
-      expect(metadata.categories).toContainEqual({ value: "Data Science" }); // ◄ Un-commented safely
+      expect(metadata.categories).toContainEqual({ value: "Data Science" }); 
 
-      // Verified Unique Provinces
       expect(metadata.provinces).toHaveLength(1);
       expect(metadata.provinces[0]).toEqual({ id: 1, name: "Western" });
 
