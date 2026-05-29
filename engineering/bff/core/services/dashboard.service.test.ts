@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { getAggregatedDashboardState } from "./dashboard.service";
+import { getAggregatedDashboardState, getCategoryDeepDiveAnalysis} from "./dashboard.service";
 import { fetchAllJobsFromCore } from "../clients/go-backend.client";
 import { GoJobPostResponse, GoJobMetaData } from "@/types/models";
 
@@ -140,3 +140,125 @@ describe("Dashboard Service Unit Tests", () => {
     });
   });
 });
+
+
+describe("getCategoryDeepDiveAnalysis Unit Tests", () => {
+    
+    const mockDeepDiveJobs: GoJobPostResponse[] = [
+      {
+        id: 1,
+        employer: "WSO2",
+        job_role: "Go Developer",
+        key_responsibilities: "BFF dev",
+        qualifications: "BSc",
+        location: "Colombo",
+        is_remote: true,
+        job_type_id: 1,
+        job_type: { id: 1, name: "Full Time" },
+        created_at: "2026-05-28T00:00:00Z",
+        meta_data: {
+          id:1,
+          job_post_id: 1,
+          standardized_category: "Software Engineering",
+          source: "TopJobs",
+          seniority: "Senior",
+          confidence_score: 98.9,
+          ai_version: "chatgpt",
+          error: false,
+          geo_id: 2,
+          geo: { province: "Western" },
+        },
+        skills: [{ id: 1, name: "Go" }, { id: 2, name: "Docker" }],
+      },
+      {
+        id: 2,
+        employer: "Sysco Labs",
+        job_role: "Java Architect",
+        key_responsibilities: "Spring microservices",
+        qualifications: "BSc",
+        location: "Colombo",
+        is_remote: false,
+        job_type_id: 1,
+        job_type: { id: 1, name: "Full Time" },
+        created_at: "2026-05-28T00:00:00Z",
+        meta_data: {
+          id:2,
+          job_post_id: 2,
+          standardized_category: "Software Engineering",
+          source: "TopJobs",
+          seniority: "Senior",
+          confidence_score: 98.9,
+          ai_version: "chatgpt",
+          error: false,
+          geo_id: 2,
+          geo: { province: "Western" },
+        },
+        skills: [{ id: 2, name: "Docker" }, { id: 3, name: "Java" }],
+      },
+      {
+        id: 3,
+        employer: "Dialog",
+        job_role: "Data Analyst",
+        key_responsibilities: "Build dashboards",
+        qualifications: "BSc",
+        location: "Colombo",
+        is_remote: false,
+        job_type_id: 1,
+        job_type: { id: 1, name: "Full Time" },
+        created_at: "2026-05-28T00:00:00Z",
+        meta_data: {
+          id:3,
+          job_post_id: 3,
+          standardized_category: "Data Science",
+          source: "TopJobs",
+          seniority: "Senior",
+          confidence_score: 98.9,
+          ai_version: "chatgpt",
+          error: false,
+          geo_id: 2,
+          geo: { province: "Central" },
+        },
+        skills: [{ id: 4, name: "Python" }],
+      }
+    ];
+
+    it("should filter datasets accurately and extract top sorted skills/employers for a target category", async () => {
+      vi.mocked(fetchAllJobsFromCore).mockResolvedValue(mockDeepDiveJobs);
+
+      const result = await getCategoryDeepDiveAnalysis("Software Engineering");
+
+      expect(result.provinces).toHaveLength(1);
+      expect(result.provinces[0].name).toBe("Western");
+      expect(result.provinces[0].vacancies).toBe(2);
+
+      expect(result.skills).toHaveLength(3);
+      expect(result.skills[0].skill).toBe("Docker"); 
+      expect(result.skills[0].demand).toBe(2);
+      expect(result.skills[0].category).toBe("Software Engineering");
+
+      expect(result.employers).toHaveLength(2);
+      expect(result.employers.map(e => e.name)).toEqual(["WSO2", "Sysco Labs"]);
+    });
+
+    it("should bypass filtering conditions when wildcard categories are specified", async () => {
+      vi.mocked(fetchAllJobsFromCore).mockResolvedValue(mockDeepDiveJobs);
+
+      const result = await getCategoryDeepDiveAnalysis("All Categories");
+
+      const totalProvincesVacancies = result.provinces.reduce((sum, p) => sum + (p.vacancies || 0), 0);
+      expect(totalProvincesVacancies).toBe(3); 
+      
+      expect(result.skills).toHaveLength(4); 
+      expect(result.employers).toHaveLength(3); 
+    });
+
+    it("should return empty arrays safely if the target category does not match any records", async () => {
+      vi.mocked(fetchAllJobsFromCore).mockResolvedValue(mockDeepDiveJobs);
+
+      const result = await getCategoryDeepDiveAnalysis("Marketing");
+      
+      expect(result.skills).toHaveLength(0);
+      expect(result.provinces).toHaveLength(0);
+      expect(result.employers).toHaveLength(0);
+    });
+  });
