@@ -6,7 +6,8 @@ export default defineConfig({
   plugins: [react()],
   test: {
     environment: "node", 
-    globals: true,      
+    globals: true,   
+    setupFiles: ["./vitest.setup.ts"],   
   },
   resolve: {
     alias: {
