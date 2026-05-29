@@ -42,6 +42,21 @@ services:
     networks:
       - app-network
 
+  # BFF SERVICE (DATA AGGREGATOR ENGINE)
+  bff:
+    build:
+      context: ./engineering/bff
+      dockerfile: Dockerfile.bff
+    container_name: nextjs_bff
+    ports:
+      - "8081:8081"
+    env_file:
+      - ./engineering/bff/.env
+    depends_on:
+      - backend
+    networks:
+      - app-network
+
   # FRONTEND SERVICE 
   frontend:
     build:
@@ -50,10 +65,10 @@ services:
     container_name: nextjs_frontend
     ports:
       - "3000:3000"
-    environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:8080
+    env_file:
+      - ./engineering/frontend/.env
     depends_on:
-      - backend
+      - bff
     networks:
       - app-network
 
