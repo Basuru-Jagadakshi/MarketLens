@@ -68,7 +68,7 @@ services:
     env_file:
       - ./engineering/frontend/.env
     depends_on:
-      - backend
+      - bff
     networks:
       - app-network
 
