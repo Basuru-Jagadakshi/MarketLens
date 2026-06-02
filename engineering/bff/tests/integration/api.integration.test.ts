@@ -90,7 +90,7 @@ const mockJobsDataset: GoJobPostResponse[] = [
 
 describe("BFF REST API Endpoints Integration Tests", () => {
   beforeEach(() => {
-    
+
     server.use(
       http.get(BACKEND_JOBS_URL, () => {
         return HttpResponse.json(mockJobsDataset);
@@ -102,12 +102,12 @@ describe("BFF REST API Endpoints Integration Tests", () => {
     it("should retrieve all vacancies successfully and format to standard JobVacancyModel schema", async () => {
       const request = new Request("http://localhost/api/v1/vacancies");
       const response = await getVacancies(request);
-      
+
       expect(response.status).toBe(200);
       const data = (await response.json()) as JobVacancyModel[];
-      
+
       expect(data).toHaveLength(3);
-      
+
       const wso2Vacancy = data.find(j => j.id === 101);
       expect(wso2Vacancy).toBeDefined();
       expect(wso2Vacancy?.employer).toBe("WSO2");
@@ -127,10 +127,10 @@ describe("BFF REST API Endpoints Integration Tests", () => {
         "http://localhost/api/v1/vacancies?category=Software+Engineering&seniority=Senior&province=Western&contractType=Full+Time"
       );
       const response = await getVacancies(request);
-      
+
       expect(response.status).toBe(200);
       const data = (await response.json()) as JobVacancyModel[];
-      
+
       expect(data).toHaveLength(1);
       expect(data[0].id).toBe(101);
       expect(data[0].employer).toBe("WSO2");
@@ -141,7 +141,7 @@ describe("BFF REST API Endpoints Integration Tests", () => {
         "http://localhost/api/v1/vacancies?category=All&seniority=All&province=All&contractType=All"
       );
       const response = await getVacancies(request);
-      
+
       expect(response.status).toBe(200);
       const data = (await response.json()) as JobVacancyModel[];
       expect(data).toHaveLength(3);
@@ -150,7 +150,7 @@ describe("BFF REST API Endpoints Integration Tests", () => {
     it("should return empty list if no record matches the filters", async () => {
       const request = new Request("http://localhost/api/v1/vacancies?category=Data+Science&seniority=Senior");
       const response = await getVacancies(request);
-      
+
       expect(response.status).toBe(200);
       const data = (await response.json()) as JobVacancyModel[];
       expect(data).toHaveLength(0);
@@ -166,7 +166,7 @@ describe("BFF REST API Endpoints Integration Tests", () => {
 
       const request = new Request("http://localhost/api/v1/vacancies");
       const response = await getVacancies(request);
-      
+
       expect(response.status).toBe(502);
       const errBody = (await response.json()) as BffErrorResponse;
       expect(errBody.status).toBe(502);
@@ -180,10 +180,10 @@ describe("BFF REST API Endpoints Integration Tests", () => {
     it("should aggregate unique lookup values without duplicating categories, provinces, types or seniorities", async () => {
       const request = new Request("http://localhost/api/v1/vacancies/filter-values");
       const response = await getFilterValues(request);
-      
+
       expect(response.status).toBe(200);
       const data = (await response.json()) as FilterMetadataPayload;
-      
+
       // Expected deduplicated entries
       expect(data.categories).toHaveLength(3);
       expect(data.categories).toContainEqual({ value: "Software Engineering" });
@@ -213,7 +213,7 @@ describe("BFF REST API Endpoints Integration Tests", () => {
 
       const request = new Request("http://localhost/api/v1/vacancies/filter-values");
       const response = await getFilterValues(request);
-      
+
       expect(response.status).toBe(500);
       const errBody = (await response.json()) as BffErrorResponse;
       expect(errBody.status).toBe(500);
@@ -226,14 +226,14 @@ describe("BFF REST API Endpoints Integration Tests", () => {
     it("should correctly compute KPI metrics, chronological monthly trends, and structural configuration percentages", async () => {
       const request = new Request("http://localhost/api/v1/analytics/dashboard");
       const response = await getDashboard(request);
-      
+
       expect(response.status).toBe(200);
       const data = (await response.json()) as DashboardDataPayload;
-      
+
       expect(data.kpiSummary.totalVacancies).toBe(3);
       expect(data.kpiSummary.sectorsTracked).toBe(3);
-      expect(data.kpiSummary.skillsIdentified).toBe(4); 
-      
+      expect(data.kpiSummary.skillsIdentified).toBe(4);
+
       expect(data.monthlyTrends).toHaveLength(3);
       expect(data.monthlyTrends[0].month).toBe("Jan 2026");
       expect(data.monthlyTrends[0].vacancies).toBe(1);
@@ -241,23 +241,23 @@ describe("BFF REST API Endpoints Integration Tests", () => {
       expect(data.monthlyTrends[1].vacancies).toBe(1);
       expect(data.monthlyTrends[2].month).toBe("May 2026");
       expect(data.monthlyTrends[2].vacancies).toBe(1);
-      
+
       expect(data.distributionTracks.remoteConfiguration).toContainEqual({
         name: "Remote Available",
         share: 33,
       });
       expect(data.distributionTracks.remoteConfiguration).toContainEqual({
         name: "Office Based",
-        share: 67, 
+        share: 67,
       });
-      
+
       expect(data.districtGeoData).toHaveLength(2);
       const westernGeo = data.districtGeoData.find(g => g.province === "Western");
       const centralGeo = data.districtGeoData.find(g => g.province === "Central");
       expect(westernGeo?.jobs).toBe(2);
-      expect(westernGeo?.nationalShare).toBe(66.7); 
+      expect(westernGeo?.nationalShare).toBe(66.7);
       expect(centralGeo?.jobs).toBe(1);
-      expect(centralGeo?.nationalShare).toBe(33.3); 
+      expect(centralGeo?.nationalShare).toBe(33.3);
     });
 
     it("should handle fallbacks safely if metadata structures are empty or missing in records", async () => {
@@ -278,10 +278,10 @@ describe("BFF REST API Endpoints Integration Tests", () => {
 
       const request = new Request("http://localhost/api/v1/analytics/dashboard");
       const response = await getDashboard(request);
-      
+
       expect(response.status).toBe(200);
       const data = (await response.json()) as DashboardDataPayload;
-      
+
       expect(data.categoryData[0].category).toBe("Unclassified Operations");
       expect(data.ingestionSources[0].name).toBe("Direct Scrape");
       expect(data.districtGeoData[0].province).toBe("Unknown Region");
@@ -297,10 +297,10 @@ describe("BFF REST API Endpoints Integration Tests", () => {
 
       const request = new Request("http://localhost/api/v1/analytics/dashboard");
       const response = await getDashboard(request);
-      
+
       expect(response.status).toBe(200);
       const data = (await response.json()) as DashboardDataPayload;
-      
+
       expect(data.kpiSummary.totalVacancies).toBe(0);
       expect(data.categoryData).toHaveLength(0);
       expect(data.monthlyTrends).toHaveLength(0);
@@ -314,13 +314,13 @@ describe("BFF REST API Endpoints Integration Tests", () => {
     it("should catch and propagate backend errors", async () => {
       server.use(
         http.get(BACKEND_JOBS_URL, () => {
-          return HttpResponse.error(); 
+          return HttpResponse.error();
         })
       );
 
       const request = new Request("http://localhost/api/v1/analytics/dashboard");
       const response = await getDashboard(request);
-      
+
       expect(response.status).toBe(502);
       const errBody = (await response.json()) as BffErrorResponse;
       expect(errBody.status).toBe(502);
@@ -334,10 +334,10 @@ describe("BFF REST API Endpoints Integration Tests", () => {
       const response = await getCategoryAnalytics(request, {
         params: Promise.resolve({ category: "Software%20Engineering" }),
       });
-      
+
       expect(response.status).toBe(200);
       const data = (await response.json()) as CategoryAnalyticsPayload;
-      
+
       expect(data.provinces).toHaveLength(1);
       expect(data.provinces[0].name).toBe("Western");
       expect(data.provinces[0].vacancies).toBe(1);
@@ -357,12 +357,12 @@ describe("BFF REST API Endpoints Integration Tests", () => {
       const response = await getCategoryAnalytics(request, {
         params: Promise.resolve({ category: "All%20Categories" }),
       });
-      
+
       expect(response.status).toBe(200);
       const data = (await response.json()) as CategoryAnalyticsPayload;
-      
+
       expect(data.skills).toHaveLength(4);
-      
+
       expect(data.skills[0].skill).toBe("Docker");
       expect(data.skills[0].demand).toBe(2);
 
@@ -375,10 +375,10 @@ describe("BFF REST API Endpoints Integration Tests", () => {
       const response = await getCategoryAnalytics(request, {
         params: Promise.resolve({ category: "Marketing" }),
       });
-      
+
       expect(response.status).toBe(200);
       const data = (await response.json()) as CategoryAnalyticsPayload;
-      
+
       expect(data.skills).toHaveLength(0);
       expect(data.provinces).toHaveLength(0);
       expect(data.employers).toHaveLength(0);
@@ -395,7 +395,7 @@ describe("BFF REST API Endpoints Integration Tests", () => {
       const response = await getCategoryAnalytics(request, {
         params: Promise.resolve({ category: "Software%20Engineering" }),
       });
-      
+
       expect(response.status).toBe(500);
       const errBody = (await response.json()) as BffErrorResponse;
       expect(errBody.status).toBe(500);
