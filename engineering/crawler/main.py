@@ -56,7 +56,7 @@ async def main():
     while True:
         now = datetime.now(sl_tz)
         
-        target_time = now.replace(hour=22, minute=0, second=0, microsecond=0)
+        target_time = now.replace(hour=17, minute=40, second=0, microsecond=0)
         
         if now >= target_time:
             target_time += timedelta(days=1)
@@ -70,7 +70,7 @@ async def main():
         
         await crawl_job()
         
-        next_cycle_target = datetime.now() + timedelta(days=10)
+        next_cycle_target = datetime.now(sl_tz) + timedelta(days=10)
         print(f"Cycle complete. Next run in 10 days on: {next_cycle_target.strftime('%Y-%m-%d %H:%M:%S')}")
         
         await asyncio.sleep(10 * 24 * 60 * 60)

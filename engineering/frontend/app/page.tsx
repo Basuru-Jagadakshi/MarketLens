@@ -564,7 +564,7 @@ export default function DashboardPage() {
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
                   <Pie
-                    data={dashboardData.categoryData.slice(0, 10)}
+                    data={dashboardData.categoryData}
                     cx="50%"
                     cy="40%" // Pulled slightly up to give the bottom legend breathing room
                     innerRadius={80}
@@ -573,7 +573,7 @@ export default function DashboardPage() {
                     dataKey="vacancies"
                     nameKey="category"
                   >
-                    {dashboardData.categoryData.slice(0, 10).map((_, i) => (
+                    {dashboardData.categoryData.map((_, i) => (
                       <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
                     ))}
                   </Pie>

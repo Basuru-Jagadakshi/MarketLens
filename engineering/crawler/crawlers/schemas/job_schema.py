@@ -71,7 +71,7 @@ Fields & Defaults:
    - 'geo': {"province": "Western"} or other inferred Sri Lankan province. Default: {"province": "Western"}.
    - 'posted_at': Current ISO timestamp.
    - 'source': Crawled source (e.g., "TopJobs", "Ikman").
-   - 'standardized_category': Match exactly ONE value from this list, else default to "Other": ["IT & Software Engineering","Telecommunications & Networking","Sales, Marketing & Retail","Customer Service & Call Center","Accounting, Finance & Auditing","Banking, Insurance & Financial Services","Administration, Secretarial & Clerical","Human Resources & Recruitment","Operations & Business Management","Logistics, Supply Chain & Warehousing","Manufacturing, Production & Operations","Garments, Textiles & Fashion","Engineering, Construction & Real Estate","Healthcare, Medical & Nursing","Education, Teaching & Academics","Hospitality, Tourism & Catering","Food & Beverage (F&B)","Driver, Transport & Delivery","Security Services","Salon, Beauty & Cosmetics","Cleaning, Housekeeping & Domestic Help","Agriculture, Farming & Animal Care","Legal & Compliance","Media, Arts, Design & Photography","Other"]
+   - 'standardized_category': Match exactly ONE value from this list, else default to "Other": ["Technology & Telecom","Sales, Marketing & Retail","Finance & Banking","Corporate, HR & Legal","Customer Support & Service","Logistics, Manufacturing & Trade","Hospitality, Food & Tourism","Healthcare & Education","Services, Driving & Blue-Collar","Creative, Media & Other"]
    - 'seniority': Match exactly ONE: ["Internship","Trainee","Entry-Level","Mid-Level","Senior","Not Specified"]. Default: "Not Specified".
    - 'confidence_score': Float between 0.00 and 1.00.
    - 'ai_version': "v1.2.0".
