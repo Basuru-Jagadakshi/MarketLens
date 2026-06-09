@@ -7,11 +7,11 @@ from crawlers.ikman_jobs_crawler import ikman_jobs_extraction, get_last_page_fro
 from storage_handlers.handler import save_jobs_to_file
 from crawlers.schemas.job_schema import JOB_EXTRACTION_SCHEMA, BASE_JOB_INSTRUCTION
 
-env_path = Path(__file__).resolve().parent.parent.parent / '.env'
+# env_path = Path(__file__).resolve().parent.parent.parent / '.env'
 
-load_dotenv(dotenv_path=env_path)
+# load_dotenv(dotenv_path=env_path)
 
-print(f"API Key Loaded: {os.getenv('DEEPSEEK_API_KEY') is not None}")
+# print(f"API Key Loaded: {os.getenv('DEEPSEEK_API_KEY') is not None}")
 
 async def main():
     print("=== Starting Multi-Site Crawl... ===")
@@ -24,7 +24,9 @@ async def main():
 
     all_combined_jobs = ikman_jobs
 
-    save_jobs_to_file(all_combined_jobs)
+    print(all_combined_jobs)
+
+    #save_jobs_to_file(all_combined_jobs)
 
 
 
