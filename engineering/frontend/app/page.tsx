@@ -239,31 +239,57 @@ const SRI_LANKA_DISTRICTS = [
 
 // District job weightings (from original static dataset) for proportional share fallback
 const DISTRICT_WEIGHTS: Record<string, number> = {
-  "Colombo": 5420, "Gampaha": 3180, "Kalutara": 2140,
-  "Galle": 2050, "Matara": 1730, "Hambantota": 980,
-  "Kegalle": 1290, "Ratnapura": 1870,
-  "Badulla": 1410, "Moneragala": 590,
-  "Matale": 1560, "Kandy": 2890, "Nuwara Eliya": 1240,
-  "Ampara": 1120, "Batticaloa": 890, "Trincomalee": 740,
-  "Anuradhapura": 1680, "Polonnaruwa": 680,
-  "Puttalam": 1050, "Kurunegala": 2340,
-  "Vanni": 720, "Jaffna": 1890
+  Colombo: 5420,
+  Gampaha: 3180,
+  Kalutara: 2140,
+  Galle: 2050,
+  Matara: 1730,
+  Hambantota: 980,
+  Kegalle: 1290,
+  Ratnapura: 1870,
+  Badulla: 1410,
+  Moneragala: 590,
+  Matale: 1560,
+  Kandy: 2890,
+  "Nuwara Eliya": 1240,
+  Ampara: 1120,
+  Batticaloa: 890,
+  Trincomalee: 740,
+  Anuradhapura: 1680,
+  Polonnaruwa: 680,
+  Puttalam: 1050,
+  Kurunegala: 2340,
+  Vanni: 720,
+  Jaffna: 1890,
 };
 
 const PROVINCE_WEIGHT_SUMS: Record<string, number> = {
-  western: 10740, southern: 4760, sabaragamuwa: 3160, uva: 2000,
-  central: 5690, eastern: 2750, northcentral: 2360, northwestern: 3390, northern: 2610
+  western: 10740,
+  southern: 4760,
+  sabaragamuwa: 3160,
+  uva: 2000,
+  central: 5690,
+  eastern: 2750,
+  northcentral: 2360,
+  northwestern: 3390,
+  northern: 2610,
 };
 
 // Province job resolver
-function getProvinceJobs(provinceKey: string, districtGeoData: DistrictGeoNode[]) {
+function getProvinceJobs(
+  provinceKey: string,
+  districtGeoData: DistrictGeoNode[],
+) {
   const provNode = districtGeoData?.find(
-    (n) => n.id?.toLowerCase() === provinceKey.toLowerCase() || n.province?.toLowerCase() === PROVINCES[provinceKey]?.label?.toLowerCase()
+    (n) =>
+      n.id?.toLowerCase() === provinceKey.toLowerCase() ||
+      n.province?.toLowerCase() ===
+        PROVINCES[provinceKey]?.label?.toLowerCase(),
   );
   if (provNode) return provNode.jobs;
 
   const districtNodes = districtGeoData?.filter(
-    (n) => n.province?.toLowerCase() === provinceKey.toLowerCase()
+    (n) => n.province?.toLowerCase() === provinceKey.toLowerCase(),
   );
   if (districtNodes && districtNodes.length > 0) {
     return districtNodes.reduce((sum, n) => sum + n.jobs, 0);
@@ -272,19 +298,24 @@ function getProvinceJobs(provinceKey: string, districtGeoData: DistrictGeoNode[]
 }
 
 // District job resolver (supports direct match or scales province-level metrics proportionally)
-function getDistrictJobs(district: (typeof SRI_LANKA_DISTRICTS)[0], districtGeoData: DistrictGeoNode[]) {
+function getDistrictJobs(
+  district: (typeof SRI_LANKA_DISTRICTS)[0],
+  districtGeoData: DistrictGeoNode[],
+) {
   const directMatch = districtGeoData?.find(
     (n) =>
       n.id?.toLowerCase() === district.id?.toLowerCase() ||
       n.id?.toLowerCase() === `district-${district.name.toLowerCase()}` ||
       n.id?.toLowerCase() === district.name.toLowerCase() ||
-      n.province?.toLowerCase() === district.name.toLowerCase()
+      n.province?.toLowerCase() === district.name.toLowerCase(),
   );
   if (directMatch) return directMatch.jobs;
 
   const provKey = district.province;
   const provNode = districtGeoData?.find(
-    (n) => n.id?.toLowerCase() === provKey.toLowerCase() || n.province?.toLowerCase() === PROVINCES[provKey]?.label?.toLowerCase()
+    (n) =>
+      n.id?.toLowerCase() === provKey.toLowerCase() ||
+      n.province?.toLowerCase() === PROVINCES[provKey]?.label?.toLowerCase(),
   );
   if (provNode) {
     const totalProvWeight = PROVINCE_WEIGHT_SUMS[provKey] || 1;
@@ -305,7 +336,7 @@ function getProvinceData(districtGeoData: DistrictGeoNode[]) {
       label: p.label,
       jobs: getProvinceJobs(key, districtGeoData),
       color: p.color,
-      districts: []
+      districts: [],
     };
   }
   for (const d of SRI_LANKA_DISTRICTS) {
@@ -335,7 +366,9 @@ export default function DashboardPage() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-          <p className="text-sm font-semibold text-gray-500">Loading Dashboard Metrics...</p>
+          <p className="text-sm font-semibold text-gray-500">
+            Loading Dashboard Metrics...
+          </p>
         </div>
       </div>
     );
@@ -346,12 +379,27 @@ export default function DashboardPage() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="bg-white p-8 rounded-xl shadow-md max-w-md w-full border border-red-100 flex flex-col items-center text-center gap-4">
           <div className="w-12 h-12 rounded-full bg-red-50 text-red-500 flex items-center justify-center">
-            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            <svg
+              className="w-6 h-6"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+              />
             </svg>
           </div>
-          <h3 className="text-lg font-bold text-gray-800">Error Loading Dashboard</h3>
-          <p className="text-sm text-gray-500">Unable to retrieve labour market summary. Please check your network connection or try again later.</p>
+          <h3 className="text-lg font-bold text-gray-800">
+            Error Loading Dashboard
+          </h3>
+          <p className="text-sm text-gray-500">
+            Unable to retrieve labour market summary. Please check your network
+            connection or try again later.
+          </p>
         </div>
       </div>
     );
@@ -363,8 +411,15 @@ export default function DashboardPage() {
     ? hoveredDistrict.province
     : hoveredProvince;
 
-  const totalJobs = dashboardData.districtGeoData.reduce((sum, node) => sum + node.jobs, 0) || 1;
-  const maxJobs = Math.max(...SRI_LANKA_DISTRICTS.map((d) => getDistrictJobs(d, dashboardData.districtGeoData))) || 1;
+  const totalJobs =
+    dashboardData.districtGeoData.reduce((sum, node) => sum + node.jobs, 0) ||
+    1;
+  const maxJobs =
+    Math.max(
+      ...SRI_LANKA_DISTRICTS.map((d) =>
+        getDistrictJobs(d, dashboardData.districtGeoData),
+      ),
+    ) || 1;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -478,7 +533,11 @@ export default function DashboardPage() {
                 <div className="h-px bg-zinc-800 my-2" />
                 <div className="space-y-1.5">
                   <p className="text-xs text-zinc-300 flex justify-between items-center">
-                    <span>{hoveredDistrict ? `${hoveredDistrict.name} District` : "Total Jobs:"}</span>
+                    <span>
+                      {hoveredDistrict
+                        ? `${hoveredDistrict.name} District`
+                        : "Total Jobs:"}
+                    </span>
                     {!hoveredDistrict && (
                       <span className="font-mono text-blue-400 font-bold text-sm">
                         {totalJobs.toLocaleString()}
@@ -556,7 +615,7 @@ export default function DashboardPage() {
           {/* Sector Share + Province Distribution */}
           <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm flex flex-col h-full min-h-[350px]">
             <h3 className="text-sm font-semibold text-gray-700 mb-2">
-              Sector Distribution - Top 10
+              Sector Distribution
             </h3>
 
             {/* Flex container that grows to pull the chart into all available card space */}
@@ -654,7 +713,10 @@ export default function DashboardPage() {
                     />
                     <Bar dataKey="vacancies" radius={[0, 4, 4, 0]} barSize={12}>
                       {dashboardData.ingestionSources.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={INGESTION_FILL[index % INGESTION_FILL.length]} />
+                        <Cell
+                          key={`cell-${index}`}
+                          fill={INGESTION_FILL[index % INGESTION_FILL.length]}
+                        />
                       ))}
                     </Bar>
                   </BarChart>
@@ -702,24 +764,26 @@ export default function DashboardPage() {
                 Seniority Level
               </h3>
               <div className="space-y-2.5">
-                {dashboardData.distributionTracks.seniority.slice(0, 4).map((s) => (
-                  <div key={s.name}>
-                    <div className="flex justify-between text-xs mb-1">
-                      <span className="text-gray-600 font-medium">
-                        {s.name}
-                      </span>
-                      <span className="text-gray-500 font-mono">
-                        {s.share}%
-                      </span>
+                {dashboardData.distributionTracks.seniority
+                  .slice(0, 4)
+                  .map((s) => (
+                    <div key={s.name}>
+                      <div className="flex justify-between text-xs mb-1">
+                        <span className="text-gray-600 font-medium">
+                          {s.name}
+                        </span>
+                        <span className="text-gray-500 font-mono">
+                          {s.share}%
+                        </span>
+                      </div>
+                      <div className="w-full h-2 bg-gray-100 rounded-full">
+                        <div
+                          className="h-2 bg-blue-500 rounded-full"
+                          style={{ width: `${s.share}%` }}
+                        />
+                      </div>
                     </div>
-                    <div className="w-full h-2 bg-gray-100 rounded-full">
-                      <div
-                        className="h-2 bg-blue-500 rounded-full"
-                        style={{ width: `${s.share}%` }}
-                      />
-                    </div>
-                  </div>
-                ))}
+                  ))}
               </div>
             </div>
 
@@ -754,24 +818,26 @@ export default function DashboardPage() {
                 Remote Configuration
               </h3>
               <div className="space-y-2.5">
-                {dashboardData.distributionTracks.remoteConfiguration.map((rem, index) => (
-                  <div key={rem.name}>
-                    <div className="flex justify-between text-xs mb-1">
-                      <span className="text-gray-600 font-medium">
-                        {rem.name}
-                      </span>
-                      <span className="text-gray-500 font-mono">
-                        {rem.share}%
-                      </span>
+                {dashboardData.distributionTracks.remoteConfiguration.map(
+                  (rem, index) => (
+                    <div key={rem.name}>
+                      <div className="flex justify-between text-xs mb-1">
+                        <span className="text-gray-600 font-medium">
+                          {rem.name}
+                        </span>
+                        <span className="text-gray-500 font-mono">
+                          {rem.share}%
+                        </span>
+                      </div>
+                      <div className="w-full h-2 bg-gray-100 rounded-full">
+                        <div
+                          className={`h-2 ${index === 0 ? "bg-indigo-500" : "bg-purple-500"} rounded-full`}
+                          style={{ width: `${rem.share}%` }}
+                        />
+                      </div>
                     </div>
-                    <div className="w-full h-2 bg-gray-100 rounded-full">
-                      <div
-                        className={`h-2 ${index === 0 ? "bg-indigo-500" : "bg-purple-500"} rounded-full`}
-                        style={{ width: `${rem.share}%` }}
-                      />
-                    </div>
-                  </div>
-                ))}
+                  ),
+                )}
               </div>
             </div>
           </div>
