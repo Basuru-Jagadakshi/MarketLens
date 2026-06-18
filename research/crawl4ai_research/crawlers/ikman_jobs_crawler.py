@@ -203,6 +203,7 @@ import json
 import asyncio
 import re
 import math
+import tiktoken
 
 from crawl4ai import (
     AsyncWebCrawler,
@@ -218,6 +219,41 @@ from crawl4ai import CrawlerMonitor
 #from crawlers.schemas.job_schema import LLMJobFields, LLM_ONLY_INSTRUCTION
 from crawlers.parsers.ikman_parser import parse_rule_based_fields, merge_llm_fields
 
+def calculate_projected_cost(avg_input_tokens: int, total_ads: int) -> dict:
+    """
+    Calculates the estimated DeepSeek V4-Flash API cost based on 
+    average tokens per page and total site volume.
+    """
+    total_input_tokens = avg_input_tokens * total_ads
+    
+    total_output_tokens = 800 * total_ads 
+    cache_hits = int(total_input_tokens * 0.90)
+    cache_misses = total_input_tokens - cache_hits
+    
+    cost_miss = (cache_misses / 1_000_000) * 0.14
+    cost_hit = (cache_hits / 1_000_000) * 0.0028
+    cost_output = (total_output_tokens / 1_000_000) * 0.28
+    
+    total_cost_usd = cost_miss + cost_hit + cost_output
+    
+    print("=" * 50)
+    print("           DEEPSEEK API COST ESTIMATE          ")
+    print("=" * 50)
+    print(f"Total Target Postings    : {total_ads:,} pages")
+    print(f"Avg. Input Tokens / Page : {avg_input_tokens:,}")
+    print(f"Avg. Output Tokens / Page: 800")
+    print("-" * 50)
+    print(f"Projected Input (Misses) : {cache_misses:,} tokens  -> ${cost_miss:.4f}")
+    print(f"Projected Input (Hits)   : {cache_hits:,} tokens  -> ${cost_hit:.4f}")
+    print(f"Projected Output         : {total_output_tokens:,} tokens  -> ${cost_output:.4f}")
+    print("-" * 50)
+    print(f"TOTAL ESTIMATED BUDGET   : ${total_cost_usd:.4f} USD")
+    print("=" * 50)
+    
+    return {
+        "total_cost_usd": total_cost_usd,
+        "total_tokens": total_input_tokens + total_output_tokens
+    }
 
 async def get_last_page_from_text(crawler: AsyncWebCrawler) -> int:
     result = await crawler.arun(
@@ -233,7 +269,9 @@ async def get_last_page_from_text(crawler: AsyncWebCrawler) -> int:
     return 1
 
 
-async def ikman_jobs_extraction(max_pages: int = 1) -> list:
+async def ikman_jobs_extraction(max_pages: int = 2) -> list:
+
+    totalTokenCount = 0
 
     browser_config = BrowserConfig(
         headless=True,
@@ -335,8 +373,12 @@ async def ikman_jobs_extraction(max_pages: int = 1) -> list:
 
             # Rule-based fields from markdown — free
             rule_fields = parse_rule_based_fields(
-                result.markdown or "", source="Ikman"
+                result.markdown.raw_markdown or "", job_link=result.url ,source="Ikman"
             )
+
+            tokenizer = tiktoken.get_encoding("cl100k_base")
+            token_ids = tokenizer.encode(result.markdown)
+            totalTokenCount+=len(token_ids)
 
             # LLM fields (only 4)
             # llm_fields = {}
@@ -356,6 +398,10 @@ async def ikman_jobs_extraction(max_pages: int = 1) -> list:
 
         # Show token usage summary at the end
         #llm_strategy.show_usage()
+    
+    averageTokenCountPerPage = totalTokenCount / len(full_urls)
+    metrics = calculate_projected_cost(averageTokenCountPerPage, total_ads=8000)
+
 
     return extracted_jobs
 

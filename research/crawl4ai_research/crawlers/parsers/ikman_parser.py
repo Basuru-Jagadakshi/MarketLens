@@ -257,7 +257,7 @@ def extract_description(markdown: str) -> str:
     return ""
 
 
-def parse_rule_based_fields(markdown: str, source: str = "Ikman") -> dict:
+def parse_rule_based_fields(markdown: str, job_link: str = "", source: str = "Ikman") -> dict:
     """Build job dict from markdown using regex — zero LLM cost."""
 
     employer   = extract_label(markdown, "Employer")
@@ -302,6 +302,7 @@ def parse_rule_based_fields(markdown: str, source: str = "Ikman") -> dict:
         "employer":             employer,
         "job_role":             job_role,
         "job_type":             {"name": job_type_name},
+        "job_link":             job_link,
         "location":             location,
         "is_remote":            is_remote,
         "key_responsibilities": description,

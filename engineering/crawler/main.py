@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 from crawlers.ikman_jobs_crawler.ikman_jobs_crawler import ikman_jobs_extraction, get_last_page_from_text
 from storage_handlers.handler import save_jobs_to_api
 from crawlers.schemas.job_schema import JOB_EXTRACTION_SCHEMA, BASE_JOB_INSTRUCTION
+from orchestrator.ikman_orchestrator import run_pipeline_orchestrator
 
 env_path = Path(__file__).resolve().parent / '.env'
 
@@ -16,12 +17,26 @@ load_dotenv(dotenv_path=env_path)
 
 print(f"API Key Loaded: {os.getenv('DEEPSEEK_API_KEY') is not None}")
 
+# async def crawl_job():
+#     """Encapsulates the actual crawling logic execution."""
+#     print(f"\n--- Execution Started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} ---")
+#     ikman_task = ikman_jobs_extraction()
+#     ikman_jobs = await ikman_task
+#     save_jobs_to_api(ikman_jobs)
+#     print("--- Execution Complete ---")
+
 async def crawl_job():
-    """Encapsulates the actual crawling logic execution."""
+    """Encapsulates the actual crawling logic execution using the new pipeline."""
     print(f"\n--- Execution Started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} ---")
-    ikman_task = ikman_jobs_extraction()
-    ikman_jobs = await ikman_task
-    save_jobs_to_api(ikman_jobs)
+    
+    try:
+        # ✔ SWAP OUT THE OLD LOGIC FOR THE NEW DEDUPLICATING ORCHESTRATOR
+        # Set max_pages to whatever scanning depth you want to process per loop execution
+        await run_pipeline_orchestrator(max_pages=2)
+        
+    except Exception as e:
+        print(f"CRITICAL ERROR encountered during execution lifecycle: {e}")
+        
     print("--- Execution Complete ---")
 
 async def main():
@@ -56,7 +71,7 @@ async def main():
     while True:
         now = datetime.now(sl_tz)
         
-        target_time = now.replace(hour=17, minute=40, second=0, microsecond=0)
+        target_time = now.replace(hour=8, minute=16, second=0, microsecond=0)
         
         if now >= target_time:
             target_time += timedelta(days=1)

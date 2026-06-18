@@ -24,6 +24,18 @@ func main() {
 		v1.GET("/jobs", jobCtrl.GetAllJobsHandler)
 		v1.PUT("/jobs/:id", jobCtrl.UpdateJobHandler)
 		v1.DELETE("/jobs/:id", jobCtrl.DeleteJobHandler)
+
+		crawler := v1.Group("/crawler")
+		{
+			crawler.POST("/runs", jobCtrl.StartCrawlerRunHandler)
+			crawler.POST("/runs/:id/complete", jobCtrl.CompleteCrawlerRunHandler)
+
+			crawler.POST("/radar/lookup", jobCtrl.GetJobsByBucketKeysHandler)
+
+			crawler.POST("/jobs/batch-save", jobCtrl.BatchSaveJobsHandler)
+			crawler.POST("/jobs/batch-update", jobCtrl.BatchUpdateDuplicatesHandler)
+			crawler.POST("/jobs/reconcile", jobCtrl.ReconcileStaleVacanciesHandler)
+		}
 	}
 
 	r.Run(":8080")

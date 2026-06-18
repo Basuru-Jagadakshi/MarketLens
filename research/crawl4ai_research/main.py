@@ -2,7 +2,7 @@ import asyncio
 import os
 
 from pathlib import Path
-from dotenv import load_dotenv
+#from dotenv import load_dotenv
 from crawlers.ikman_jobs_crawler import ikman_jobs_extraction, get_last_page_from_text
 from storage_handlers.handler import save_jobs_to_file
 from crawlers.schemas.job_schema import JOB_EXTRACTION_SCHEMA, BASE_JOB_INSTRUCTION
