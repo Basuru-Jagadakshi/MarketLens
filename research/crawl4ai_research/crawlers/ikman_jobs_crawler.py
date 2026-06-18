@@ -269,7 +269,7 @@ async def get_last_page_from_text(crawler: AsyncWebCrawler) -> int:
     return 1
 
 
-async def ikman_jobs_extraction(max_pages: int = 1) -> list:
+async def ikman_jobs_extraction(max_pages: int = 2) -> list:
 
     totalTokenCount = 0
 
@@ -373,7 +373,7 @@ async def ikman_jobs_extraction(max_pages: int = 1) -> list:
 
             # Rule-based fields from markdown — free
             rule_fields = parse_rule_based_fields(
-                result.markdown or "", source="Ikman"
+                result.markdown.raw_markdown or "", job_link=result.url ,source="Ikman"
             )
 
             tokenizer = tiktoken.get_encoding("cl100k_base")

@@ -302,7 +302,6 @@ def parse_rule_based_fields(markdown: str, job_link: str = "", source: str = "Ik
         "employer":             employer,
         "job_role":             job_role,
         "job_type":             {"name": job_type_name},
-        "job_link":             job_link,
         "location":             location,
         "is_remote":            is_remote,
         "key_responsibilities": description,
@@ -312,6 +311,7 @@ def parse_rule_based_fields(markdown: str, job_link: str = "", source: str = "Ik
             "geo":                   {"province": province},
             "posted_at":             datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
             "source":                source,
+            "job_link":              job_link,
             "ai_version":            "v1.2.0",
             "error":                 False,
             # filled by LLM:
