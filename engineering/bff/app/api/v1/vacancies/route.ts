@@ -1,22 +1,56 @@
-import { NextResponse } from "next/server";
-import { getFilteredVacancies } from "@/core/services/vacancy.service";
-import { handleBffError } from "@/core/errors/bff-error";
+import { NextRequest, NextResponse } from "next/server";
 
-export async function GET(request: Request) {
-  const path = "/api/v1/vacancies";
+const GO_API = process.env.GO_BACKEND_URL;
+
+export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url);
+
+  const industryId   = searchParams.get("industry_id");
+  const provinceId   = searchParams.get("geo_data_id");
+  const jobTypeId    = searchParams.get("job_type_id");
+  const experienceId = searchParams.get("experience_id");
+
+  const goParams = new URLSearchParams();
+  if (industryId)    goParams.set("industry_id",   industryId);
+  if (provinceId)    goParams.set("geo_data_id",   provinceId);
+  if (jobTypeId)     goParams.set("job_type_id",   jobTypeId);
+  if (experienceId)  goParams.set("experience_id", experienceId);
+
+  const queryString = goParams.toString();
+  const goUrl = `${GO_API}/jobs${queryString ? `?${queryString}` : ""}`;
+
+  console.log("[vacancies] fetching from Go:", goUrl);
+
   try {
-    const { searchParams } = new URL(request.url);
-    
-    const filters = {
-      category: searchParams.get("category") || undefined,
-      province: searchParams.get("province") || undefined,
-      contractType: searchParams.get("contractType") || undefined,
-      seniority: searchParams.get("seniority") || undefined,
-    };
+    const response = await fetch(goUrl);
 
-    const records = await getFilteredVacancies(filters);
-    return NextResponse.json(records, { status: 200 });
+    console.log("[vacancies] Go response status:", response.status);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("[vacancies] Go error body:", errorText);
+      return NextResponse.json(
+        { error: "Go backend returned an error", details: errorText },
+        { status: response.status }
+      );
+    }
+
+    const data = await response.json();
+    console.log("[vacancies] Go response data:", JSON.stringify(data).slice(0, 200));
+
+    return NextResponse.json({
+      count: data.count ?? 0,
+      jobs:  data.jobs  ?? [],
+    });
   } catch (error) {
-    return handleBffError(error, path);
+    // Now we can see the real error
+    console.error("[vacancies] fetch failed:", error);
+    return NextResponse.json(
+      {
+        error:   "Failed to fetch vacancies",
+        details: error instanceof Error ? error.message : String(error),
+      },
+      { status: 500 }
+    );
   }
 }
