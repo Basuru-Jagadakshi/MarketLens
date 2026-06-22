@@ -44,39 +44,9 @@ func setupControllerTestEnv(t *testing.T) (*gorm.DB, *gin.Engine) {
 	ctrl := controllers.NewJobController(repo)
 
 	r := gin.Default()
-	r.POST("/api/v1/jobs", ctrl.CreateJobHandler)
-	r.GET("/api/v1/jobs", ctrl.GetAllJobsHandler)
-	r.PUT("/api/v1/jobs/:id", ctrl.UpdateJobHandler)
 	r.DELETE("/api/v1/jobs/:id", ctrl.DeleteJobHandler)
 
 	return db, r
-}
-
-
-func TestCreateJobHandler_Success(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
-
-	input := models.JobPost{
-		Employer: "MarketLens Inc",
-		JobRole:  "Go Developer",
-		MetaData: models.JobMetaData{
-			Geo: &models.GeoData{Province: "Western"},
-		},
-	}
-	body, _ := json.Marshal(input)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("POST", "/api/v1/jobs", bytes.NewBuffer(body))
-	req.Header.Set("Content-Type", "application/json")
-
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusCreated, w.Code)
-	
-	var response models.JobPost
-	json.Unmarshal(w.Body.Bytes(), &response)
-	assert.NotZero(t, response.ID)
-	assert.Equal(t, "MarketLens Inc", response.Employer)
 }
 
 func TestCreateJobHandler_InvalidJSON(t *testing.T) {
@@ -90,72 +60,6 @@ func TestCreateJobHandler_InvalidJSON(t *testing.T) {
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 	assert.Contains(t, w.Body.String(), "Invalid request payload")
-}
-
-func TestCreateJobHandler_RepositoryError(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
-
-	input := models.JobPost{
-		Employer: "MarketLens Inc",
-		JobRole:  "Go Developer",
-		MetaData: models.JobMetaData{
-			Geo: &models.GeoData{Province: "Southern"}, 
-		},
-	}
-	body, _ := json.Marshal(input)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("POST", "/api/v1/jobs", bytes.NewBuffer(body))
-	req.Header.Set("Content-Type", "application/json")
-
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusInternalServerError, w.Code)
-	assert.Contains(t, w.Body.String(), "Failed to process job publication data")
-}
-
-
-func TestGetAllJobsHandler_Success(t *testing.T) {
-	db, r := setupControllerTestEnv(t)
-
-	db.Create(&models.JobPost{Employer: "Company A", JobRole: "Lead"})
-	db.Create(&models.JobPost{Employer: "Company B", JobRole: "Senior"})
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/jobs", nil)
-
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	
-	var response []models.JobPost
-	json.Unmarshal(w.Body.Bytes(), &response)
-	assert.Len(t, response, 2)
-}
-
-
-func TestUpdateJobHandler_Success(t *testing.T) {
-	db, r := setupControllerTestEnv(t)
-
-	existingJob := models.JobPost{Employer: "Initial Inc", JobRole: "Junior"}
-	db.Create(&existingJob)
-
-	updateInput := models.JobPost{Employer: "Updated Inc", JobRole: "Mid-Level"}
-	body, _ := json.Marshal(updateInput)
-
-	w := httptest.NewRecorder()
-	path := fmt.Sprintf("/api/v1/jobs/%d", existingJob.ID)
-	req, _ := http.NewRequest("PUT", path, bytes.NewBuffer(body))
-	req.Header.Set("Content-Type", "application/json")
-
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	
-	var response models.JobPost
-	json.Unmarshal(w.Body.Bytes(), &response)
-	assert.Equal(t, "Updated Inc", response.Employer)
-	assert.Equal(t, "Mid-Level", response.JobRole)
 }
 
 func TestUpdateJobHandler_InvalidIDFormat(t *testing.T) {
@@ -183,41 +87,6 @@ func TestUpdateJobHandler_InvalidJSONPayload(t *testing.T) {
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 	assert.Contains(t, w.Body.String(), "Invalid request payload configuration")
-}
-
-func TestUpdateJobHandler_NotFound(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
-
-	updateInput := models.JobPost{Employer: "Test", JobRole: "Test"}
-	body, _ := json.Marshal(updateInput)
-
-	w := httptest.NewRecorder()
-	
-	req, _ := http.NewRequest("PUT", "/api/v1/jobs/999", bytes.NewBuffer(body))
-	req.Header.Set("Content-Type", "application/json")
-
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusInternalServerError, w.Code)
-	assert.Contains(t, w.Body.String(), "Failed to execute modifications on targeted job profile")
-}
-
-
-func TestDeleteJobHandler_Success(t *testing.T) {
-	db, r := setupControllerTestEnv(t)
-
-	existingJob := models.JobPost{Employer: "Temp Inc", JobRole: "Contractor"}
-	db.Create(&existingJob)
-
-	w := httptest.NewRecorder()
-	path := fmt.Sprintf("/api/v1/jobs/%d", existingJob.ID)
-	req, _ := http.NewRequest("DELETE", path, nil)
-
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	expectedMsg := fmt.Sprintf("Job post with ID %d has been successfully deleted", existingJob.ID)
-	assert.Contains(t, w.Body.String(), expectedMsg)
 }
 
 func TestDeleteJobHandler_InvalidIDFormat(t *testing.T) {

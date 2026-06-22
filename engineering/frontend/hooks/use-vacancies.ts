@@ -1,43 +1,46 @@
 import { useQuery } from "@tanstack/react-query";
-import { vacanciesService, QueryParams } from "@/services/vacancies.service";
+import { ENV } from "@/config/env";
+import {
+  VacancyMetadata,
+  VacancyListParams,
+  VacancyListResponse,
+} from "@/types/vacancy";
 
-export const vacancyKeys = {
-  all: ["vacancies"] as const,
-  meta: () => [...vacancyKeys.all, "metadata"] as const,
-  lists: (filters: QueryParams) => [...vacancyKeys.all, "list", filters] as const,
-  analytics: (category: string) => [...vacancyKeys.all, "analytics", category] as const,
-  dashboard: () => [...vacancyKeys.all, "dashboard-summary"] as const,
-};
+const BASE = ENV.NEXT_PUBLIC_API_BASE_URL;
+
+// ── Metadata (industries, provinces, job types, experiences) ──────────────────
+async function fetchVacancyMetadata(): Promise<VacancyMetadata> {
+  const res = await fetch(`${BASE}/vacancies/metadata`);
+  if (!res.ok) throw new Error("Failed to fetch vacancy metadata");
+  return res.json();
+}
 
 export function useVacancyMetadata() {
-  return useQuery({
-    queryKey: vacancyKeys.meta(),
-    queryFn: vacanciesService.getFilterOptions,
-    staleTime: 1000 * 60 * 30, // Metadata drops infrequently; cache for 30 mins
+  return useQuery<VacancyMetadata>({
+    queryKey: ["vacancies", "metadata"],
+    queryFn:  fetchVacancyMetadata,
+    staleTime: 1000 * 60 * 10, // 10 minutes — filter options rarely change
   });
 }
 
-export function useVacanciesList(filters: QueryParams) {
-  return useQuery({
-    queryKey: vacancyKeys.lists(filters),
-    queryFn: () => vacanciesService.getAllVacancies(filters),
-    staleTime: 1000 * 60 * 2, // Re-verify freshness every 2 mins
-  });
+// ── Vacancies list (with optional filters) ────────────────────────────────────
+async function fetchVacancies(params: VacancyListParams): Promise<VacancyListResponse> {
+  const query = new URLSearchParams();
+  if (params.industry_id)   query.set("industry_id",   String(params.industry_id));
+  if (params.geo_data_id)   query.set("geo_data_id",   String(params.geo_data_id));
+  if (params.job_type_id)   query.set("job_type_id",   String(params.job_type_id));
+  if (params.experience_id) query.set("experience_id", String(params.experience_id));
+
+  const qs = query.toString();
+  const res = await fetch(`${BASE}/vacancies${qs ? `?${qs}` : ""}`);
+  if (!res.ok) throw new Error("Failed to fetch vacancies");
+  return res.json();
 }
 
-export function useCategoryAnalytics(category: string) {
-  return useQuery({
-    queryKey: vacancyKeys.analytics(category),
-    queryFn: () => vacanciesService.getAnalyticsByCategory(category),
-    staleTime: 1000 * 60 * 5,
-  });
-}
-
-export function useDashboardSummary() {
-  return useQuery({
-    queryKey: vacancyKeys.dashboard(),
-    queryFn: vacanciesService.getSummaryMetrics,
-    staleTime: 1000 * 60 * 5,
-    refetchOnWindowFocus: false,
+export function useVacancies(params: VacancyListParams) {
+  return useQuery<VacancyListResponse>({
+    queryKey: ["vacancies", "list", params],
+    queryFn:  () => fetchVacancies(params),
+    staleTime: 1000 * 60 * 2, // 2 minutes
   });
 }
