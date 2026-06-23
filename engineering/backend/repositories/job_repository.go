@@ -815,7 +815,7 @@ func (r *JobRepository) GetTopHiringEmployersForIndustryAndYear(industryID uint,
 		Select("employer.id, employer.name, COUNT(DISTINCT job_post.id) AS open_job_count").
 		Joins("JOIN job_post ON job_post.employer_id = employer.id").
 		Joins("JOIN meta_data ON meta_data.job_post_id = job_post.id").
-		Where("meta_data.industry_id = ? AND EXTRACT(YEAR FROM meta_data.posted_at) = ? AND", industryID, year).
+		Where("meta_data.industry_id = ? AND EXTRACT(YEAR FROM meta_data.posted_at) = ?", industryID, year).
 		Group("employer.id, employer.name").
 		Order("open_job_count DESC").
 		Limit(10).

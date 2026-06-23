@@ -43,14 +43,14 @@ async def test_cross_session_deduplication_lifecycle():
 
         # 2. Build exact production JSON structure for Job 1
         job_data_1 = {
-            "employer": "WSO2",
-            "job_role": "Senior Software Engineer - IAM",
+            "employer": "Global Logistics Lanka Ltd",
+            "job_role": "Operations Coordinator",
             "job_type": {
                 "name": "Full Time"
             },
-            "key_responsibilities": "Design and implement robust microservices patterns, maintain API gateways, write comprehensive unit tests, and collaborate with open-source project documentation streams.",
+            "key_responsibilities": "We are looking for a detail-oriented Operations Coordinator to manage supply chain documentation and warehouse schedules. Responsibilities include tracking shipments, communicating with logistics partners, and maintaining inventory records. Candidates must possess strong organizational skills and familiarity with warehouse management software.",
             "qualifications": "BSc in Computer Science or equivalent engineering field. Foundational knowledge of Go (Golang) or Java with Spring Boot. Understanding of JWT authentication systems is a plus.",
-            "location": "Colombo 03, Sri Lanka",
+            "location": "Gampaha, Sri Lanka",
             "offers": "International exposure, competitive salary package, health insurance, and hybrid work flexibility.",
             "is_remote": False,
             "skills": [
@@ -82,10 +82,56 @@ async def test_cross_session_deduplication_lifecycle():
             {"band_no": item["band_no"], "bucket_key": item["bucket_key"]}
             for item in lsh_1
         ]
+
+        job_data_1_saving_json = {
+        "employer": {
+            "name": "Global Logistics Lanka Ltd"
+        },
+        "job_role": "Operations Coordinator",
+        "job_type": {
+            "type": "Full Time"
+        },
+        "job_description": "We are looking for a detail-oriented Operations Coordinator to manage supply chain documentation and warehouse schedules. Responsibilities include tracking shipments, communicating with logistics partners, and maintaining inventory records. Candidates must possess strong organizational skills and familiarity with warehouse management software.",
+        "location": "Gampaha, Sri Lanka",
+        "is_remote": False,
+        "meta_data": {
+            "geo_data": {
+            "province": "Western"
+            },
+            "industry": {
+            "name": "Transportation and Storage"
+            },
+            "occupation": {
+            "name": "Clerks"
+            },
+            "education_level": {
+            "level": "GCE A/L"
+            },
+            "experience": {
+            "name": "Experience Required"
+            },
+            "source": {
+            "source": "Ikman"
+            },
+            "crawler_run_id": session_1_id,
+            "ai_version": {
+            "version": "deepseek-v1"
+            },
+            "posted_at": "2026-06-22T09:30:00Z",
+            "confidence_score": 0.92,
+            "minhash_signature": sig_1
+        },
+        "skills": [
+            { "skill": "Logistics Management" },
+            { "skill": "Supply Chain Operations" },
+            { "skill": "Inventory Control" },
+            { "skill": "Microsoft Excel" }
+        ]
+        }
         
         # Persist base job data
         save_res_1 = await client.post(f"{BACKEND_BASE_URL}/jobs/batch-save", json={
-            "new_jobs": [job_data_1], 
+            "new_jobs": [job_data_1_saving_json], 
             "lsh_indexes": formatted_lsh_1
         })
         assert save_res_1.status_code in (200, 201), "Session 1 baseline persistence failing."
@@ -123,8 +169,7 @@ async def test_cross_session_deduplication_lifecycle():
         # 2. Build a near-duplicate job payload with minor text additions to hit the LSH window
         job_data_2 = job_data_1.copy()
         job_data_2["key_responsibilities"] = (
-            "Design and implement robust microservices patterns, maintain API gateways, write comprehensive unit tests, "
-            "and collaborate with open source project documentation streams!"
+            "We are looking for a detail oriented Operations Coordinator to manage supply chain documentation, warehouse schedules. Responsibilities include tracking shipments, communicating with logistics partners and maintaining inventory records. Candidates must possess strong organizational skills and familiarity with warehouse management software."
         )
         
         sig_2, lsh_2 = generate_production_minhash_and_lsh(job_data_2)
@@ -182,6 +227,4 @@ async def test_cross_session_deduplication_lifecycle():
 
 
 
-# docker compose run --rm \
-#   -e BACKEND_URL="http://backend:8080/api/v1/crawler" \
-#   --entrypoint "pytest test_cross_session_deduplication.py -v -s" \
+# docker compose run --rm \ -e BACKEND_URL="http://backend:8080/api/v1/crawler" \ --entrypoint "pytest test_cross_session_deduplication.py -v -s" \
