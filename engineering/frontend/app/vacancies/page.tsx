@@ -32,6 +32,8 @@ const localization = {
     panelDescription: "Description",
     panelSkills: "Skills",
     panelPostedAt: "Posted",
+    closePanel: "Close",
+    noSkills: "No skills listed",
   },
   si: {
     title: "රැකියා ගවේෂකය",
@@ -60,6 +62,8 @@ const localization = {
     panelDescription: "විස්තරය",
     panelSkills: "නිපුණතා",
     panelPostedAt: "පළ කළ දිනය",
+    closePanel: "වසන්න",
+    noSkills: "නිපුණතා නොමැත",
   },
   ta: {
     title: "வேலைவாய்ப்பு ஆய்வாளர்",
@@ -88,6 +92,8 @@ const localization = {
     panelDescription: "விவரம்",
     panelSkills: "திறன்கள்",
     panelPostedAt: "இடுகையிட்டது",
+    closePanel: "மூடு",
+    noSkills: "திறன்கள் இல்லை",
   },
 };
 
@@ -100,344 +106,247 @@ export default function VacanciesPage() {
     { year: "numeric", month: "short", day: "numeric" },
   );
 
-  // Filter state — stored as IDs to pass directly to the API
-  const [search, setSearch] = useState("");
-  const [industryId, setIndustryId] = useState<number | undefined>();
-  const [provinceId, setProvinceId] = useState<number | undefined>();
-  const [jobTypeId, setJobTypeId] = useState<number | undefined>();
+  const [search,       setSearch]       = useState("");
+  const [industryId,   setIndustryId]   = useState<number | undefined>();
+  const [provinceId,   setProvinceId]   = useState<number | undefined>();
+  const [jobTypeId,    setJobTypeId]    = useState<number | undefined>();
   const [experienceId, setExperienceId] = useState<number | undefined>();
   const [selectedVacancy, setSelectedVacancy] = useState<Vacancy | null>(null);
 
-  // ── Data fetching ───────────────────────────────────────────────────────────
-  const {
-    data: metadata,
-    isLoading: isMetaLoading,
-    isError: isMetaError,
-  } = useVacancyMetadata();
-
-  const {
-    data: vacancyData,
-    isLoading: isListLoading,
-    isError: isListError,
-  } = useVacancies({
-    industry_id: industryId,
-    geo_data_id: provinceId,
-    job_type_id: jobTypeId,
+  const { data: metadata,    isLoading: isMetaLoading, isError: isMetaError } = useVacancyMetadata();
+  const { data: vacancyData, isLoading: isListLoading, isError: isListError  } = useVacancies({
+    industry_id:   industryId,
+    geo_data_id:   provinceId,
+    job_type_id:   jobTypeId,
     experience_id: experienceId,
   });
 
-  // ── Client-side search filter (role / employer name) ─────────────────────
   const filteredVacancies = useMemo(() => {
     const all = vacancyData?.jobs ?? [];
     if (!search.trim()) return all;
     const q = search.toLowerCase();
     return all.filter(
-      (v) =>
-        v.job_role.toLowerCase().includes(q) ||
-        v.employer.name.toLowerCase().includes(q),
+      (v) => v.job_role.toLowerCase().includes(q) || v.employer.name.toLowerCase().includes(q),
     );
   }, [vacancyData?.jobs, search]);
 
   const isLoading = isMetaLoading || isListLoading;
-  const isError = isMetaError || isListError;
+  const isError   = isMetaError   || isListError;
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center space-y-3">
-          <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto" />
-          <p className="text-sm text-gray-400 font-medium">{d.syncText}</p>
-        </div>
+  if (isLoading) return (
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="text-center space-y-3">
+        <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto" />
+        <p className="text-sm text-gray-400 font-medium">{d.syncText}</p>
       </div>
-    );
-  }
+    </div>
+  );
 
-  if (isError) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <p className="text-sm text-red-500 font-medium">{d.errorText}</p>
-      </div>
-    );
-  }
+  if (isError) return (
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <p className="text-sm text-red-500 font-medium">{d.errorText}</p>
+    </div>
+  );
 
   return (
-    <div className="min-h-screen bg-gray-50 text-gray-800 font-sans pb-20">
+    <div className="h-screen bg-gray-50 text-gray-800 font-sans flex flex-col overflow-hidden">
+
       {/* HEADER */}
-      <header className="bg-white border-b border-gray-100 px-8 py-5 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 sticky top-0 z-40">
+      <header className="bg-white border-b border-gray-100 px-8 py-5 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 sticky top-0 z-40 shrink-0">
         <div>
-          <h1 className="text-xl font-black text-gray-900 tracking-tight">
-            {d.title}
-          </h1>
-          <p className="text-xs text-gray-400 mt-1 font-medium">{d.subtitle}</p>
+          <h1 className="text-xl font-black text-gray-900 tracking-tight">{d.title}</h1>
+          <p className="text-xs text-gray-400 mt-1 font-medium">
+            <span className="font-bold text-gray-600">{filteredVacancies.length}</span> {d.subtitle}
+          </p>
         </div>
         <div className="flex flex-wrap items-center gap-4 ml-auto md:ml-0 w-full md:w-auto justify-end">
           <div className="flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-xl text-xs text-gray-500 font-medium shadow-inner">
-            <svg
-              className="w-3.5 h-3.5 text-gray-400"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
+            <svg className="w-3.5 h-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
               <path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 002-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
             </svg>
             <span>{formattedDate}</span>
           </div>
           <div className="flex bg-gray-100 p-1 rounded-xl shadow-sm">
             {(["en", "si", "ta"] as const).map((l) => (
-              <button
-                key={l}
-                onClick={() => setCurrentLang(l)}
-                className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${currentLang === l ? "bg-white text-blue-600 shadow-sm" : "text-gray-500 hover:text-gray-900"}`}
-              >
+              <button key={l} onClick={() => setCurrentLang(l)}
+                className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${currentLang === l ? "bg-white text-blue-600 shadow-sm" : "text-gray-500 hover:text-gray-900"}`}>
                 {l === "en" ? "English" : l === "si" ? "සිංහල" : "தமிழ்"}
               </button>
             ))}
           </div>
-          <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white text-xs font-black shadow-md border border-white">
-            BJ
-          </div>
+          <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white text-xs font-black shadow-md border border-white">BJ</div>
         </div>
       </header>
 
-      <div className="p-8 space-y-8 max-w-[1650px] mx-auto">
-        {/* FILTER BAR */}
-        <div className="bg-white p-5 rounded-xl shadow-sm mb-6 flex flex-wrap gap-4">
-          <input
-            type="text"
-            placeholder={d.searchPlaceholder}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="flex-1 min-w-[180px] px-3 py-2 border rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-100"
-          />
+      {/* ── ROOT SPLIT LAYOUT ──────────────────────────────────────────────── */}
+      <div className="flex flex-1 min-h-0">
 
-          {/* Industry */}
-          <select
-            value={industryId ?? ""}
-            onChange={(e) =>
-              setIndustryId(e.target.value ? Number(e.target.value) : undefined)
-            }
-            className="px-3 py-2 border rounded-lg text-sm w-48 truncate"
-          >
-            <option value="">{d.allIndustries}</option>
-            {metadata?.industries.map((ind) => (
-              <option key={ind.id} value={ind.id}>
-                {ind.name}
-              </option>
-            ))}
-          </select>
+        {/* ── LEFT: MAIN SCROLLABLE CONTENT ─────────────────────────────── */}
+        <div className="flex-1 overflow-y-auto">
+          <div className="p-8 space-y-6">
 
-          {/* Province */}
-          <select
-            value={provinceId ?? ""}
-            onChange={(e) =>
-              setProvinceId(e.target.value ? Number(e.target.value) : undefined)
-            }
-            className="px-3 py-2 border rounded-lg text-sm"
-          >
-            <option value="">{d.allProvinces}</option>
-            {metadata?.provinces.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.province}
-              </option>
-            ))}
-          </select>
+            {/* FILTER BAR */}
+            <div className="bg-white p-4 rounded-xl shadow-sm flex flex-wrap gap-3">
+              <input
+                type="text"
+                placeholder={d.searchPlaceholder}
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="flex-1 min-w-[200px] px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-100"
+              />
+              <select
+                value={industryId ?? ""}
+                onChange={(e) => setIndustryId(e.target.value ? Number(e.target.value) : undefined)}
+                className="px-3 py-2 border border-gray-200 rounded-lg text-sm max-w-[180px]"
+              >
+                <option value="">{d.allIndustries}</option>
+                {metadata?.industries.map((ind) => (
+                  <option key={ind.id} value={ind.id}>{ind.name}</option>
+                ))}
+              </select>
+              <select
+                value={provinceId ?? ""}
+                onChange={(e) => setProvinceId(e.target.value ? Number(e.target.value) : undefined)}
+                className="px-3 py-2 border border-gray-200 rounded-lg text-sm"
+              >
+                <option value="">{d.allProvinces}</option>
+                {metadata?.provinces.map((p) => (
+                  <option key={p.id} value={p.id}>{p.province}</option>
+                ))}
+              </select>
+              <select
+                value={jobTypeId ?? ""}
+                onChange={(e) => setJobTypeId(e.target.value ? Number(e.target.value) : undefined)}
+                className="px-3 py-2 border border-gray-200 rounded-lg text-sm"
+              >
+                <option value="">{d.allJobTypes}</option>
+                {metadata?.job_types.map((jt) => (
+                  <option key={jt.id} value={jt.id}>{jt.type}</option>
+                ))}
+              </select>
+              <select
+                value={experienceId ?? ""}
+                onChange={(e) => setExperienceId(e.target.value ? Number(e.target.value) : undefined)}
+                className="px-3 py-2 border border-gray-200 rounded-lg text-sm"
+              >
+                <option value="">{d.allExperiences}</option>
+                {metadata?.experiences.map((exp) => (
+                  <option key={exp.id} value={exp.id}>{exp.name}</option>
+                ))}
+              </select>
+            </div>
 
-          {/* Job Type */}
-          <select
-            value={jobTypeId ?? ""}
-            onChange={(e) =>
-              setJobTypeId(e.target.value ? Number(e.target.value) : undefined)
-            }
-            className="px-3 py-2 border rounded-lg text-sm"
-          >
-            <option value="">{d.allJobTypes}</option>
-            {metadata?.job_types.map((jt) => (
-              <option key={jt.id} value={jt.id}>
-                {jt.type}
-              </option>
-            ))}
-          </select>
-
-          {/* Experience */}
-          <select
-            value={experienceId ?? ""}
-            onChange={(e) =>
-              setExperienceId(
-                e.target.value ? Number(e.target.value) : undefined,
-              )
-            }
-            className="px-3 py-2 border rounded-lg text-sm"
-          >
-            <option value="">{d.allExperiences}</option>
-            {metadata?.experiences.map((exp) => (
-              <option key={exp.id} value={exp.id}>
-                {exp.name}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* VACANCIES TABLE */}
-        <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-          <table className="w-full text-left">
-            <thead>
-              <tr className="border-b bg-gray-50/70">
-                <th className="py-3 px-4 text-xs font-semibold text-gray-500">
-                  {d.thNo}
-                </th>
-                <th className="py-3 px-4 text-xs font-semibold text-gray-500">
-                  {d.thRole}
-                </th>
-                <th className="py-3 px-4 text-xs font-semibold text-gray-500">
-                  {d.thEmployer}
-                </th>
-                <th className="py-3 px-4 text-xs font-semibold text-gray-500">
-                  {d.thProvince}
-                </th>
-                <th className="py-3 px-4 text-xs font-semibold text-gray-500">
-                  {d.thRemote}
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredVacancies.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={5}
-                    className="py-12 text-center text-sm text-gray-400"
-                  >
-                    {d.noRecords}
-                  </td>
-                </tr>
-              ) : (
-                filteredVacancies.map((v, index) => (
-                  <tr
-                    key={v.id}
-                    onClick={() => setSelectedVacancy(v)}
-                    className="border-b hover:bg-zinc-50 cursor-pointer transition-colors"
-                  >
-                    <td className="py-3.5 px-4 text-xs text-gray-400 font-mono">
-                      {index + 1}
-                    </td>
-                    <td className="py-3.5 px-4 text-sm font-semibold text-zinc-900">
-                      {v.job_role}
-                    </td>
-                    <td className="py-3.5 px-4 text-sm text-gray-700">
-                      {v.employer.name}
-                    </td>
-                    <td className="py-3.5 px-4 text-sm text-gray-500">
-                      {v.meta_data.geo_data.province}
-                    </td>
-                    <td className="py-3.5 px-4 text-sm">
-                      {v.is_remote ? (
-                        <span className="text-blue-600 font-bold">
-                          {d.remoteText}
-                        </span>
-                      ) : (
-                        <span className="text-gray-500">{d.officeText}</span>
-                      )}
-                    </td>
+            {/* VACANCIES TABLE */}
+            <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+              <table className="w-full text-left">
+                <thead>
+                  <tr className="border-b bg-gray-50/70">
+                    <th className="py-3 px-4 text-xs font-semibold text-gray-500">{d.thNo}</th>
+                    <th className="py-3 px-4 text-xs font-semibold text-gray-500">{d.thRole}</th>
+                    <th className="py-3 px-4 text-xs font-semibold text-gray-500">{d.thEmployer}</th>
+                    <th className="py-3 px-4 text-xs font-semibold text-gray-500">{d.thProvince}</th>
+                    <th className="py-3 px-4 text-xs font-semibold text-gray-500">{d.thRemote}</th>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                </thead>
+                <tbody>
+                  {filteredVacancies.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="py-16 text-center text-sm text-gray-400">{d.noRecords}</td>
+                    </tr>
+                  ) : (
+                    filteredVacancies.map((v, index) => (
+                      <tr
+                        key={v.id}
+                        onClick={() => setSelectedVacancy(v)}
+                        className={`border-b cursor-pointer transition-colors ${
+                          selectedVacancy?.id === v.id
+                            ? "bg-blue-50 border-l-2 border-l-blue-500"
+                            : "hover:bg-zinc-50"
+                        }`}
+                      >
+                        <td className="py-3.5 px-4 text-xs text-gray-400 font-mono">{index + 1}</td>
+                        <td className="py-3.5 px-4 text-sm font-semibold text-zinc-900">{v.job_role}</td>
+                        <td className="py-3.5 px-4 text-sm text-gray-700">{v.employer.name}</td>
+                        <td className="py-3.5 px-4 text-sm text-gray-500">{v.meta_data.geo_data.province}</td>
+                        <td className="py-3.5 px-4 text-sm">
+                          {v.is_remote
+                            ? <span className="text-blue-600 font-bold text-xs bg-blue-50 px-2 py-0.5 rounded-full">{d.remoteText}</span>
+                            : <span className="text-gray-400 text-xs">{d.officeText}</span>
+                          }
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+          </div>
         </div>
-      </div>
 
-      {/* DETAIL PANEL */}
-      <div
-        className={`fixed inset-0 z-50 transition-opacity duration-200 ${selectedVacancy ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"}`}
-      >
-        <div
-          onClick={() => setSelectedVacancy(null)}
-          className="absolute inset-0 bg-black/20 backdrop-blur-sm"
-        />
-        <div className="absolute inset-y-0 right-0 w-full max-w-lg bg-white shadow-2xl p-8 overflow-y-auto">
-          <button
-            onClick={() => setSelectedVacancy(null)}
-            className="text-gray-400 font-bold mb-6 hover:text-gray-700 transition-colors"
-          >
-            ✕ Close
-          </button>
+        {/* ── RIGHT: DETAIL PANEL (inline, not overlay) ─────────────────── */}
+        {selectedVacancy && (
+          <div className="w-[420px] min-w-[420px] border-l border-gray-200 bg-white flex flex-col overflow-hidden shadow-lg">
 
-          {selectedVacancy && (
-            <div className="space-y-6">
-              <div>
-                <h2 className="text-2xl font-black text-gray-900">
-                  {selectedVacancy.job_role}
-                </h2>
-                <p className="text-xs text-gray-400 mt-1">
-                  {d.panelPostedAt}:{" "}
-                  {new Date(
-                    selectedVacancy.meta_data.posted_at,
-                  ).toLocaleDateString()}
+            {/* Panel Header */}
+            <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-start shrink-0">
+              <div className="flex-1 pr-3">
+                <h2 className="text-sm font-black text-gray-900 leading-snug">{selectedVacancy.job_role}</h2>
+                <p className="text-[11px] text-gray-400 mt-0.5">
+                  {d.panelPostedAt}: {new Date(selectedVacancy.meta_data.posted_at).toLocaleDateString()}
                 </p>
               </div>
+              <button
+                onClick={() => setSelectedVacancy(null)}
+                className="shrink-0 text-xs font-bold text-gray-400 hover:text-gray-700 bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded-lg transition-all"
+              >
+                {d.closePanel} ✕
+              </button>
+            </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <DetailItem
-                  label={d.panelEmployer}
-                  value={selectedVacancy.employer.name}
-                />
-                <DetailItem
-                  label={d.panelRemote}
-                  value={
-                    selectedVacancy.is_remote ? d.remoteText : d.officeText
-                  }
-                />
-                <DetailItem
-                  label={d.panelLocation}
-                  value={selectedVacancy.location}
-                />
-                <DetailItem
-                  label={d.panelJobType}
-                  value={selectedVacancy.job_type.type}
-                />
-                <DetailItem
-                  label={d.panelIndustry}
-                  value={selectedVacancy.meta_data.industry.name}
-                />
-                <DetailItem
-                  label={d.panelExperience}
-                  value={selectedVacancy.meta_data.experience.name}
-                />
+            {/* Panel Body */}
+            <div className="flex-1 overflow-y-auto p-5 space-y-5">
+
+              {/* Meta grid */}
+              <div className="grid grid-cols-2 gap-3">
+                <DetailItem label={d.panelEmployer}   value={selectedVacancy.employer.name} />
+                <DetailItem label={d.panelRemote}     value={selectedVacancy.is_remote ? d.remoteText : d.officeText} />
+                <DetailItem label={d.panelLocation}   value={selectedVacancy.location} />
+                <DetailItem label={d.panelJobType}    value={selectedVacancy.job_type.type} />
+                <DetailItem label={d.panelIndustry}   value={selectedVacancy.meta_data.industry.name} />
+                <DetailItem label={d.panelExperience} value={selectedVacancy.meta_data.experience.name} />
               </div>
 
+              {/* Divider */}
+              <div className="border-t border-gray-100" />
+
+              {/* Description */}
               <div>
-                <h4 className="text-[10px] font-black uppercase text-gray-400 mb-2">
-                  {d.panelDescription}
-                </h4>
-                <p className="text-sm text-gray-700 bg-gray-50 p-4 rounded-xl leading-relaxed">
+                <p className="text-[10px] font-black uppercase text-gray-400 tracking-wider mb-2">{d.panelDescription}</p>
+                <p className="text-xs text-gray-700 bg-gray-50 p-4 rounded-xl leading-relaxed">
                   {selectedVacancy.job_description || "N/A"}
                 </p>
               </div>
 
+              {/* Skills */}
               <div>
-                <h4 className="text-[10px] font-black uppercase text-gray-400 mb-3">
-                  {d.panelSkills}
-                </h4>
+                <p className="text-[10px] font-black uppercase text-gray-400 tracking-wider mb-3">{d.panelSkills}</p>
                 <div className="flex flex-wrap gap-2">
-                  {selectedVacancy.skills.length > 0 ? (
-                    selectedVacancy.skills.map((s) => (
-                      <span
-                        key={s.id}
-                        className="px-3 py-1 bg-zinc-100 text-[11px] font-bold rounded-full text-zinc-700"
-                      >
-                        {s.skill}
-                      </span>
-                    ))
-                  ) : (
-                    <span className="text-xs text-gray-400">
-                      No skills listed
-                    </span>
-                  )}
+                  {selectedVacancy.skills.length > 0
+                    ? selectedVacancy.skills.map((s) => (
+                        <span key={s.id} className="px-3 py-1 bg-zinc-100 text-[11px] font-bold rounded-full text-zinc-700">
+                          {s.skill}
+                        </span>
+                      ))
+                    : <span className="text-xs text-gray-400">{d.noSkills}</span>
+                  }
                 </div>
               </div>
+
             </div>
-          )}
-        </div>
+          </div>
+        )}
+
       </div>
     </div>
   );
@@ -445,11 +354,9 @@ export default function VacanciesPage() {
 
 function DetailItem({ label, value }: { label: string; value: string }) {
   return (
-    <div>
-      <p className="text-[9px] text-gray-400 uppercase font-black tracking-wider">
-        {label}
-      </p>
-      <p className="text-xs font-bold text-zinc-800 mt-0.5">{value || "N/A"}</p>
+    <div className="bg-gray-50 px-3 py-2.5 rounded-lg">
+      <p className="text-[9px] text-gray-400 uppercase font-black tracking-wider">{label}</p>
+      <p className="text-xs font-bold text-zinc-800 mt-0.5 truncate">{value || "N/A"}</p>
     </div>
   );
 }
