@@ -472,7 +472,7 @@ func (r *JobRepository) GetTopHiringEmployersByIndustry(industryID uint) ([]mode
 		Where("meta_data.industry_id = ? AND meta_data.end_date IS NULL", industryID).
 		Group("employer.id, employer.name").
 		Order("open_job_count DESC").
-		Limit(10).
+		Limit(5).
 		Scan(&results).Error
 	return results, err
 }
