@@ -26,7 +26,7 @@ from crawl4ai import (
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
-BACKEND_BASE_URL = os.getenv("BACKEND_URL", "http://localhost:8080/api/v1/crawler")
+BACKEND_BASE_URL = os.getenv("BACKEND_URL", "http://backend:8080/api/v1/crawler")
 
 
 def generate_production_minhash_and_lsh(job_data: dict, num_perm: int = 128, num_bands: int = 8) -> tuple:
@@ -137,7 +137,7 @@ def _locations_compatible(loc_a: str, loc_b: str) -> bool:
     words_b = set(loc_b.split()) - stopwords
     return bool(words_a & words_b)
 
-async def run_pipeline_orchestrator(max_pages: int = 2):
+async def run_pipeline_orchestrator(max_pages: int = 5):
     new_jobs_buffer: List[Dict[str, Any]] = []
     lsh_index_buffer: List[Dict[str, Any]] = []
     updated_jobs_buffer: List[Dict[str, Any]] = []
@@ -195,7 +195,7 @@ async def run_pipeline_orchestrator(max_pages: int = 2):
         results_generator = await crawler.arun_many(urls=unique_urls, config=detail_config, dispatcher=dispatcher)
 
         async for result in results_generator:
-            if not result.success or not result.markdown_v2:
+            if not result.success or not result.markdown:
                 continue
             
             # Fast rule-based execution for zero-cost deduplication checking
@@ -215,7 +215,7 @@ async def run_pipeline_orchestrator(max_pages: int = 2):
                     "crawler_run_id": crawler_run_id
                 })
                 
-                if len(updated_jobs_buffer) >= 1000:
+                if len(updated_jobs_buffer) >= 10:
                     await async_client.post(f"{BACKEND_BASE_URL}/jobs/batch-update", json={"duplicates": updated_jobs_buffer})
                     updated_jobs_buffer.clear()
             else:
@@ -243,7 +243,7 @@ async def run_pipeline_orchestrator(max_pages: int = 2):
                     except Exception as e:
                         logger.error(f"Failed to unmarshal LLM response into schema format: {e}")
                         
-                if len(new_jobs_buffer) >= 1000:
+                if len(new_jobs_buffer) >= 10:
                     payload = {"new_jobs": new_jobs_buffer, "lsh_indexes": lsh_index_buffer}
                     await async_client.post(f"{BACKEND_BASE_URL}/jobs/batch-save", json=payload)
                     new_jobs_buffer.clear()
