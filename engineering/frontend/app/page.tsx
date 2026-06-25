@@ -24,17 +24,17 @@ const CHART_COLORS = ["#2563eb", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#6
 const TRANSLATIONS = {
   en: {
     title: "Labour Market Demand Dashboard",
-    subtitle: "National Strategic Overview Driven by SLSO & SLSIC Registries",
+    subtitle: "National Strategic Overview Driven by SLSCO & SLSIC Registries",
     vacancies: "Current Vacancies",
     occFramework: "Occupations Framework",
     indFramework: "Industries Framework",
-    slsoBased: "Based on SLSO",
+    slsoBased: "Based on SLSCO",
     slsicBased: "Based on SLSIC",
     collapse: "Click to collapse",
     expand: "Click to view full breakdown",
     matrixTitle: "Registered Framework Classifications Matrix",
     open: "open",
-    occChartTitle: "Current Job Distribution by Occupation (SLSO)",
+    occChartTitle: "Current Job Distribution by Occupation (SLSCO)",
     occChartSub: "Horizontal mapping showing all 10 standard occupation bands",
     indChartTitle: "Current Job Distribution by Industry (SLSIC)",
     indChartSub: "Vertical bar chart projection featuring rotated X-axis headers for all 21 divisions",
@@ -235,13 +235,13 @@ export default function DashboardPage() {
             </svg>
             <span>{formattedDate}</span>
           </div>
-          <div className="flex bg-gray-100 p-1 rounded-xl shadow-sm">
+          {/* <div className="flex bg-gray-100 p-1 rounded-xl shadow-sm">
             {(["en", "si", "ta"] as const).map((l) => (
               <button key={l} onClick={() => setCurrentLang(l)} className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${currentLang === l ? "bg-white text-blue-600 shadow-sm" : "text-gray-500 hover:text-gray-900"}`}>
                 {l === "en" ? "English" : l === "si" ? "සිංහල" : "தமிழ்"}
               </button>
             ))}
-          </div>
+          </div> */}
           <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white text-xs font-black shadow-md border border-white">BJ</div>
         </div>
       </header>
