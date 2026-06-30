@@ -35,4 +35,4 @@
     "playwright.config.ts",
     "tests/e2e/**/*"
   ]
-} t
+} 
