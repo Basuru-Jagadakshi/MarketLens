@@ -4,8 +4,10 @@ import os
 from pathlib import Path
 #from dotenv import load_dotenv
 from crawlers.ikman_jobs_crawler import ikman_jobs_extraction, get_last_page_from_text
+from crawlers.rooster_crawler import rooster_jobs_extraction
 from storage_handlers.handler import save_jobs_to_file
 from crawlers.schemas.job_schema import JOB_EXTRACTION_SCHEMA, BASE_JOB_INSTRUCTION
+from crawlers.parsers.rooster_parser import fetch_all_jobs 
 
 # env_path = Path(__file__).resolve().parent.parent.parent / '.env'
 
@@ -17,16 +19,18 @@ async def main():
     print("=== Starting Multi-Site Crawl... ===")
 
 
-
-    ikman_task = ikman_jobs_extraction()
-
-    ikman_jobs = await ikman_task
-
-    all_combined_jobs = ikman_jobs
-
-    print(all_combined_jobs)
-
+    #ikman jobs
+    # ikman_task = ikman_jobs_extraction()
+    # ikman_jobs = await ikman_task
+    # all_combined_jobs = ikman_jobs
+    # print(all_combined_jobs)
     #save_jobs_to_file(all_combined_jobs)
+
+
+    #rooster
+    # roosterJobs = fetch_all_jobs()
+    # print(roosterJobs)
+    roosterJobsResult = await rooster_jobs_extraction()
 
 
 
