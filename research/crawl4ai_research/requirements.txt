@@ -2,3 +2,7 @@ crawl4ai
 playwright
 python-dotenv
 requests
+beautifulsoup4
+pytesseract
+pillow
+requests
