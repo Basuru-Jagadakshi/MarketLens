@@ -11,6 +11,7 @@ from crawlers.schemas.job_schema import JOB_EXTRACTION_SCHEMA, BASE_JOB_INSTRUCT
 from crawlers.parsers.rooster_parser import fetch_all_jobs 
 from crawlers.parsers.topjobs_parser import run_crawler
 from crawlers.parsers.xpressjobs_parser import process_all_jobs
+from crawlers.parsers.govermentjobs_parser import fetch_job_details
 
 # env_path = Path(__file__).resolve().parent.parent.parent / '.env'
 
@@ -39,8 +40,12 @@ async def main():
     #await topjobs_jobs_extraction()
 
     #xpressjobs
-    xpressJobs = await process_all_jobs()
-    print(xpressJobs)
+    # xpressJobs = await process_all_jobs()
+    # print(xpressJobs)
+
+    #Govermenjobs.lk
+    results = await fetch_job_details()
+    print(results)
 
 
 
