@@ -12,7 +12,7 @@ from datasketch import MinHash
 from parsers.ikman_parser import parse_rule_based_fields
 
 # Import your precise schema configurations and prompt rules
-from crawlers.schemas.job_schema import JOB_EXTRACTION_SCHEMA, BASE_JOB_INSTRUCTION
+from schemas.job_schema import JOB_EXTRACTION_SCHEMA, BASE_JOB_INSTRUCTION
 
 from crawl4ai import (
     AsyncWebCrawler, 
@@ -162,7 +162,7 @@ def _locations_compatible(loc_a: str, loc_b: str) -> bool:
 async def run_pipeline_orchestrator(max_pages: int = 5):
 
     #max_pages = await get_last_page_from_text()
-    
+
     new_jobs_buffer: List[Dict[str, Any]] = []
     lsh_index_buffer: List[Dict[str, Any]] = []
     updated_jobs_buffer: List[Dict[str, Any]] = []
