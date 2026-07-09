@@ -28,6 +28,28 @@ logger = logging.getLogger(__name__)
 
 BACKEND_BASE_URL = os.getenv("BACKEND_URL", "http://backend:8080/api/v1/crawler")
 
+async def get_last_page_from_text():
+   async with AsyncWebCrawler() as crawler:
+      
+       result = await crawler.arun(url="https://ikman.lk/en/ads/sri-lanka/jobs")
+      
+       html_content = result.html
+      
+       match = re.search(r'of ([\d,]+) ads', html_content)
+      
+       if match:
+          
+           total_ads = int(match.group(1).replace(',', ''))
+           ads_per_page = 25
+           last_page = math.ceil(total_ads / ads_per_page)
+          
+           print(f"Total Ads: {total_ads}")
+           print(f"Calculated Last Page: {last_page}")
+           return last_page
+       else:
+           print("Could not find the total ad count text.")
+           return 1
+
 
 def generate_production_minhash_and_lsh(job_data: dict, num_perm: int = 128, num_bands: int = 8) -> tuple:
     """Uses text shingling to generate stable MinHash and 8 LSH bucket band keys."""
@@ -138,6 +160,9 @@ def _locations_compatible(loc_a: str, loc_b: str) -> bool:
     return bool(words_a & words_b)
 
 async def run_pipeline_orchestrator(max_pages: int = 5):
+
+    #max_pages = await get_last_page_from_text()
+    
     new_jobs_buffer: List[Dict[str, Any]] = []
     lsh_index_buffer: List[Dict[str, Any]] = []
     updated_jobs_buffer: List[Dict[str, Any]] = []
