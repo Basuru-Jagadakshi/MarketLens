@@ -45,7 +45,8 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 First of all you should define the following enviroment variables in the relevant folder.
 
-1. backend
+```
+//backend
 DB_USER=
 DB_PASSWORD=
 DB_NAME=
@@ -56,15 +57,16 @@ POSTGRES_USER=
 POSTGRES_PASSWORD=
 POSTGRES_DB=
 
-2. bff
+//bff
 GO_BACKEND_URL=
 
-3. crawler
+//crawler
 DEEPSEEK_API_KEY=
 BACKEND_URL=
 
-4. frontend
+//frontend
 NEXT_PUBLIC_API_BASE_URL=
+```
 
 
 And then restore the dump file called "market_lens_database_backup".
