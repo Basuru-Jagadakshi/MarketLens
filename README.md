@@ -42,6 +42,33 @@ Deployment: Docker Compose (Rancher)
 This project is licensed under the MIT License - see the LICENSE file for details.
 
 🚀 Running the Application
+
+First of all you should define the following enviroment variables in the relevant folder.
+
+1. backend
+DB_USER=
+DB_PASSWORD=
+DB_NAME=
+DB_HOST=
+DB_PORT=
+
+POSTGRES_USER=
+POSTGRES_PASSWORD=
+POSTGRES_DB=
+
+2. bff
+GO_BACKEND_URL=
+
+3. crawler
+DEEPSEEK_API_KEY=
+BACKEND_URL=
+
+4. frontend
+NEXT_PUBLIC_API_BASE_URL=
+
+
+And then restore the dump file called "market_lens_database_backup".
+
 To deploy the stack locally or in your development environment, ensure you have Docker and Docker Compose installed. From the root directory of the project, execute the following command:
 
 ```
