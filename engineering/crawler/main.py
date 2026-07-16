@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from pathlib import Path
 from dotenv import load_dotenv
-from utils.crawler_run_manager import run_all_crawlers
+from utils.crawler_run_manager import CrawlerManager
 
 env_path = Path(__file__).resolve().parent / '.env'
 load_dotenv(dotenv_path=env_path)
@@ -17,14 +17,14 @@ SL_TZ = ZoneInfo("Asia/Colombo")
 RUN_HOUR = 8
 RUN_MINUTE = 16
 RUN_INTERVAL_DAYS = 10
-MAX_PAGES_PER_CRAWLER = 2
 
 
 async def crawl_job():
     print(f"\n--- Execution Started at {datetime.now(SL_TZ).strftime('%Y-%m-%d %H:%M:%S')} ---")
 
     try:
-        await run_all_crawlers(max_pages=MAX_PAGES_PER_CRAWLER)
+        manager = CrawlerManager()
+        await manager.run_all_crawlers(concurrent=True)
     except Exception as e:
         print(f"CRITICAL ERROR encountered during execution lifecycle: {e}")
 
