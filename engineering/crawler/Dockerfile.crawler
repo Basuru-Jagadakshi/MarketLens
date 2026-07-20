@@ -1,26 +1,29 @@
-# 1. Start with a Python base image
+#Start with a Python base image
 FROM python:3.11-slim
 
 # Set the working directory
 WORKDIR /app
 
-# 2. Install minimal system packages that headless Chrome needs to boot up
+#Install minimal system packages that headless Chrome needs to boot up
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    tesseract-ocr \
+    tesseract-ocr-sin \
+    tesseract-ocr-tam \
     curl \
     git \
     && rm -rf /var/lib/apt/lists/*
 
-# 3. Copy requirements and install python libraries
+#Copy requirements and install python libraries
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# 4. DOWNLOAD THE PLAYWRIGHT BROWSERS INSIDE THE DOCKER IMAGE
-# This downloads Chromium to /root/.cache/ms-playwright/ where the error expects it
+#DOWNLOAD THE PLAYWRIGHT BROWSERS INSIDE THE DOCKER IMAGE
+#This downloads Chromium to /root/.cache/ms-playwright/ where the error expects it
 RUN playwright install chromium
 RUN playwright install-deps chromium
 
-# 5. Copy the rest of your crawl scripts
+#Copy the rest of your crawl scripts
 COPY . .
 
-# Run your entry script
+#Run your entry script
 CMD ["python", "main.py"]
