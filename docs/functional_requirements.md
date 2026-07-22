@@ -19,20 +19,20 @@
 * Education level-wise job count by industry
 * Vocational education-wise job count by industry
 * Top hiring employer by industry
-* *Filterable by Selected Year*
+*Filterable by Selected Year*
 
 ### General Job Distributions
 * Current job distribution by experience level
 * Current job distribution by education level
-* Current job distribution by employment sector
-
-## 4. Employment Sector Analytics Section
-* Yearly trends for each sector
 * Current job distribution by informal / formal sectors
 * Current job distribution by gender
 * Current job distribution by vocational education
 * Current job distribution by Remote / On-site status
 * Current job distribution by contract type
+
+## 4. Employment Sector Analytics Section
+* Current job distribution by employment sector
+* Yearly trends for each sector
 
 ## 5. Skill Analysis
 * Number of unique skills
