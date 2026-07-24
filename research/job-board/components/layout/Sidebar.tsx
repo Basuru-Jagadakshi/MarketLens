@@ -3,11 +3,14 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { clsx } from "clsx";
+import Image from "next/image";
 
 const navigation = [
   { name: "Dashboard", href: "/", icon: LayoutDashboardIcon },
   { name: "Vacancies", href: "/vacancies", icon: BriefcaseIcon },
   { name: "Skill Analysis", href: "/categories", icon: BarChart3Icon },
+  { name: "Forecasting", href: "/forecasting", icon: ForecastingIcon },
+  { name: "KPIs", href: "/kpis", icon: GaugeIcon },
   { name: "Crawling Details", href: "/crawling-details", icon: ScanSearchIcon },
   // { name: "Regional View", href: "/regions", icon: MapPinIcon },
   // { name: "Forecasting", href: "/forecasting", icon: TrendingUpIcon },
@@ -22,8 +25,15 @@ export default function Sidebar() {
     <aside className="fixed inset-y-0 left-0 z-50 w-64 bg-zinc-950 border-r border-zinc-800 flex flex-col font-sans">
       {/* Logo Component */}
       <div className="flex items-center gap-3 px-6 py-5 border-b border-zinc-800">
-        <div className="w-9 h-9 rounded-md bg-white flex items-center justify-center border border-zinc-700">
-          <span className="text-black font-black text-sm">ML</span>
+        {/* Updated container for the image */}
+        <div className="w-9 h-9 rounded-md bg-white flex items-center justify-center overflow-hidden">
+          <Image
+            src="/logo.png" // Ensure this file is in your public/ folder
+            alt="Market Lens Logo"
+            width={45} // Matches w-9 (9 * 4px)
+            height={45} // Matches h-9 (9 * 4px)
+            className="object-contain scale-110" // Slightly scales image to fill space without clipping important details
+          />
         </div>
         <div>
           <h1 className="text-white font-bold text-sm tracking-tight leading-tight">Market Lens</h1>
@@ -148,6 +158,25 @@ function ScanSearchIcon({ className }: { className?: string }) {
       <path d="M21 17v2a2 2 0 0 1-2 2h-2" />
       <path d="M7 21H5a2 2 0 0 1-2-2v-2" />
       <circle cx="12" cy="12" r="3" />
+    </svg>
+  );
+}
+
+function GaugeIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="m12 14 4-4" />
+      <path d="M3.34 19a10 10 0 1 1 17.32 0" />
+    </svg>
+  );
+}
+
+function ForecastingIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="3 17 8 12 12 15 16 8" />
+      <line x1="16" y1="8" x2="21" y2="4" strokeDasharray="2 2" />
+      <circle cx="21" cy="4" r="1.5" fill="currentColor" stroke="none" />
     </svg>
   );
 }
