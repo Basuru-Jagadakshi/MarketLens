@@ -162,13 +162,13 @@ export default function CrawlingDetailsPage() {
             <span>{formattedDate}</span>
           </div>
 
-          <div className="flex bg-gray-100 p-1 rounded-xl shadow-sm">
+          {/* <div className="flex bg-gray-100 p-1 rounded-xl shadow-sm">
             {(["en", "si", "ta"] as const).map((l) => (
               <button key={l} onClick={() => setCurrentLang(l)} className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${currentLang === l ? "bg-white text-blue-600 shadow-sm" : "text-gray-500 hover:text-gray-900"}`}>
                 {l === "en" ? "English" : l === "si" ? "සිංහල" : "தமிழ்"}
               </button>
             ))}
-          </div>
+          </div> */}
           <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white text-xs font-black shadow-md border border-white">BJ</div>
         </div>
       </header>
