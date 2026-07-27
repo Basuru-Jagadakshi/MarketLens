@@ -8,7 +8,7 @@ import {
 
 const BASE = ENV.NEXT_PUBLIC_API_BASE_URL;
 
-// ── Overview (on page load) ───────────────────────────────────────────────────
+//Overview (on page load)
 async function fetchDashboardOverview(): Promise<DashboardOverview> {
   const res = await fetch(`${BASE}/dashboard/overview`);
   if (!res.ok) throw new Error("Failed to fetch dashboard overview");
@@ -23,7 +23,7 @@ export function useDashboardOverview() {
   });
 }
 
-// ── Occupation analytics (on "See Analytics" click) ───────────────────────────
+//Occupation analytics
 async function fetchOccupationAnalytics(occupationId: number): Promise<OccupationAnalytics> {
   const res = await fetch(`${BASE}/dashboard/occupation-analytics?occupation_id=${occupationId}`);
   if (!res.ok) throw new Error("Failed to fetch occupation analytics");
@@ -39,7 +39,7 @@ export function useOccupationAnalytics(occupationId: number | null) {
   });
 }
 
-// ── Industry analytics (on "See Analytics" click + year change) ───────────────
+//Industry analytics
 async function fetchIndustryAnalytics(
   industryId: number,
   year: number
