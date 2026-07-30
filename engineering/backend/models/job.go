@@ -5,8 +5,9 @@ import (
 	"github.com/lib/pq"
 )
 
-// ── Lookup / reference tables ─────────────────────────────────────────────────
+// Lookup / reference tables 
 
+// Employers model for jobs
 type Employer struct {
 	ID        uint      `json:"id"         gorm:"primaryKey"`
 	Name      string    `json:"name"       gorm:"size:255;not null"`
@@ -16,6 +17,7 @@ type Employer struct {
 
 func (Employer) TableName() string { return "employer" }
 
+// Type of the job like full time, part time etc
 type JobType struct {
 	ID        uint      `json:"id"         gorm:"primaryKey"`
 	Type      string    `json:"type"       gorm:"size:50;not null"`
@@ -25,6 +27,7 @@ type JobType struct {
 
 func (JobType) TableName() string       { return "job_type" }
 
+// Skill model for each job
 type Skill struct {
 	ID        uint      `json:"id"         gorm:"primaryKey"`
 	Skill     string    `json:"skill"      gorm:"size:100;not null"`
@@ -34,6 +37,7 @@ type Skill struct {
 
 func (Skill) TableName() string         { return "skills" }
 
+// AI version model
 type AiVersion struct {
 	ID        uint      `json:"id"         gorm:"primaryKey"`
 	Version   string    `json:"version"    gorm:"size:50;not null"`
@@ -43,6 +47,7 @@ type AiVersion struct {
 
 func (AiVersion) TableName() string { return "ai_version" }
 
+// Education level model
 type EducationLevel struct {
 	ID        uint      `json:"id"         gorm:"primaryKey"`
 	Level     string    `json:"level"      gorm:"size:100;not null"`
@@ -70,6 +75,7 @@ type Occupation struct {
 
 func (Occupation) TableName() string { return "occupation" }
 
+// Source model like ikman jobs, rooster
 type Source struct {
 	ID        uint      `json:"id"         gorm:"primaryKey"`
 	Source    string    `json:"source"     gorm:"size:255;not null"`
@@ -79,6 +85,7 @@ type Source struct {
 
 func (Source) TableName() string { return "source" }
 
+// Experience level model
 type Experience struct {
 	ID        uint      `json:"id"         gorm:"primaryKey"`
 	Name      string    `json:"name"       gorm:"size:100;not null"`
@@ -88,6 +95,7 @@ type Experience struct {
 
 func (Experience) TableName() string { return "experience" }
 
+// Geo data model (provinces)
 type GeoData struct {
 	ID        uint      `json:"id"         gorm:"primaryKey"`
 	Longitude float64   `json:"lng"        gorm:"type:decimal(9,6)"`
@@ -99,7 +107,165 @@ type GeoData struct {
 
 func (GeoData) TableName() string { return "geo_data" }
 
-// ── Crawler run ───────────────────────────────────────────────────────────────
+// Formal / Informal model
+type Formality struct {
+	ID				uint		`json:"id"					gorm:"primaryKey"` 
+	FormalityType	string		`json:"formality_type"		gorm:"size:50;not null"`
+	CreatedAt		time.Time	`json:"created_at"`
+	UpdatedAt		time.Time	`json:"updated_at"`
+}
+
+func (Formality) TableName() string { return "formality" } 
+
+// Gender model
+type Gender struct {
+	ID				uint		`json:"id"				gorm:"primaryKey"`
+	GenderType		string		`json:"gender_type"		gorm:"size:50;not null"` 
+	CreatedAt		time.Time	`json:"created_at"`
+	UpdatedAt		time.Time	`json:"updated_at"`
+}
+
+func (Gender) TableName() string { return "gender" }
+
+// Vocational education model
+type VocationalEducation struct {
+	ID				uint		`json:"id"				gorm:"primaryKey"`
+	Level			string		`json:"level"			gorm:"size:50;not null"`
+	CreatedAt		time.Time	`json:"created_at"`
+	UpdatedAt		time.Time	`json:"updated_at"`
+}
+
+func (VocationalEducation) TableName() string { return "vocational_education" }
+
+// Employment sector model like private, goverment
+type EmploymentSector struct {
+	ID        uint      `json:"id"         gorm:"primaryKey"`
+	Sector    string    `json:"sector"     gorm:"size:100;not null"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+ 
+func (EmploymentSector) TableName() string { return "employment_sector" }
+
+// Occupation classification tables
+type MajorGroup struct {
+	ID        uint      `json:"id"         gorm:"primaryKey"`
+	Name      string    `json:"name"       gorm:"size:255;not null"`
+	Code      string    `json:"code"       gorm:"size:50;not null"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+ 
+func (MajorGroup) TableName() string { return "major_group" }
+
+type SubMajorGroup struct {
+	ID           uint        `json:"id"             gorm:"primaryKey"`
+	MajorGroupID uint        `json:"major_group_id" gorm:"not null"`
+	MajorGroup   *MajorGroup `json:"major_group"    gorm:"foreignKey:MajorGroupID;constraint:OnDelete:CASCADE;"`
+	Name         string      `json:"name"           gorm:"size:255;not null"`
+	Code         string      `json:"code"           gorm:"size:50;not null"`
+	CreatedAt    time.Time   `json:"created_at"`
+	UpdatedAt    time.Time   `json:"updated_at"`
+}
+
+func (SubMajorGroup) TableName() string { return "sub_major_group" }
+
+type MinorGroup struct {
+	ID              uint           `json:"id"                 gorm:"primaryKey"`
+	SubMajorGroupID uint           `json:"sub_major_group_id" gorm:"not null"`
+	SubMajorGroup   *SubMajorGroup `json:"sub_major_group"    gorm:"foreignKey:SubMajorGroupID;constraint:OnDelete:CASCADE;"`
+	Name            string         `json:"name"               gorm:"size:255;not null"`
+	Code            string         `json:"code"               gorm:"size:50;not null"`
+	CreatedAt       time.Time      `json:"created_at"`
+	UpdatedAt       time.Time      `json:"updated_at"`
+}
+ 
+func (MinorGroup) TableName() string { return "minor_group" }
+
+type UnitGroup struct {
+	ID           uint        `json:"id"             gorm:"primaryKey"`
+	MinorGroupID uint        `json:"minor_group_id" gorm:"not null"`
+	MinorGroup   *MinorGroup `json:"minor_group"    gorm:"foreignKey:MinorGroupID;constraint:OnDelete:CASCADE;"`
+	Name         string      `json:"name"           gorm:"size:255;not null"`
+	Code         string      `json:"code"           gorm:"size:50;not null"`
+	CreatedAt    time.Time   `json:"created_at"`
+	UpdatedAt    time.Time   `json:"updated_at"`
+}
+ 
+func (UnitGroup) TableName() string { return "unit_group" }
+
+type OccupationGroup struct {
+	ID          uint       `json:"id"            gorm:"primaryKey"`
+	UnitGroupID uint       `json:"unit_group_id" gorm:"not null"`
+	UnitGroup   *UnitGroup `json:"unit_group"    gorm:"foreignKey:UnitGroupID;constraint:OnDelete:CASCADE;"`
+	Name        string     `json:"name"          gorm:"size:255;not null"`
+	Code        string     `json:"code"          gorm:"size:50;not null"`
+	CreatedAt   time.Time  `json:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at"`
+}
+ 
+func (OccupationGroup) TableName() string { return "occupation_group" }
+
+// Industry classification tables
+type IndustrySector struct {
+	ID        uint      `json:"id"         gorm:"primaryKey"`
+	Name      string    `json:"name"       gorm:"size:255;not null"`
+	Code      string    `json:"code"       gorm:"size:50;not null"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+ 
+func (IndustrySector) TableName() string { return "industry_sector" }
+
+type IndustryDivision struct {
+	ID               uint            `json:"id"                 gorm:"primaryKey"`
+	IndustrySectorID uint            `json:"industry_sector_id" gorm:"not null"`
+	IndustrySector   *IndustrySector `json:"industry_sector"    gorm:"foreignKey:IndustrySectorID;constraint:OnDelete:CASCADE;"`
+	Name             string          `json:"name"               gorm:"size:255;not null"`
+	Code             string          `json:"code"               gorm:"size:50;not null"`
+	CreatedAt        time.Time       `json:"created_at"`
+	UpdatedAt        time.Time       `json:"updated_at"`
+}
+ 
+func (IndustryDivision) TableName() string { return "industry_division" }
+
+type IndustryGroup struct {
+	ID                 uint              `json:"id"                   gorm:"primaryKey"`
+	IndustryDivisionID uint              `json:"industry_division_id" gorm:"not null"`
+	IndustryDivision   *IndustryDivision `json:"industry_division"    gorm:"foreignKey:IndustryDivisionID;constraint:OnDelete:CASCADE;"`
+	Name               string            `json:"name"                 gorm:"size:255;not null"`
+	Code               string            `json:"code"                 gorm:"size:50;not null"`
+	CreatedAt          time.Time         `json:"created_at"`
+	UpdatedAt          time.Time         `json:"updated_at"`
+}
+ 
+func (IndustryGroup) TableName() string { return "industry_group" }
+
+type IndustryClass struct {
+	ID              uint           `json:"id"                gorm:"primaryKey"`
+	IndustryGroupID uint           `json:"industry_group_id" gorm:"not null"`
+	IndustryGroup   *IndustryGroup `json:"industry_group"    gorm:"foreignKey:IndustryGroupID;constraint:OnDelete:CASCADE;"`
+	Name            string         `json:"name"              gorm:"size:255;not null"`
+	Code            string         `json:"code"              gorm:"size:50;not null"`
+	CreatedAt       time.Time      `json:"created_at"`
+	UpdatedAt       time.Time      `json:"updated_at"`
+}
+ 
+func (IndustryClass) TableName() string { return "industry_class" }
+
+type IndustrySubclass struct {
+	ID              uint           `json:"id"                gorm:"primaryKey"`
+	IndustryClassID uint           `json:"industry_class_id" gorm:"not null"`
+	IndustryClass   *IndustryClass `json:"industry_class"    gorm:"foreignKey:IndustryClassID;constraint:OnDelete:CASCADE;"`
+	Name            string         `json:"name"              gorm:"size:255;not null"`
+	Code            string         `json:"code"              gorm:"size:50;not null"`
+	CreatedAt       time.Time      `json:"created_at"`
+	UpdatedAt       time.Time      `json:"updated_at"`
+}
+ 
+func (IndustrySubclass) TableName() string { return "industry_subclass" }
+
+// Crawler run
 
 type CrawlerRun struct {
 	ID         uint       `json:"id"          gorm:"primaryKey"`
@@ -112,7 +278,7 @@ type CrawlerRun struct {
 
 func (CrawlerRun) TableName() string { return "crawler_runs" }
 
-// ── Core job tables ───────────────────────────────────────────────────────────
+// Core job tables
 
 type JobPost struct {
 	ID             uint       `json:"id"              gorm:"primaryKey"`
@@ -124,9 +290,9 @@ type JobPost struct {
 	IsRemote       bool       `json:"is_remote"       gorm:"default:false"`
 	JobDescription string     `json:"job_description" gorm:"type:text"`
 	Location       string     `json:"location"        gorm:"size:255"`
+	NoOfVacancies  int        `json:"no_of_vacancies" gorm:"not null;default:1"`
 	CreatedAt      time.Time  `json:"created_at"`
 	UpdatedAt      time.Time  `json:"updated_at"`
-	// Associations
 	MetaData       JobMetaData `json:"meta_data" gorm:"foreignKey:JobPostID;constraint:OnDelete:CASCADE;"`
 	Skills         []Skill     `json:"skills"    gorm:"many2many:job_post_skills;constraint:OnDelete:CASCADE;"`
 }
@@ -152,6 +318,18 @@ type JobMetaData struct {
 	Source           *Source         `json:"source"             gorm:"foreignKey:SourceID"`
 	ExperienceID     *uint           `json:"experience_id"`
 	Experience       *Experience     `json:"experience"         gorm:"foreignKey:ExperienceID"`
+	OccupationGroupID *uint            `json:"occupation_group_id"`
+	OccupationGroup   *OccupationGroup `json:"occupation_group"   gorm:"foreignKey:OccupationGroupID"`
+	IndustrySubclassID *uint             `json:"industry_subclass_id"`
+	IndustrySubclass   *IndustrySubclass `json:"industry_subclass"   gorm:"foreignKey:IndustrySubclassID"`
+	FormalityID *uint      `json:"formality_id"`
+	Formality   *Formality `json:"formality"   gorm:"foreignKey:FormalityID"`
+	GenderID *uint   `json:"gender_id"`
+	Gender   *Gender `json:"gender"    gorm:"foreignKey:GenderID"`
+	VocationalEducationID *uint                 `json:"vocational_education_id"`
+	VocationalEducation   *VocationalEducation  `json:"vocational_education"   gorm:"foreignKey:VocationalEducationID"`
+	EmploymentSectorID *uint             `json:"employment_sector_id"`
+	EmploymentSector   *EmploymentSector `json:"employment_sector"   gorm:"foreignKey:EmploymentSectorID"`
 	PostedAt         *time.Time      `json:"posted_at"`
 	EndDate          *time.Time      `json:"end_date"`
 	MinhashSignature pq.Int64Array   `json:"minhash_signature"  gorm:"type:integer[]"`
@@ -162,7 +340,7 @@ type JobMetaData struct {
 
 func (JobMetaData) TableName() string { return "meta_data" }
 
-// ── LSH dedup index ───────────────────────────────────────────────────────────
+// LSH dedup index
 
 type LshIndex struct {
 	BucketKey string   `json:"bucket_key" gorm:"primaryKey;size:64;not null"`
@@ -173,7 +351,7 @@ type LshIndex struct {
 
 func (LshIndex) TableName() string { return "lsh_index" }
 
-// ── API payloads ──────────────────────────────────────────────────────────────
+// API payloads
 
 type BatchSavePayload struct {
 	NewJobs    []JobPost  `json:"new_jobs"    binding:"required"`
@@ -260,7 +438,8 @@ type OccupationYearlyTrend struct {
 }
 
 type TopJobRole struct {
-	JobRole      string `json:"job_role"`
+	ID           uint   `json:"id"`
+	Name         string `json:"name"`
 	OpenJobCount int64  `json:"open_job_count"`
 }
 
@@ -287,6 +466,53 @@ type EducationLevelYearlyJobCount struct {
 	ID           uint   `json:"id"`
 	Level        string `json:"level"`
 	OpenJobCount int64  `json:"open_job_count"`
+}
+
+type FormalityJobCount struct {
+	ID             uint   `json:"id"`
+	FormalityType  string `json:"formality_type"`
+	OpenJobCount   int64  `json:"open_job_count"`
+}
+
+type EmploymentSectorJobCount struct {
+	ID           uint   `json:"id"`
+	Sector       string `json:"sector"`
+	OpenJobCount int64  `json:"open_job_count"`
+}
+
+type GenderJobCount struct {
+	ID           uint   `json:"id"`
+	GenderType   string `json:"gender_type"`
+	OpenJobCount int64  `json:"open_job_count"`
+}
+
+type VocationalEducationJobCount struct {
+	ID           uint   `json:"id"`
+	Level        string `json:"level"`
+	OpenJobCount int64  `json:"open_job_count"`
+}
+
+type FormalityYearlyJobCount struct {
+	ID             uint   `json:"id"`
+	FormalityType  string `json:"formality_type"`
+	OpenJobCount   int64  `json:"open_job_count"`
+}
+
+type GenderYearlyJobCount struct {
+	ID           uint   `json:"id"`
+	GenderType   string `json:"gender_type"`
+	OpenJobCount int64  `json:"open_job_count"`
+}
+
+type VocationalEducationYearlyJobCount struct {
+	ID           uint   `json:"id"`
+	Level        string `json:"level"`
+	OpenJobCount int64  `json:"open_job_count"`
+}
+
+type EmploymentSectorYearlyTrend struct {
+	Year         int   `json:"year"`
+	OpenJobCount int64 `json:"open_job_count"`
 }
 
 type TopEmployerByIndustryYear struct {

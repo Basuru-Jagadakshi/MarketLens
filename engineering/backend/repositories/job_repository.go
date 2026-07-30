@@ -1,6 +1,7 @@
 package repositories
 
 import (
+	"database/sql"
 	"errors"
 	"fmt"
 	"marketlens-go-backend/models"
@@ -95,7 +96,7 @@ func (r *JobRepository) BatchSaveNewJobs(jobs []models.JobPost, lshIndexRecords 
 		for i := range jobs {
 			job := &jobs[i]
 
-			// ── A. Employer (FirstOrCreate) ───────────────────────────────────
+			// Employer (FirstOrCreate)
 			if job.Employer != nil && job.Employer.Name != "" {
 				var employer models.Employer
 				if err := tx.Where(models.Employer{Name: job.Employer.Name}).
@@ -106,7 +107,7 @@ func (r *JobRepository) BatchSaveNewJobs(jobs []models.JobPost, lshIndexRecords 
 				job.Employer = nil
 			}
 
-			// ── B. JobType (FirstOrCreate) ────────────────────────────────────
+			// JobType (FirstOrCreate)
 			if job.JobType != nil && job.JobType.Type != "" {
 				var jt models.JobType
 				if err := tx.Where(models.JobType{Type: job.JobType.Type}).
@@ -117,7 +118,7 @@ func (r *JobRepository) BatchSaveNewJobs(jobs []models.JobPost, lshIndexRecords 
 				job.JobType = nil
 			}
 
-			// ── C. Skills (FirstOrCreate per skill) ───────────────────────────
+			// Skills (FirstOrCreate per skill)
 			var linkedSkills []models.Skill
 			for _, s := range job.Skills {
 				if s.Skill == "" {
@@ -132,7 +133,7 @@ func (r *JobRepository) BatchSaveNewJobs(jobs []models.JobPost, lshIndexRecords 
 			}
 			job.Skills = linkedSkills
 
-			// ── D. Geo (lookup only, no create) ───────────────────────────────
+			// Geo (lookup only, no create)
 			if job.MetaData.GeoData != nil && job.MetaData.GeoData.Province != "" {
 				var geo models.GeoData
 				err := tx.Where("province = ?", job.MetaData.GeoData.Province).
@@ -147,67 +148,67 @@ func (r *JobRepository) BatchSaveNewJobs(jobs []models.JobPost, lshIndexRecords 
 				job.MetaData.GeoData = nil
 			}
 
-			// ── E. Industry (lookup only, no create) ──────────────────────────
-			if job.MetaData.Industry != nil && job.MetaData.Industry.Name != "" {
-				var industry models.Industry
-				err := tx.Where("name = ?", job.MetaData.Industry.Name).
-					First(&industry).Error
-				if errors.Is(err, gorm.ErrRecordNotFound) {
-					return fmt.Errorf("job[%d] industry '%s' not registered",
-						i, job.MetaData.Industry.Name)
-				} else if err != nil {
-					return fmt.Errorf("job[%d] industry lookup failed: %w", i, err)
-				}
-				job.MetaData.IndustryID = &industry.ID
-				job.MetaData.Industry = nil
-			}
+			// Industry (lookup only, no create)
+			// if job.MetaData.Industry != nil && job.MetaData.Industry.Name != "" {
+			// 	var industry models.Industry
+			// 	err := tx.Where("name = ?", job.MetaData.Industry.Name).
+			// 		First(&industry).Error
+			// 	if errors.Is(err, gorm.ErrRecordNotFound) {
+			// 		return fmt.Errorf("job[%d] industry '%s' not registered",
+			// 			i, job.MetaData.Industry.Name)
+			// 	} else if err != nil {
+			// 		return fmt.Errorf("job[%d] industry lookup failed: %w", i, err)
+			// 	}
+			// 	job.MetaData.IndustryID = &industry.ID
+			// 	job.MetaData.Industry = nil
+			// }
 
-			// ── F. Occupation (lookup only, no create) ────────────────────────
-			if job.MetaData.Occupation != nil && job.MetaData.Occupation.Name != "" {
-				var occupation models.Occupation
-				err := tx.Where("name = ?", job.MetaData.Occupation.Name).
-					First(&occupation).Error
-				if errors.Is(err, gorm.ErrRecordNotFound) {
-					return fmt.Errorf("job[%d] occupation '%s' not registered",
-						i, job.MetaData.Occupation.Name)
-				} else if err != nil {
-					return fmt.Errorf("job[%d] occupation lookup failed: %w", i, err)
-				}
-				job.MetaData.OccupationID = &occupation.ID
-				job.MetaData.Occupation = nil
-			}
+			// Occupation (lookup only, no create)
+			// if job.MetaData.Occupation != nil && job.MetaData.Occupation.Name != "" {
+			// 	var occupation models.Occupation
+			// 	err := tx.Where("name = ?", job.MetaData.Occupation.Name).
+			// 		First(&occupation).Error
+			// 	if errors.Is(err, gorm.ErrRecordNotFound) {
+			// 		return fmt.Errorf("job[%d] occupation '%s' not registered",
+			// 			i, job.MetaData.Occupation.Name)
+			// 	} else if err != nil {
+			// 		return fmt.Errorf("job[%d] occupation lookup failed: %w", i, err)
+			// 	}
+			// 	job.MetaData.OccupationID = &occupation.ID
+			// 	job.MetaData.Occupation = nil
+			// }
 
-			// ── G. EducationLevel (lookup only, no create) ────────────────────
-			if job.MetaData.EducationLevel != nil && job.MetaData.EducationLevel.Level != "" {
-				var edu models.EducationLevel
-				err := tx.Where("level = ?", job.MetaData.EducationLevel.Level).
-					First(&edu).Error
-				if errors.Is(err, gorm.ErrRecordNotFound) {
-					return fmt.Errorf("job[%d] education_level '%s' not registered",
-						i, job.MetaData.EducationLevel.Level)
-				} else if err != nil {
-					return fmt.Errorf("job[%d] education_level lookup failed: %w", i, err)
-				}
-				job.MetaData.EducationLevelID = &edu.ID
-				job.MetaData.EducationLevel = nil
-			}
+			// EducationLevel (lookup only, no create)
+			// if job.MetaData.EducationLevel != nil && job.MetaData.EducationLevel.Level != "" {
+			// 	var edu models.EducationLevel
+			// 	err := tx.Where("level = ?", job.MetaData.EducationLevel.Level).
+			// 		First(&edu).Error
+			// 	if errors.Is(err, gorm.ErrRecordNotFound) {
+			// 		return fmt.Errorf("job[%d] education_level '%s' not registered",
+			// 			i, job.MetaData.EducationLevel.Level)
+			// 	} else if err != nil {
+			// 		return fmt.Errorf("job[%d] education_level lookup failed: %w", i, err)
+			// 	}
+			// 	job.MetaData.EducationLevelID = &edu.ID
+			// 	job.MetaData.EducationLevel = nil
+			// }
 
-			// ── H. Experience (lookup only, no create) ────────────────────────
-			if job.MetaData.Experience != nil && job.MetaData.Experience.Name != "" {
-				var exp models.Experience
-				err := tx.Where("name = ?", job.MetaData.Experience.Name).
-					First(&exp).Error
-				if errors.Is(err, gorm.ErrRecordNotFound) {
-					return fmt.Errorf("job[%d] experience '%s' not registered",
-						i, job.MetaData.Experience.Name)
-				} else if err != nil {
-					return fmt.Errorf("job[%d] experience lookup failed: %w", i, err)
-				}
-				job.MetaData.ExperienceID = &exp.ID
-				job.MetaData.Experience = nil
-			}
+			// Experience (lookup only, no create)
+			// if job.MetaData.Experience != nil && job.MetaData.Experience.Name != "" {
+			// 	var exp models.Experience
+			// 	err := tx.Where("name = ?", job.MetaData.Experience.Name).
+			// 		First(&exp).Error
+			// 	if errors.Is(err, gorm.ErrRecordNotFound) {
+			// 		return fmt.Errorf("job[%d] experience '%s' not registered",
+			// 			i, job.MetaData.Experience.Name)
+			// 	} else if err != nil {
+			// 		return fmt.Errorf("job[%d] experience lookup failed: %w", i, err)
+			// 	}
+			// 	job.MetaData.ExperienceID = &exp.ID
+			// 	job.MetaData.Experience = nil
+			// }
 
-			// ── I. Source (FirstOrCreate) ─────────────────────────────────────
+			// Source (FirstOrCreate)
 			if job.MetaData.Source != nil && job.MetaData.Source.Source != "" {
 				var source models.Source
 				if err := tx.Where(models.Source{Source: job.MetaData.Source.Source}).
@@ -218,7 +219,7 @@ func (r *JobRepository) BatchSaveNewJobs(jobs []models.JobPost, lshIndexRecords 
 				job.MetaData.Source = nil
 			}
 
-			// ── J. AiVersion (FirstOrCreate) ──────────────────────────────────
+			// AiVersion (FirstOrCreate)
 			if job.MetaData.AiVersion != nil && job.MetaData.AiVersion.Version != "" {
 				var av models.AiVersion
 				if err := tx.Where(models.AiVersion{Version: job.MetaData.AiVersion.Version}).
@@ -229,14 +230,14 @@ func (r *JobRepository) BatchSaveNewJobs(jobs []models.JobPost, lshIndexRecords 
 				job.MetaData.AiVersion = nil
 			}
 
-			// ── K. Save JobPost (cascades MetaData + join table) ──────────────
+			// Save JobPost (cascades MetaData + join table)
 			if err := tx.Create(job).Error; err != nil {
 				return fmt.Errorf("job[%d] insert failed: %w", i, err)
 			}
 			generatedJobIDs[i] = job.ID
 		}
 
-		// ── Map true DB IDs onto LSH records ──────────────────────────────────
+		// Map true DB IDs onto LSH records
 		for idx := range lshIndexRecords {
 			jobGroupIndex := idx / 8
 			trueID, exists := generatedJobIDs[jobGroupIndex]
@@ -246,7 +247,7 @@ func (r *JobRepository) BatchSaveNewJobs(jobs []models.JobPost, lshIndexRecords 
 			lshIndexRecords[idx].JobPostID = trueID
 		}
 
-		// ── Bulk insert LSH records ───────────────────────────────────────────
+		// Bulk insert LSH records
 		if len(lshIndexRecords) > 0 {
 			if err := tx.Omit("JobPost").CreateInBatches(&lshIndexRecords, 500).Error; err != nil {
 				return fmt.Errorf("lsh_index bulk insert failed: %w", err)
@@ -333,7 +334,7 @@ func (r *JobRepository) DeleteJob(id uint) (uint, error) {
 }
 
 //get active jobs by industry, province, experience, job type
-func (r *JobRepository) GetActiveJobs(industryID, geoDataID, jobTypeID, experienceID *uint) ([]models.JobPost, error) {
+func (r *JobRepository) GetActiveJobs(industryID, geoDataID, jobTypeID, experienceID *uint, limit, offset int) ([]models.JobPost, error) {
 	var jobs []models.JobPost
 
 	query := r.withFullPreloads().
@@ -341,7 +342,12 @@ func (r *JobRepository) GetActiveJobs(industryID, geoDataID, jobTypeID, experien
 		Where("meta_data.end_date IS NULL")
 
 	if industryID != nil {
-		query = query.Where("meta_data.industry_id = ?", *industryID)
+		query = query.
+			Joins("JOIN industry_subclass ON industry_subclass.id = meta_data.industry_subclass_id").
+			Joins("JOIN industry_class ON industry_class.id = industry_subclass.industry_class_id").
+			Joins("JOIN industry_group ON industry_group.id = industry_class.industry_group_id").
+			Joins("JOIN industry_division ON industry_division.id = industry_group.industry_division_id").
+			Where("industry_division.industry_sector_id = ?", *industryID)
 	}
 	if geoDataID != nil {
 		query = query.Where("meta_data.geo_data_id = ?", *geoDataID)
@@ -351,6 +357,14 @@ func (r *JobRepository) GetActiveJobs(industryID, geoDataID, jobTypeID, experien
 	}
 	if experienceID != nil {
 		query = query.Where("meta_data.experience_id = ?", *experienceID)
+	}
+
+	if limit > 0 {
+		query = query.Limit(limit)
+	}
+
+	if offset > 0 {
+		query = query.Offset(offset)
 	}
 
 	if err := query.Find(&jobs).Error; err != nil {
@@ -399,12 +413,38 @@ func (r *JobRepository) GetAllProvinces() ([]models.GeoData, error) {
 	return provinces, nil
 }
 
+// Job type CRUD
+func (r *JobRepository) CreateJobType(item *models.JobType) error {
+	return r.db.Create(item).Error
+}
+
 func (r *JobRepository) GetAllJobTypes() ([]models.JobType, error) {
 	var jobTypes []models.JobType
 	if err := r.db.Find(&jobTypes).Error; err != nil {
 		return nil, err
 	}
 	return jobTypes, nil
+}
+
+func (r *JobRepository) GetJobTypeByID(id uint) (models.JobType, error) {
+	var item models.JobType
+	err := r.db.First(&item, id).Error
+	return item, err
+}
+
+func (r *JobRepository) UpdateJobType(id uint, updates map[string]interface{}) (models.JobType, error) {
+	var item models.JobType
+	if err := r.db.First(&item, id).Error; err != nil {
+		return item, err
+	}
+	if err := r.db.Model(&item).Updates(updates).Error; err != nil {
+		return item, err
+	}
+	return item, nil
+}
+
+func (r *JobRepository) DeleteJobType(id uint) error {
+	return r.db.Delete(&models.JobType{}, id).Error
 }
 
 func (r *JobRepository) GetUniqueSkillsCountByIndustry(industryID uint) (int64, error) {
@@ -414,7 +454,11 @@ func (r *JobRepository) GetUniqueSkillsCountByIndustry(industryID uint) (int64, 
 		Joins("JOIN job_post_skills ON job_post_skills.skill_id = skills.id").
 		Joins("JOIN job_post ON job_post.id = job_post_skills.job_post_id").
 		Joins("JOIN meta_data ON meta_data.job_post_id = job_post.id").
-		Where("meta_data.industry_id = ? AND meta_data.end_date IS NULL", industryID).
+		Joins("JOIN industry_subclass ON industry_subclass.id = meta_data.industry_subclass_id").
+		Joins("JOIN industry_class ON industry_class.id = industry_subclass.industry_class_id").
+		Joins("JOIN industry_group ON industry_group.id = industry_class.industry_group_id").
+		Joins("JOIN industry_division ON industry_division.id = industry_group.industry_division_id").
+		Where("industry_division.industry_sector_id = ? AND meta_data.end_date IS NULL", industryID).
 		Count(&count).Error
 	return count, err
 }
@@ -422,11 +466,15 @@ func (r *JobRepository) GetUniqueSkillsCountByIndustry(industryID uint) (int64, 
 func (r *JobRepository) GetMostDemandingSkillByIndustry(industryID uint) (models.SkillDemand, error) {
 	var result models.SkillDemand
 	err := r.db.Table("skills").
-		Select("skills.id, skills.skill, COUNT(DISTINCT job_post.id) AS open_job_count").
+		Select("skills.id, skills.skill, SUM(job_post.no_of_vacancies) AS open_job_count").
 		Joins("JOIN job_post_skills ON job_post_skills.skill_id = skills.id").
 		Joins("JOIN job_post ON job_post.id = job_post_skills.job_post_id").
 		Joins("JOIN meta_data ON meta_data.job_post_id = job_post.id").
-		Where("meta_data.industry_id = ? AND meta_data.end_date IS NULL", industryID).
+		Joins("JOIN industry_subclass ON industry_subclass.id = meta_data.industry_subclass_id").
+		Joins("JOIN industry_class ON industry_class.id = industry_subclass.industry_class_id").
+		Joins("JOIN industry_group ON industry_group.id = industry_class.industry_group_id").
+		Joins("JOIN industry_division ON industry_division.id = industry_group.industry_division_id").
+		Where("industry_division.industry_sector_id = ? AND meta_data.end_date IS NULL", industryID).
 		Group("skills.id, skills.skill").
 		Order("open_job_count DESC").
 		Limit(1).
@@ -437,11 +485,15 @@ func (r *JobRepository) GetMostDemandingSkillByIndustry(industryID uint) (models
 func (r *JobRepository) GetTop15SkillsByIndustry(industryID uint) ([]models.SkillDemand, error) {
 	var results []models.SkillDemand
 	err := r.db.Table("skills").
-		Select("skills.id, skills.skill, COUNT(DISTINCT job_post.id) AS open_job_count").
+		Select("skills.id, skills.skill, SUM(job_post.no_of_vacancies) AS open_job_count").
 		Joins("JOIN job_post_skills ON job_post_skills.skill_id = skills.id").
 		Joins("JOIN job_post ON job_post.id = job_post_skills.job_post_id").
 		Joins("JOIN meta_data ON meta_data.job_post_id = job_post.id").
-		Where("meta_data.industry_id = ? AND meta_data.end_date IS NULL", industryID).
+		Joins("JOIN industry_subclass ON industry_subclass.id = meta_data.industry_subclass_id").
+		Joins("JOIN industry_class ON industry_class.id = industry_subclass.industry_class_id").
+		Joins("JOIN industry_group ON industry_group.id = industry_class.industry_group_id").
+		Joins("JOIN industry_division ON industry_division.id = industry_group.industry_division_id").
+		Where("industry_division.industry_sector_id = ? AND meta_data.end_date IS NULL", industryID).
 		Group("skills.id, skills.skill").
 		Order("open_job_count DESC").
 		Limit(15).
@@ -452,11 +504,15 @@ func (r *JobRepository) GetTop15SkillsByIndustry(industryID uint) ([]models.Skil
 func (r *JobRepository) GetAllSkillsByIndustry(industryID uint) ([]models.SkillDemand, error) {
 	var results []models.SkillDemand
 	err := r.db.Table("skills").
-		Select("skills.id, skills.skill, COUNT(DISTINCT job_post.id) AS open_job_count").
+		Select("skills.id, skills.skill, SUM(job_post.no_of_vacancies) AS open_job_count").
 		Joins("JOIN job_post_skills ON job_post_skills.skill_id = skills.id").
 		Joins("JOIN job_post ON job_post.id = job_post_skills.job_post_id").
 		Joins("JOIN meta_data ON meta_data.job_post_id = job_post.id").
-		Where("meta_data.industry_id = ? AND meta_data.end_date IS NULL", industryID).
+		Joins("JOIN industry_subclass ON industry_subclass.id = meta_data.industry_subclass_id").
+		Joins("JOIN industry_class ON industry_class.id = industry_subclass.industry_class_id").
+		Joins("JOIN industry_group ON industry_group.id = industry_class.industry_group_id").
+		Joins("JOIN industry_division ON industry_division.id = industry_group.industry_division_id").
+		Where("industry_division.industry_sector_id = ? AND meta_data.end_date IS NULL", industryID).
 		Group("skills.id, skills.skill").
 		Order("open_job_count DESC").
 		Scan(&results).Error
@@ -466,10 +522,14 @@ func (r *JobRepository) GetAllSkillsByIndustry(industryID uint) ([]models.SkillD
 func (r *JobRepository) GetTopHiringEmployersByIndustry(industryID uint) ([]models.EmployerDemand, error) {
 	var results []models.EmployerDemand
 	err := r.db.Table("employer").
-		Select("employer.id, employer.name, COUNT(DISTINCT job_post.id) AS open_job_count").
+		Select("employer.id, employer.name, SUM(job_post.no_of_vacancies) AS open_job_count").
 		Joins("JOIN job_post ON job_post.employer_id = employer.id").
 		Joins("JOIN meta_data ON meta_data.job_post_id = job_post.id").
-		Where("meta_data.industry_id = ? AND meta_data.end_date IS NULL", industryID).
+		Joins("JOIN industry_subclass ON industry_subclass.id = meta_data.industry_subclass_id").
+		Joins("JOIN industry_class ON industry_class.id = industry_subclass.industry_class_id").
+		Joins("JOIN industry_group ON industry_group.id = industry_class.industry_group_id").
+		Joins("JOIN industry_division ON industry_division.id = industry_group.industry_division_id").
+		Where("industry_division.industry_sector_id = ? AND meta_data.end_date IS NULL", industryID).
 		Group("employer.id, employer.name").
 		Order("open_job_count DESC").
 		Limit(5).
@@ -492,9 +552,19 @@ func (r *JobRepository) GetLastCrawledJobCount() (int64, error) {
 	}
 
 	// Count job posts created under that crawler run
-	err := r.db.Model(&models.JobMetaData{}).
-		Where("crawler_run_id = ?", lastRun.ID).
-		Count(&count).Error
+	var totalVacancies sql.NullInt64
+	err := r.db.Table("meta_data").
+		Select("SUM(job_post.no_of_vacancies)").
+		Joins("JOIN job_post ON job_post.id = meta_data.job_post_id").
+		Where("meta_data.crawler_run_id = ?", lastRun.ID).
+		Scan(&totalVacancies).Error
+	if err != nil {
+		return 0, err
+	}
+
+	if totalVacancies.Valid {
+		count = totalVacancies.Int64
+	}
 
 	return count, err
 }
@@ -527,7 +597,7 @@ func (r *JobRepository) GetSourcesWithActiveJobCount() ([]models.SourceJobCount,
 	var results []models.SourceJobCount
 
 	err := r.db.Table("source").
-		Select("source.id, source.source, COUNT(DISTINCT job_post.id) AS open_job_count").
+		Select("source.id, source.source, SUM(job_post.no_of_vacancies) AS open_job_count").
 		Joins("JOIN meta_data ON meta_data.source_id = source.id").
 		Joins("JOIN job_post ON job_post.id = meta_data.job_post_id").
 		Where("meta_data.end_date IS NULL").
@@ -542,6 +612,7 @@ func (r *JobRepository) GetAllCrawlerRuns() ([]models.CrawlerRun, error) {
 	var runs []models.CrawlerRun
 
 	err := r.db.Order("created_at DESC").
+		Limit(5).
 		Find(&runs).Error
 
 	return runs, err
@@ -572,17 +643,29 @@ func (r *JobRepository) GetActiveJobCountWithTrend() (models.JobCountWithTrend, 
 	firstDayLastMonth := firstDayThisMonth.AddDate(0, -1, 0)
 
 	// Current active job count
-	if err := r.db.Model(&models.JobMetaData{}).
-		Where("end_date IS NULL").
-		Count(&currentCount).Error; err != nil {
+	var currentVacancies sql.NullInt64
+	if err := r.db.Table("meta_data").
+		Select("SUM(job_post.no_of_vacancies)").
+		Joins("JOIN job_post ON job_post.id = meta_data.job_post_id").
+		Where("meta_data.end_date IS NULL").
+		Scan(&currentVacancies).Error; err != nil {
 		return models.JobCountWithTrend{}, err
+	}
+	if currentVacancies.Valid {
+		currentCount = currentVacancies.Int64
 	}
 
 	// Last month active job count — jobs that were active during last month window
-	if err := r.db.Model(&models.JobMetaData{}).
-		Where("posted_at >= ? AND posted_at < ?", firstDayLastMonth, firstDayThisMonth).
-		Count(&lastMonthCount).Error; err != nil {
+	var lastMonthVacancies sql.NullInt64
+	if err := r.db.Table("meta_data").
+		Select("SUM(job_post.no_of_vacancies)").
+		Joins("JOIN job_post ON job_post.id = meta_data.job_post_id").
+		Where("meta_data.posted_at >= ? AND meta_data.posted_at < ?", firstDayLastMonth, firstDayThisMonth).
+		Scan(&lastMonthVacancies).Error; err != nil {
 		return models.JobCountWithTrend{}, err
+	}
+	if lastMonthVacancies.Valid {
+		lastMonthCount = lastMonthVacancies.Int64
 	}
 
 	var changePercent float64
@@ -618,11 +701,15 @@ func (r *JobRepository) GetActiveJobCountWithTrend() (models.JobCountWithTrend, 
 func (r *JobRepository) GetActiveJobCountByOccupation() ([]models.OccupationJobCount, error) {
 	var results []models.OccupationJobCount
 
-	err := r.db.Table("occupation").
-		Select("occupation.id, occupation.name, COALESCE(COUNT(DISTINCT job_post.id), 0) AS open_job_count").
-		Joins("LEFT JOIN meta_data ON meta_data.occupation_id = occupation.id AND meta_data.end_date IS NULL").
+	err := r.db.Table("major_group").
+		Select("major_group.id, major_group.name, COALESCE(SUM(job_post.no_of_vacancies), 0) AS open_job_count").
+		Joins("LEFT JOIN sub_major_group ON sub_major_group.major_group_id = major_group.id").
+		Joins("LEFT JOIN minor_group ON minor_group.sub_major_group_id = sub_major_group.id").
+		Joins("LEFT JOIN unit_group ON unit_group.minor_group_id = minor_group.id").
+		Joins("LEFT JOIN occupation_group ON occupation_group.unit_group_id = unit_group.id").
+		Joins("LEFT JOIN meta_data ON meta_data.occupation_group_id = occupation_group.id AND meta_data.end_date IS NULL").
 		Joins("LEFT JOIN job_post ON job_post.id = meta_data.job_post_id").
-		Group("occupation.id, occupation.name").
+		Group("major_group.id, major_group.name").
 		Order("open_job_count DESC").
 		Scan(&results).Error
 
@@ -632,11 +719,15 @@ func (r *JobRepository) GetActiveJobCountByOccupation() ([]models.OccupationJobC
 func (r *JobRepository) GetActiveJobCountByIndustry() ([]models.IndustryJobCount, error) {
 	var results []models.IndustryJobCount
 
-	err := r.db.Table("industry").
-		Select("industry.id, industry.name, COALESCE(COUNT(DISTINCT job_post.id), 0) AS open_job_count").
-		Joins("LEFT JOIN meta_data ON meta_data.industry_id = industry.id AND meta_data.end_date IS NULL").
+	err := r.db.Table("industry_sector").
+		Select("industry_sector.id, industry_sector.name, COALESCE(SUM(job_post.no_of_vacancies), 0) AS open_job_count").
+		Joins("LEFT JOIN industry_division ON industry_division.industry_sector_id = industry_sector.id").
+		Joins("LEFT JOIN industry_group ON industry_group.industry_division_id = industry_division.id").
+		Joins("LEFT JOIN industry_class ON industry_class.industry_group_id = industry_group.id").
+		Joins("LEFT JOIN industry_subclass ON industry_subclass.industry_class_id = industry_class.id").
+		Joins("LEFT JOIN meta_data ON meta_data.industry_subclass_id = industry_subclass.id AND meta_data.end_date IS NULL").
 		Joins("LEFT JOIN job_post ON job_post.id = meta_data.job_post_id").
-		Group("industry.id, industry.name").
+		Group("industry_sector.id, industry_sector.name").
 		Order("open_job_count DESC").
 		Scan(&results).Error
 
@@ -647,7 +738,7 @@ func (r *JobRepository) GetActiveJobCountByExperience() ([]models.ExperienceJobC
 	var results []models.ExperienceJobCount
 
 	err := r.db.Table("experience").
-		Select("experience.id, experience.name, COALESCE(COUNT(DISTINCT job_post.id), 0) AS open_job_count").
+		Select("experience.id, experience.name, COALESCE(SUM(job_post.no_of_vacancies), 0) AS open_job_count").
 		Joins("LEFT JOIN meta_data ON meta_data.experience_id = experience.id AND meta_data.end_date IS NULL").
 		Joins("LEFT JOIN job_post ON job_post.id = meta_data.job_post_id").
 		Group("experience.id, experience.name").
@@ -661,10 +752,66 @@ func (r *JobRepository) GetActiveJobCountByEducationLevel() ([]models.EducationL
 	var results []models.EducationLevelJobCount
 
 	err := r.db.Table("education_level").
-		Select("education_level.id, education_level.level, COALESCE(COUNT(DISTINCT job_post.id), 0) AS open_job_count").
+		Select("education_level.id, education_level.level, COALESCE(SUM(job_post.no_of_vacancies), 0) AS open_job_count").
 		Joins("LEFT JOIN meta_data ON meta_data.education_level_id = education_level.id AND meta_data.end_date IS NULL").
 		Joins("LEFT JOIN job_post ON job_post.id = meta_data.job_post_id").
 		Group("education_level.id, education_level.level").
+		Order("open_job_count DESC").
+		Scan(&results).Error
+
+	return results, err
+}
+
+func (r *JobRepository) GetActiveJobCountByFormality() ([]models.FormalityJobCount, error) {
+	var results []models.FormalityJobCount
+
+	err := r.db.Table("formality").
+		Select("formality.id, formality.formality_type, COALESCE(SUM(job_post.no_of_vacancies), 0) AS open_job_count").
+		Joins("LEFT JOIN meta_data ON meta_data.formality_id = formality.id AND meta_data.end_date IS NULL").
+		Joins("LEFT JOIN job_post ON job_post.id = meta_data.job_post_id").
+		Group("formality.id, formality.formality_type").
+		Order("open_job_count DESC").
+		Scan(&results).Error
+
+	return results, err
+}
+
+func (r *JobRepository) GetActiveJobCountByEmploymentSector() ([]models.EmploymentSectorJobCount, error) {
+	var results []models.EmploymentSectorJobCount
+
+	err := r.db.Table("employment_sector").
+		Select("employment_sector.id, employment_sector.sector, COALESCE(SUM(job_post.no_of_vacancies), 0) AS open_job_count").
+		Joins("LEFT JOIN meta_data ON meta_data.employment_sector_id = employment_sector.id AND meta_data.end_date IS NULL").
+		Joins("LEFT JOIN job_post ON job_post.id = meta_data.job_post_id").
+		Group("employment_sector.id, employment_sector.sector").
+		Order("open_job_count DESC").
+		Scan(&results).Error
+
+	return results, err
+}
+
+func (r *JobRepository) GetActiveJobCountByGender() ([]models.GenderJobCount, error) {
+	var results []models.GenderJobCount
+
+	err := r.db.Table("gender").
+		Select("gender.id, gender.gender_type, COALESCE(SUM(job_post.no_of_vacancies), 0) AS open_job_count").
+		Joins("LEFT JOIN meta_data ON meta_data.gender_id = gender.id AND meta_data.end_date IS NULL").
+		Joins("LEFT JOIN job_post ON job_post.id = meta_data.job_post_id").
+		Group("gender.id, gender.gender_type").
+		Order("open_job_count DESC").
+		Scan(&results).Error
+
+	return results, err
+}
+
+func (r *JobRepository) GetActiveJobCountByVocationalEducation() ([]models.VocationalEducationJobCount, error) {
+	var results []models.VocationalEducationJobCount
+
+	err := r.db.Table("vocational_education").
+		Select("vocational_education.id, vocational_education.level, COALESCE(SUM(job_post.no_of_vacancies), 0) AS open_job_count").
+		Joins("LEFT JOIN meta_data ON meta_data.vocational_education_id = vocational_education.id AND meta_data.end_date IS NULL").
+		Joins("LEFT JOIN job_post ON job_post.id = meta_data.job_post_id").
+		Group("vocational_education.id, vocational_education.level").
 		Order("open_job_count DESC").
 		Scan(&results).Error
 
@@ -681,7 +828,7 @@ func (r *JobRepository) GetRemoteVsOnSiteCount() (models.RemoteOnSiteCount, erro
 	var rows []row
 
 	err := r.db.Table("job_post").
-		Select("job_post.is_remote, COUNT(DISTINCT job_post.id) AS count").
+		Select("job_post.is_remote, SUM(job_post.no_of_vacancies) AS count").
 		Joins("JOIN meta_data ON meta_data.job_post_id = job_post.id").
 		Where("meta_data.end_date IS NULL").
 		Group("job_post.is_remote").
@@ -706,7 +853,7 @@ func (r *JobRepository) GetActiveJobCountByJobType() ([]models.JobTypeJobCount, 
 	var results []models.JobTypeJobCount
 
 	err := r.db.Table("job_type").
-		Select("job_type.id, job_type.type, COUNT(DISTINCT job_post.id) AS open_job_count").
+		Select("job_type.id, job_type.type, SUM(job_post.no_of_vacancies) AS open_job_count").
 		Joins("JOIN job_post ON job_post.job_type_id = job_type.id").
 		Joins("JOIN meta_data ON meta_data.job_post_id = job_post.id").
 		Where("meta_data.end_date IS NULL").
@@ -724,9 +871,13 @@ func (r *JobRepository) GetYearlyJobTrendByOccupation(occupationID uint) ([]mode
 	startOfTwoYearsAgo := time.Date(now.Year()-2, time.January, 1, 0, 0, 0, 0, now.Location())
 
 	err := r.db.Table("job_post").
-		Select("EXTRACT(YEAR FROM meta_data.posted_at)::int AS year, COUNT(DISTINCT job_post.id) AS open_job_count").
+		Select("EXTRACT(YEAR FROM meta_data.posted_at)::int AS year, SUM(job_post.no_of_vacancies) AS open_job_count").
 		Joins("JOIN meta_data ON meta_data.job_post_id = job_post.id").
-		Where("meta_data.occupation_id = ? AND meta_data.posted_at IS NOT NULL AND meta_data.posted_at >= ?", occupationID, startOfTwoYearsAgo).
+		Joins("JOIN occupation_group ON occupation_group.id = meta_data.occupation_group_id").
+		Joins("JOIN unit_group ON unit_group.id = occupation_group.unit_group_id").
+		Joins("JOIN minor_group ON minor_group.id = unit_group.minor_group_id").
+		Joins("JOIN sub_major_group ON sub_major_group.id = minor_group.sub_major_group_id").
+		Where("sub_major_group.major_group_id = ? AND meta_data.posted_at IS NOT NULL AND meta_data.posted_at >= ?", occupationID, startOfTwoYearsAgo).
 		Group("EXTRACT(YEAR FROM meta_data.posted_at)").
 		Order("year ASC").
 		Scan(&results).Error
@@ -734,14 +885,54 @@ func (r *JobRepository) GetYearlyJobTrendByOccupation(occupationID uint) ([]mode
 	return results, err
 }
 
-func (r *JobRepository) GetTop3JobRolesByOccupation(occupationID uint) ([]models.TopJobRole, error) {
+func (r *JobRepository) GetJobCountByFormalityForOccupationAndYear(occupationID uint, year int) ([]models.FormalityYearlyJobCount, error) {
+	var results []models.FormalityYearlyJobCount
+
+	err := r.db.Table("formality").
+		Select("formality.id, formality.formality_type, COALESCE(SUM(job_post.no_of_vacancies), 0) AS open_job_count").
+		Joins("LEFT JOIN meta_data ON meta_data.formality_id = formality.id AND EXTRACT(YEAR FROM meta_data.posted_at) = ?", year).
+		Joins("LEFT JOIN occupation_group ON occupation_group.id = meta_data.occupation_group_id").
+		Joins("LEFT JOIN unit_group ON unit_group.id = occupation_group.unit_group_id").
+		Joins("LEFT JOIN minor_group ON minor_group.id = unit_group.minor_group_id").
+		Joins("LEFT JOIN sub_major_group ON sub_major_group.id = minor_group.sub_major_group_id").
+		Joins("LEFT JOIN job_post ON job_post.id = meta_data.job_post_id AND sub_major_group.major_group_id = ?", occupationID).
+		Group("formality.id, formality.formality_type").
+		Order("open_job_count DESC").
+		Scan(&results).Error
+
+	return results, err
+}
+
+func (r *JobRepository) GetJobCountByGenderForOccupationAndYear(occupationID uint, year int) ([]models.GenderYearlyJobCount, error) {
+	var results []models.GenderYearlyJobCount
+
+	err := r.db.Table("gender").
+		Select("gender.id, gender.gender_type, COALESCE(SUM(job_post.no_of_vacancies), 0) AS open_job_count").
+		Joins("LEFT JOIN meta_data ON meta_data.gender_id = gender.id AND EXTRACT(YEAR FROM meta_data.posted_at) = ?", year).
+		Joins("LEFT JOIN occupation_group ON occupation_group.id = meta_data.occupation_group_id").
+		Joins("LEFT JOIN unit_group ON unit_group.id = occupation_group.unit_group_id").
+		Joins("LEFT JOIN minor_group ON minor_group.id = unit_group.minor_group_id").
+		Joins("LEFT JOIN sub_major_group ON sub_major_group.id = minor_group.sub_major_group_id").
+		Joins("LEFT JOIN job_post ON job_post.id = meta_data.job_post_id AND sub_major_group.major_group_id = ?", occupationID).
+		Group("gender.id, gender.gender_type").
+		Order("open_job_count DESC").
+		Scan(&results).Error
+
+	return results, err
+}
+
+func (r *JobRepository) GetTop3JobRolesByOccupationAndYear(occupationID uint, year int) ([]models.TopJobRole, error) {
 	var results []models.TopJobRole
 
-	err := r.db.Table("job_post").
-		Select("job_post.job_role, COUNT(DISTINCT job_post.id) AS open_job_count").
-		Joins("JOIN meta_data ON meta_data.job_post_id = job_post.id").
-		Where("meta_data.occupation_id = ? AND meta_data.end_date IS NULL", occupationID).
-		Group("job_post.job_role").
+	err := r.db.Table("occupation_group").
+		Select("occupation_group.id, occupation_group.name, SUM(job_post.no_of_vacancies) AS open_job_count").
+		Joins("JOIN unit_group ON unit_group.id = occupation_group.unit_group_id").
+		Joins("JOIN minor_group ON minor_group.id = unit_group.minor_group_id").
+		Joins("JOIN sub_major_group ON sub_major_group.id = minor_group.sub_major_group_id").
+		Joins("JOIN meta_data ON meta_data.occupation_group_id = occupation_group.id").
+		Joins("JOIN job_post ON job_post.id = meta_data.job_post_id").
+		Where("sub_major_group.major_group_id = ? AND meta_data.end_date IS NULL AND EXTRACT(YEAR FROM meta_data.posted_at) = ?", occupationID, year).
+		Group("occupation_group.id, occupation_group.name").
 		Order("open_job_count DESC").
 		Limit(3).
 		Scan(&results).Error
@@ -756,9 +947,13 @@ func (r *JobRepository) GetYearlyJobTrendByIndustry(industryID uint) ([]models.I
 	startOfTwoYearsAgo := time.Date(now.Year()-2, time.January, 1, 0, 0, 0, 0, now.Location())
 
 	err := r.db.Table("job_post").
-		Select("EXTRACT(YEAR FROM meta_data.posted_at)::int AS year, COUNT(DISTINCT job_post.id) AS open_job_count").
+		Select("EXTRACT(YEAR FROM meta_data.posted_at)::int AS year, SUM(job_post.no_of_vacancies) AS open_job_count").
 		Joins("JOIN meta_data ON meta_data.job_post_id = job_post.id").
-		Where("meta_data.industry_id = ? AND meta_data.posted_at IS NOT NULL AND meta_data.posted_at >= ?", industryID, startOfTwoYearsAgo).
+		Joins("JOIN industry_subclass ON industry_subclass.id = meta_data.industry_subclass_id").
+		Joins("JOIN industry_class ON industry_class.id = industry_subclass.industry_class_id").
+		Joins("JOIN industry_group ON industry_group.id = industry_class.industry_group_id").
+		Joins("JOIN industry_division ON industry_division.id = industry_group.industry_division_id").
+		Where("industry_division.industry_sector_id = ? AND meta_data.posted_at IS NOT NULL AND meta_data.posted_at >= ?", industryID, startOfTwoYearsAgo).
 		Group("EXTRACT(YEAR FROM meta_data.posted_at)").
 		Order("year ASC").
 		Scan(&results).Error
@@ -770,9 +965,13 @@ func (r *JobRepository) GetJobCountByExperienceForIndustryAndYear(industryID uin
 	var results []models.ExperienceYearlyJobCount
 
 	err := r.db.Table("experience").
-		Select("experience.id, experience.name, COALESCE(COUNT(DISTINCT job_post.id), 0) AS open_job_count").
-		Joins("LEFT JOIN meta_data ON meta_data.experience_id = experience.id AND meta_data.industry_id = ? AND EXTRACT(YEAR FROM meta_data.posted_at) = ?", industryID, year).
-		Joins("LEFT JOIN job_post ON job_post.id = meta_data.job_post_id").
+		Select("experience.id, experience.name, COALESCE(SUM(job_post.no_of_vacancies), 0) AS open_job_count").
+		Joins("LEFT JOIN meta_data ON meta_data.experience_id = experience.id AND EXTRACT(YEAR FROM meta_data.posted_at) = ?", year).
+		Joins("LEFT JOIN industry_subclass ON industry_subclass.id = meta_data.industry_subclass_id").
+		Joins("LEFT JOIN industry_class ON industry_class.id = industry_subclass.industry_class_id").
+		Joins("LEFT JOIN industry_group ON industry_group.id = industry_class.industry_group_id").
+		Joins("LEFT JOIN industry_division ON industry_division.id = industry_group.industry_division_id").
+		Joins("LEFT JOIN job_post ON job_post.id = meta_data.job_post_id AND industry_division.industry_sector_id = ?", industryID).
 		Group("experience.id, experience.name").
 		Order("open_job_count DESC").
 		Scan(&results).Error
@@ -784,9 +983,13 @@ func (r *JobRepository) GetProvinceWiseJobCountForIndustryAndYear(industryID uin
 	var results []models.ProvinceJobCount
 
 	err := r.db.Table("geo_data").
-		Select("geo_data.id, geo_data.province, geo_data.latitude, geo_data.longitude, COALESCE(COUNT(DISTINCT job_post.id), 0) AS open_job_count").
-		Joins("LEFT JOIN meta_data ON meta_data.geo_data_id = geo_data.id AND meta_data.industry_id = ? AND EXTRACT(YEAR FROM meta_data.posted_at) = ?", industryID, year).
-		Joins("LEFT JOIN job_post ON job_post.id = meta_data.job_post_id").
+		Select("geo_data.id, geo_data.province, geo_data.latitude, geo_data.longitude, COALESCE(SUM(job_post.no_of_vacancies), 0) AS open_job_count").
+		Joins("LEFT JOIN meta_data ON meta_data.geo_data_id = geo_data.id AND EXTRACT(YEAR FROM meta_data.posted_at) = ?", year).
+		Joins("LEFT JOIN industry_subclass ON industry_subclass.id = meta_data.industry_subclass_id").
+		Joins("LEFT JOIN industry_class ON industry_class.id = industry_subclass.industry_class_id").
+		Joins("LEFT JOIN industry_group ON industry_group.id = industry_class.industry_group_id").
+		Joins("LEFT JOIN industry_division ON industry_division.id = industry_group.industry_division_id").
+		Joins("LEFT JOIN job_post ON job_post.id = meta_data.job_post_id AND industry_division.industry_sector_id = ?", industryID).
 		Group("geo_data.id, geo_data.province, geo_data.latitude, geo_data.longitude").
 		Order("open_job_count DESC").
 		Scan(&results).Error
@@ -798,10 +1001,32 @@ func (r *JobRepository) GetJobCountByEducationLevelForIndustryAndYear(industryID
 	var results []models.EducationLevelYearlyJobCount
 
 	err := r.db.Table("education_level").
-		Select("education_level.id, education_level.level, COALESCE(COUNT(DISTINCT job_post.id), 0) AS open_job_count").
-		Joins("LEFT JOIN meta_data ON meta_data.education_level_id = education_level.id AND meta_data.industry_id = ? AND EXTRACT(YEAR FROM meta_data.posted_at) = ?", industryID, year).
-		Joins("LEFT JOIN job_post ON job_post.id = meta_data.job_post_id").
+		Select("education_level.id, education_level.level, COALESCE(SUM(job_post.no_of_vacancies), 0) AS open_job_count").
+		Joins("LEFT JOIN meta_data ON meta_data.education_level_id = education_level.id AND EXTRACT(YEAR FROM meta_data.posted_at) = ?", year).
+		Joins("LEFT JOIN industry_subclass ON industry_subclass.id = meta_data.industry_subclass_id").
+		Joins("LEFT JOIN industry_class ON industry_class.id = industry_subclass.industry_class_id").
+		Joins("LEFT JOIN industry_group ON industry_group.id = industry_class.industry_group_id").
+		Joins("LEFT JOIN industry_division ON industry_division.id = industry_group.industry_division_id").
+		Joins("LEFT JOIN job_post ON job_post.id = meta_data.job_post_id AND industry_division.industry_sector_id = ?", industryID).
 		Group("education_level.id, education_level.level").
+		Order("open_job_count DESC").
+		Scan(&results).Error
+
+	return results, err
+}
+
+func (r *JobRepository) GetJobCountByVocationalEducationForIndustryAndYear(industryID uint, year int) ([]models.VocationalEducationYearlyJobCount, error) {
+	var results []models.VocationalEducationYearlyJobCount
+
+	err := r.db.Table("vocational_education").
+		Select("vocational_education.id, vocational_education.level, COALESCE(SUM(job_post.no_of_vacancies), 0) AS open_job_count").
+		Joins("LEFT JOIN meta_data ON meta_data.vocational_education_id = vocational_education.id AND EXTRACT(YEAR FROM meta_data.posted_at) = ?", year).
+		Joins("LEFT JOIN industry_subclass ON industry_subclass.id = meta_data.industry_subclass_id").
+		Joins("LEFT JOIN industry_class ON industry_class.id = industry_subclass.industry_class_id").
+		Joins("LEFT JOIN industry_group ON industry_group.id = industry_class.industry_group_id").
+		Joins("LEFT JOIN industry_division ON industry_division.id = industry_group.industry_division_id").
+		Joins("LEFT JOIN job_post ON job_post.id = meta_data.job_post_id AND industry_division.industry_sector_id = ?", industryID).
+		Group("vocational_education.id, vocational_education.level").
 		Order("open_job_count DESC").
 		Scan(&results).Error
 
@@ -812,14 +1037,655 @@ func (r *JobRepository) GetTopHiringEmployersForIndustryAndYear(industryID uint,
 	var results []models.TopEmployerByIndustryYear
 
 	err := r.db.Table("employer").
-		Select("employer.id, employer.name, COUNT(DISTINCT job_post.id) AS open_job_count").
+		Select("employer.id, employer.name, SUM(job_post.no_of_vacancies) AS open_job_count").
 		Joins("JOIN job_post ON job_post.employer_id = employer.id").
 		Joins("JOIN meta_data ON meta_data.job_post_id = job_post.id").
-		Where("meta_data.industry_id = ? AND EXTRACT(YEAR FROM meta_data.posted_at) = ?", industryID, year).
+		Joins("JOIN industry_subclass ON industry_subclass.id = meta_data.industry_subclass_id").
+		Joins("JOIN industry_class ON industry_class.id = industry_subclass.industry_class_id").
+		Joins("JOIN industry_group ON industry_group.id = industry_class.industry_group_id").
+		Joins("JOIN industry_division ON industry_division.id = industry_group.industry_division_id").
+		Where("industry_division.industry_sector_id = ? AND EXTRACT(YEAR FROM meta_data.posted_at) = ?", industryID, year).
 		Group("employer.id, employer.name").
 		Order("open_job_count DESC").
 		Limit(10).
 		Scan(&results).Error
 
 	return results, err
+}
+
+// Employment sector analytics
+func (r *JobRepository) GetYearlyTrendByEmploymentSector(employmentSectorID uint) ([]models.EmploymentSectorYearlyTrend, error) {
+	var results []models.EmploymentSectorYearlyTrend
+
+	now := time.Now()
+	startOfTwoYearsAgo := time.Date(now.Year()-2, time.January, 1, 0, 0, 0, 0, now.Location())
+
+	err := r.db.Table("job_post").
+		Select("EXTRACT(YEAR FROM meta_data.posted_at)::int AS year, SUM(job_post.no_of_vacancies) AS open_job_count").
+		Joins("JOIN meta_data ON meta_data.job_post_id = job_post.id").
+		Where("meta_data.employment_sector_id = ? AND meta_data.posted_at IS NOT NULL AND meta_data.posted_at >= ?", employmentSectorID, startOfTwoYearsAgo).
+		Group("EXTRACT(YEAR FROM meta_data.posted_at)").
+		Order("year ASC").
+		Scan(&results).Error
+
+	return results, err
+}
+
+// Methods need to multi level filtering in the Crawler
+// Occupation levels by parent ids
+func (r *JobRepository) GetSubMajorGroupsByMajorGroup(majorGroupID uint) ([]models.SubMajorGroup, error) {
+	var items []models.SubMajorGroup
+	err := r.db.Where("major_group_id = ?", majorGroupID).Find(&items).Error
+	return items, err
+}
+
+func (r *JobRepository) GetMinorGroupsBySubMajorGroup(subMajorGroupID uint) ([]models.MinorGroup, error) {
+	var items []models.MinorGroup
+	err := r.db.Where("sub_major_group_id = ?", subMajorGroupID).Find(&items).Error
+	return items, err
+}
+
+func (r *JobRepository) GetUnitGroupsByMinorGroup(minorGroupID uint) ([]models.UnitGroup, error) {
+	var items []models.UnitGroup
+	err := r.db.Where("minor_group_id = ?", minorGroupID).Find(&items).Error
+	return items, err
+}
+
+func (r *JobRepository) GetOccupationGroupsByUnitGroup(unitGroupID uint) ([]models.OccupationGroup, error) {
+	var items []models.OccupationGroup
+	err := r.db.Where("unit_group_id = ?", unitGroupID).Find(&items).Error
+	return items, err
+}
+
+// Industry levels by parent ids
+func (r *JobRepository) GetIndustryDivisionsByIndustrySector(industrySectorID uint) ([]models.IndustryDivision, error) {
+	var items []models.IndustryDivision
+	err := r.db.Where("industry_sector_id = ?", industrySectorID).Find(&items).Error
+	return items, err
+}
+
+func (r *JobRepository) GetIndustryGroupsByIndustryDivision(industryDivisionID uint) ([]models.IndustryGroup, error) {
+	var items []models.IndustryGroup
+	err := r.db.Where("industry_division_id = ?", industryDivisionID).Find(&items).Error
+	return items, err
+}
+
+func (r *JobRepository) GetIndustryClassesByIndustryGroup(industryGroupID uint) ([]models.IndustryClass, error) {
+	var items []models.IndustryClass
+	err := r.db.Where("industry_group_id = ?", industryGroupID).Find(&items).Error
+	return items, err
+}
+
+func (r *JobRepository) GetIndustrySubclassesByIndustryClass(industryClassID uint) ([]models.IndustrySubclass, error) {
+	var items []models.IndustrySubclass
+	err := r.db.Where("industry_class_id = ?", industryClassID).Find(&items).Error
+	return items, err
+}
+
+// CRUD for database entities
+// Geo data CRUD
+func (r *JobRepository) CreateGeoData(item *models.GeoData) error {
+	return r.db.Create(item).Error
+}
+
+func (r *JobRepository) GetAllGeoData() ([]models.GeoData, error) {
+	var items []models.GeoData
+	err := r.db.Find(&items).Error
+	return items, err
+}
+
+func (r *JobRepository) GetGeoDataByID(id uint) (models.GeoData, error) {
+	var item models.GeoData
+	err := r.db.First(&item, id).Error
+	return item, err
+}
+
+func (r *JobRepository) UpdateGeoData(id uint, updates map[string]interface{}) (models.GeoData, error) {
+	var item models.GeoData
+	if err := r.db.First(&item, id).Error; err != nil {
+		return item, err
+	}
+	if err := r.db.Model(&item).Updates(updates).Error; err != nil {
+		return item, err
+	}
+	return item, nil
+}
+
+func (r *JobRepository) DeleteGeoData(id uint) error {
+	return r.db.Delete(&models.GeoData{}, id).Error
+}
+
+// Education level CRUD
+func (r *JobRepository) CreateEducationLevel(item *models.EducationLevel) error {
+	return r.db.Create(item).Error
+}
+
+func (r *JobRepository) GetAllEducationLevels() ([]models.EducationLevel, error) {
+	var items []models.EducationLevel
+	err := r.db.Find(&items).Error
+	return items, err
+}
+
+func (r *JobRepository) GetEducationLevelByID(id uint) (models.EducationLevel, error) {
+	var item models.EducationLevel
+	err := r.db.First(&item, id).Error
+	return item, err
+}
+
+func (r *JobRepository) UpdateEducationLevel(id uint, updates map[string]interface{}) (models.EducationLevel, error) {
+	var item models.EducationLevel
+	if err := r.db.First(&item, id).Error; err != nil {
+		return item, err
+	}
+	if err := r.db.Model(&item).Updates(updates).Error; err != nil {
+		return item, err
+	}
+	return item, nil
+}
+
+func (r *JobRepository) DeleteEducationLevel(id uint) error {
+	return r.db.Delete(&models.EducationLevel{}, id).Error
+}
+
+// Formality CRUD
+func (r *JobRepository) CreateFormality(item *models.Formality) error {
+	return r.db.Create(item).Error
+}
+ 
+func (r *JobRepository) GetAllFormalities() ([]models.Formality, error) {
+	var items []models.Formality
+	err := r.db.Find(&items).Error
+	return items, err
+}
+ 
+func (r *JobRepository) GetFormalityByID(id uint) (models.Formality, error) {
+	var item models.Formality
+	err := r.db.First(&item, id).Error
+	return item, err
+}
+ 
+func (r *JobRepository) UpdateFormality(id uint, updates map[string]interface{}) (models.Formality, error) {
+	var item models.Formality
+	if err := r.db.First(&item, id).Error; err != nil {
+		return item, err
+	}
+	if err := r.db.Model(&item).Updates(updates).Error; err != nil {
+		return item, err
+	}
+	return item, nil
+}
+ 
+func (r *JobRepository) DeleteFormality(id uint) error {
+	return r.db.Delete(&models.Formality{}, id).Error
+}
+
+// Gender CRUD
+func (r *JobRepository) CreateGender(item *models.Gender) error {
+	return r.db.Create(item).Error
+}
+
+func (r *JobRepository) GetAllGenders() ([]models.Gender, error) {
+	var items []models.Gender
+	err := r.db.Find(&items).Error
+	return items, err
+}
+ 
+func (r *JobRepository) GetGenderByID(id uint) (models.Gender, error) {
+	var item models.Gender
+	err := r.db.First(&item, id).Error
+	return item, err
+}
+ 
+func (r *JobRepository) UpdateGender(id uint, updates map[string]interface{}) (models.Gender, error) {
+	var item models.Gender
+	if err := r.db.First(&item, id).Error; err != nil {
+		return item, err
+	}
+	if err := r.db.Model(&item).Updates(updates).Error; err != nil {
+		return item, err
+	}
+	return item, nil
+}
+ 
+func (r *JobRepository) DeleteGender(id uint) error {
+	return r.db.Delete(&models.Gender{}, id).Error
+}
+
+// Employment Sector CRUD
+func (r *JobRepository) CreateEmploymentSector(item *models.EmploymentSector) error {
+	return r.db.Create(item).Error
+}
+ 
+func (r *JobRepository) GetAllEmploymentSectors() ([]models.EmploymentSector, error) {
+	var items []models.EmploymentSector
+	err := r.db.Find(&items).Error
+	return items, err
+}
+ 
+func (r *JobRepository) GetEmploymentSectorByID(id uint) (models.EmploymentSector, error) {
+	var item models.EmploymentSector
+	err := r.db.First(&item, id).Error
+	return item, err
+}
+ 
+func (r *JobRepository) UpdateEmploymentSector(id uint, updates map[string]interface{}) (models.EmploymentSector, error) {
+	var item models.EmploymentSector
+	if err := r.db.First(&item, id).Error; err != nil {
+		return item, err
+	}
+	if err := r.db.Model(&item).Updates(updates).Error; err != nil {
+		return item, err
+	}
+	return item, nil
+}
+ 
+func (r *JobRepository) DeleteEmploymentSector(id uint) error {
+	return r.db.Delete(&models.EmploymentSector{}, id).Error
+}
+
+// Vocational Education CRUD
+func (r *JobRepository) CreateVocationalEducation(item *models.VocationalEducation) error {
+	return r.db.Create(item).Error
+}
+ 
+func (r *JobRepository) GetAllVocationalEducations() ([]models.VocationalEducation, error) {
+	var items []models.VocationalEducation
+	err := r.db.Find(&items).Error
+	return items, err
+}
+ 
+func (r *JobRepository) GetVocationalEducationByID(id uint) (models.VocationalEducation, error) {
+	var item models.VocationalEducation
+	err := r.db.First(&item, id).Error
+	return item, err
+}
+ 
+func (r *JobRepository) UpdateVocationalEducation(id uint, updates map[string]interface{}) (models.VocationalEducation, error) {
+	var item models.VocationalEducation
+	if err := r.db.First(&item, id).Error; err != nil {
+		return item, err
+	}
+	if err := r.db.Model(&item).Updates(updates).Error; err != nil {
+		return item, err
+	}
+	return item, nil
+}
+ 
+func (r *JobRepository) DeleteVocationalEducation(id uint) error {
+	return r.db.Delete(&models.VocationalEducation{}, id).Error
+}
+
+// Experience CRUD
+func (r *JobRepository) CreateExperience(item *models.Experience) error {
+	return r.db.Create(item).Error
+}
+ 
+func (r *JobRepository) GetExperienceByID(id uint) (models.Experience, error) {
+	var item models.Experience
+	err := r.db.First(&item, id).Error
+	return item, err
+}
+ 
+func (r *JobRepository) UpdateExperience(id uint, updates map[string]interface{}) (models.Experience, error) {
+	var item models.Experience
+	if err := r.db.First(&item, id).Error; err != nil {
+		return item, err
+	}
+	if err := r.db.Model(&item).Updates(updates).Error; err != nil {
+		return item, err
+	}
+	return item, nil
+}
+ 
+func (r *JobRepository) DeleteExperience(id uint) error {
+	return r.db.Delete(&models.Experience{}, id).Error
+}
+
+// Major Group CRUD
+func (r *JobRepository) CreateMajorGroup(item *models.MajorGroup) error {
+	return r.db.Create(item).Error
+}
+ 
+func (r *JobRepository) GetAllMajorGroups() ([]models.MajorGroup, error) {
+	var items []models.MajorGroup
+	err := r.db.Find(&items).Error
+	return items, err
+}
+ 
+func (r *JobRepository) GetMajorGroupByID(id uint) (models.MajorGroup, error) {
+	var item models.MajorGroup
+	err := r.db.First(&item, id).Error
+	return item, err
+}
+ 
+func (r *JobRepository) UpdateMajorGroup(id uint, updates map[string]interface{}) (models.MajorGroup, error) {
+	var item models.MajorGroup
+	if err := r.db.First(&item, id).Error; err != nil {
+		return item, err
+	}
+	if err := r.db.Model(&item).Updates(updates).Error; err != nil {
+		return item, err
+	}
+	return item, nil
+}
+ 
+func (r *JobRepository) DeleteMajorGroup(id uint) error {
+	return r.db.Delete(&models.MajorGroup{}, id).Error
+}
+
+// Sub Major Group CRUD
+func (r *JobRepository) CreateSubMajorGroup(item *models.SubMajorGroup) error {
+	return r.db.Create(item).Error
+}
+ 
+func (r *JobRepository) GetAllSubMajorGroups() ([]models.SubMajorGroup, error) {
+	var items []models.SubMajorGroup
+	err := r.db.Preload("MajorGroup").Find(&items).Error
+	return items, err
+}
+ 
+func (r *JobRepository) GetSubMajorGroupByID(id uint) (models.SubMajorGroup, error) {
+	var item models.SubMajorGroup
+	err := r.db.Preload("MajorGroup").First(&item, id).Error
+	return item, err
+}
+ 
+func (r *JobRepository) UpdateSubMajorGroup(id uint, updates map[string]interface{}) (models.SubMajorGroup, error) {
+	var item models.SubMajorGroup
+	if err := r.db.First(&item, id).Error; err != nil {
+		return item, err
+	}
+	if err := r.db.Model(&item).Updates(updates).Error; err != nil {
+		return item, err
+	}
+	return item, nil
+}
+ 
+func (r *JobRepository) DeleteSubMajorGroup(id uint) error {
+	return r.db.Delete(&models.SubMajorGroup{}, id).Error
+}
+
+// Minor Group CRUD
+func (r *JobRepository) CreateMinorGroup(item *models.MinorGroup) error {
+	return r.db.Create(item).Error
+}
+ 
+func (r *JobRepository) GetAllMinorGroups() ([]models.MinorGroup, error) {
+	var items []models.MinorGroup
+	err := r.db.Preload("SubMajorGroup").Find(&items).Error
+	return items, err
+}
+ 
+func (r *JobRepository) GetMinorGroupByID(id uint) (models.MinorGroup, error) {
+	var item models.MinorGroup
+	err := r.db.Preload("SubMajorGroup").First(&item, id).Error
+	return item, err
+}
+ 
+func (r *JobRepository) UpdateMinorGroup(id uint, updates map[string]interface{}) (models.MinorGroup, error) {
+	var item models.MinorGroup
+	if err := r.db.First(&item, id).Error; err != nil {
+		return item, err
+	}
+	if err := r.db.Model(&item).Updates(updates).Error; err != nil {
+		return item, err
+	}
+	return item, nil
+}
+ 
+func (r *JobRepository) DeleteMinorGroup(id uint) error {
+	return r.db.Delete(&models.MinorGroup{}, id).Error
+}
+
+// Unit Group CRUD
+func (r *JobRepository) CreateUnitGroup(item *models.UnitGroup) error {
+	return r.db.Create(item).Error
+}
+ 
+func (r *JobRepository) GetAllUnitGroups() ([]models.UnitGroup, error) {
+	var items []models.UnitGroup
+	err := r.db.Preload("MinorGroup").Find(&items).Error
+	return items, err
+}
+ 
+func (r *JobRepository) GetUnitGroupByID(id uint) (models.UnitGroup, error) {
+	var item models.UnitGroup
+	err := r.db.Preload("MinorGroup").First(&item, id).Error
+	return item, err
+}
+ 
+func (r *JobRepository) UpdateUnitGroup(id uint, updates map[string]interface{}) (models.UnitGroup, error) {
+	var item models.UnitGroup
+	if err := r.db.First(&item, id).Error; err != nil {
+		return item, err
+	}
+	if err := r.db.Model(&item).Updates(updates).Error; err != nil {
+		return item, err
+	}
+	return item, nil
+}
+ 
+func (r *JobRepository) DeleteUnitGroup(id uint) error {
+	return r.db.Delete(&models.UnitGroup{}, id).Error
+}
+
+// Ocation Group CRUD
+func (r *JobRepository) CreateOccupationGroup(item *models.OccupationGroup) error {
+	return r.db.Create(item).Error
+}
+ 
+func (r *JobRepository) GetAllOccupationGroups(limit, offset int) ([]models.OccupationGroup, int64, error) {
+	var items []models.OccupationGroup
+	var total int64
+
+	if err := r.db.Model(&models.OccupationGroup{}).Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	query := r.db.Preload("UnitGroup")
+	if limit > 0 {
+		query = query.Limit(limit)
+	}
+	if offset > 0 {
+		query = query.Offset(offset)
+	}
+
+	err := query.Order("id ASC").Find(&items).Error
+
+	return items, total, err
+}
+ 
+func (r *JobRepository) GetOccupationGroupByID(id uint) (models.OccupationGroup, error) {
+	var item models.OccupationGroup
+	err := r.db.Preload("UnitGroup").First(&item, id).Error
+	return item, err
+}
+ 
+func (r *JobRepository) UpdateOccupationGroup(id uint, updates map[string]interface{}) (models.OccupationGroup, error) {
+	var item models.OccupationGroup
+	if err := r.db.First(&item, id).Error; err != nil {
+		return item, err
+	}
+	if err := r.db.Model(&item).Updates(updates).Error; err != nil {
+		return item, err
+	}
+	return item, nil
+}
+ 
+func (r *JobRepository) DeleteOccupationGroup(id uint) error {
+	return r.db.Delete(&models.OccupationGroup{}, id).Error
+}
+
+// Industry sector CRUD
+func (r *JobRepository) CreateIndustrySector(item *models.IndustrySector) error {
+	return r.db.Create(item).Error
+}
+ 
+func (r *JobRepository) GetAllIndustrySectors() ([]models.IndustrySector, error) {
+	var items []models.IndustrySector
+	err := r.db.Find(&items).Error
+	return items, err
+}
+ 
+func (r *JobRepository) GetIndustrySectorByID(id uint) (models.IndustrySector, error) {
+	var item models.IndustrySector
+	err := r.db.First(&item, id).Error
+	return item, err
+}
+ 
+func (r *JobRepository) UpdateIndustrySector(id uint, updates map[string]interface{}) (models.IndustrySector, error) {
+	var item models.IndustrySector
+	if err := r.db.First(&item, id).Error; err != nil {
+		return item, err
+	}
+	if err := r.db.Model(&item).Updates(updates).Error; err != nil {
+		return item, err
+	}
+	return item, nil
+}
+ 
+func (r *JobRepository) DeleteIndustrySector(id uint) error {
+	return r.db.Delete(&models.IndustrySector{}, id).Error
+}
+
+// Industry division CRUD
+func (r *JobRepository) CreateIndustryDivision(item *models.IndustryDivision) error {
+	return r.db.Create(item).Error
+}
+ 
+func (r *JobRepository) GetAllIndustryDivisions() ([]models.IndustryDivision, error) {
+	var items []models.IndustryDivision
+	err := r.db.Preload("IndustrySector").Find(&items).Error
+	return items, err
+}
+ 
+func (r *JobRepository) GetIndustryDivisionByID(id uint) (models.IndustryDivision, error) {
+	var item models.IndustryDivision
+	err := r.db.Preload("IndustrySector").First(&item, id).Error
+	return item, err
+}
+ 
+func (r *JobRepository) UpdateIndustryDivision(id uint, updates map[string]interface{}) (models.IndustryDivision, error) {
+	var item models.IndustryDivision
+	if err := r.db.First(&item, id).Error; err != nil {
+		return item, err
+	}
+	if err := r.db.Model(&item).Updates(updates).Error; err != nil {
+		return item, err
+	}
+	return item, nil
+}
+ 
+func (r *JobRepository) DeleteIndustryDivision(id uint) error {
+	return r.db.Delete(&models.IndustryDivision{}, id).Error
+}
+
+// Industry group CRUD
+func (r *JobRepository) CreateIndustryGroup(item *models.IndustryGroup) error {
+	return r.db.Create(item).Error
+}
+ 
+func (r *JobRepository) GetAllIndustryGroups() ([]models.IndustryGroup, error) {
+	var items []models.IndustryGroup
+	err := r.db.Preload("IndustryDivision").Find(&items).Error
+	return items, err
+}
+ 
+func (r *JobRepository) GetIndustryGroupByID(id uint) (models.IndustryGroup, error) {
+	var item models.IndustryGroup
+	err := r.db.Preload("IndustryDivision").First(&item, id).Error
+	return item, err
+}
+ 
+func (r *JobRepository) UpdateIndustryGroup(id uint, updates map[string]interface{}) (models.IndustryGroup, error) {
+	var item models.IndustryGroup
+	if err := r.db.First(&item, id).Error; err != nil {
+		return item, err
+	}
+	if err := r.db.Model(&item).Updates(updates).Error; err != nil {
+		return item, err
+	}
+	return item, nil
+}
+ 
+func (r *JobRepository) DeleteIndustryGroup(id uint) error {
+	return r.db.Delete(&models.IndustryGroup{}, id).Error
+}
+
+// Industry class CRUD
+func (r *JobRepository) CreateIndustryClass(item *models.IndustryClass) error {
+	return r.db.Create(item).Error
+}
+ 
+func (r *JobRepository) GetAllIndustryClasses() ([]models.IndustryClass, error) {
+	var items []models.IndustryClass
+	err := r.db.Preload("IndustryGroup").Find(&items).Error
+	return items, err
+}
+ 
+func (r *JobRepository) GetIndustryClassByID(id uint) (models.IndustryClass, error) {
+	var item models.IndustryClass
+	err := r.db.Preload("IndustryGroup").First(&item, id).Error
+	return item, err
+}
+ 
+func (r *JobRepository) UpdateIndustryClass(id uint, updates map[string]interface{}) (models.IndustryClass, error) {
+	var item models.IndustryClass
+	if err := r.db.First(&item, id).Error; err != nil {
+		return item, err
+	}
+	if err := r.db.Model(&item).Updates(updates).Error; err != nil {
+		return item, err
+	}
+	return item, nil
+}
+ 
+func (r *JobRepository) DeleteIndustryClass(id uint) error {
+	return r.db.Delete(&models.IndustryClass{}, id).Error
+}
+
+// Industry sub class CRUD
+func (r *JobRepository) CreateIndustrySubclass(item *models.IndustrySubclass) error {
+	return r.db.Create(item).Error
+}
+ 
+func (r *JobRepository) GetAllIndustrySubclasses(limit, offset int) ([]models.IndustrySubclass, int64, error) {
+	var items []models.IndustrySubclass
+	var total int64
+
+	if err := r.db.Model(&models.IndustrySubclass{}).Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	query := r.db.Preload("IndustryClass")
+	if limit > 0 {
+		query = query.Limit(limit)
+	}
+	if offset > 0 {
+		query = query.Offset(offset)
+	}
+
+	err := query.Order("id ASC").Find(&items).Error
+	return items, total, err
+}
+ 
+func (r *JobRepository) GetIndustrySubclassByID(id uint) (models.IndustrySubclass, error) {
+	var item models.IndustrySubclass
+	err := r.db.Preload("IndustryClass").First(&item, id).Error
+	return item, err
+}
+ 
+func (r *JobRepository) UpdateIndustrySubclass(id uint, updates map[string]interface{}) (models.IndustrySubclass, error) {
+	var item models.IndustrySubclass
+	if err := r.db.First(&item, id).Error; err != nil {
+		return item, err
+	}
+	if err := r.db.Model(&item).Updates(updates).Error; err != nil {
+		return item, err
+	}
+	return item, nil
+}
+ 
+func (r *JobRepository) DeleteIndustrySubclass(id uint) error {
+	return r.db.Delete(&models.IndustrySubclass{}, id).Error
 }
