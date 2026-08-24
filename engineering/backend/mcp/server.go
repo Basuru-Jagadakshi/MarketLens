@@ -46,6 +46,7 @@ func New(repo *repositories.JobRepository) *mcp.Server {
 	registerAnalysisTools(server, repo)
 	registerStatsTools(server, repo)
 	registerCrawlerTools(server, repo)
+	registerManualUploadTools(server)
 
 	return server
 }

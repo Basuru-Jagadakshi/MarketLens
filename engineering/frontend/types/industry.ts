@@ -84,7 +84,7 @@ export interface Industry {
 
 export interface IndustryListResponse {
   count:      number;
-  industries: Industry[];
+  industry_sectors: Industry[];
 }
 
 export interface SkillDemand {

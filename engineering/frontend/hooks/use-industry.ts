@@ -20,6 +20,14 @@ async function fetchJson<T>(url: string): Promise<T> {
   return res.json();
 }
 
+export function useIndustrySctors() {
+  return useQuery<IndustryListResponse>({
+    queryKey: ["industry", "sectors"],
+    queryFn: () => fetchJson(`${BASE}/industry/industry-sectors`),
+    staleTime: Infinity
+  })
+}
+
 export function useIndustryDivisions(industrySectorId: number | null) {
   return useQuery<IndustryDivisionChildrenResponse>({
     queryKey: ["industry", "industry-divisions", industrySectorId],

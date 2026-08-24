@@ -12,7 +12,7 @@ const navigation = [
   { name: "KPIs", href: "/kpis", icon: GaugeIcon },
   // { name: "Crawling Details", href: "/crawling-details", icon: ScanSearchIcon },
   // { name: "Regional View", href: "/regions", icon: MapPinIcon },
-  { name: "Forecasting", href: "/forecasting", icon: TrendingUpIcon },
+  // { name: "Forecasting", href: "/forecasting", icon: TrendingUpIcon },
   // { name: "Agent Management", href: "/agents", icon: BotIcon },
   // { name: "Settings", href: "/settings", icon: SettingsIcon },
 ];

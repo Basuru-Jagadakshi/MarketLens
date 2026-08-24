@@ -16,6 +16,7 @@ import {
   Bar,
 } from "recharts";
 import {
+  useIndustrySctors,
   useIndustryDivisions,
   useIndustryGroups,
   useIndustryClasses,
@@ -60,7 +61,6 @@ const tooltipLabelStyle = { color: "#a1a1aa", fontWeight: 600 };
 const barCursor = { fill: "#f4f4f5" };
 
 const DATE_RANGE_STORAGE_KEY = "lmis-date-range:v2";
-const IND_SECTORS_STORAGE_KEY = "lmis-industry-sectors";
 
 type IndustryLevel =
   | "industry-sector"
@@ -86,23 +86,6 @@ const MAX_LEVELS = LEVELS.length;
 
 interface PathNode extends HierarchyNode {
   level: IndustryLevel;
-}
-
-interface StoredIndustrySector {
-  id: number;
-  name: string;
-  open_job_count: number;
-}
-
-function readStoredIndustrySectors(): StoredIndustrySector[] {
-  try {
-    const raw = sessionStorage.getItem(IND_SECTORS_STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return parsed.sectors ?? [];
-  } catch {
-    return [];
-  }
 }
 
 const toISO = (dt: Date) => dt.toISOString().slice(0, 10);
@@ -212,13 +195,16 @@ function IndustryAnalysis() {
   const [path, setPath] = useState<PathNode[]>([]);
   const [viewMode, setViewMode] = useState<"chart" | "table">("chart");
 
-  const [industrySectors, setIndustrySectors] = useState<
-    StoredIndustrySector[]
-  >([]);
-
-  useEffect(() => {
-    setIndustrySectors(readStoredIndustrySectors());
-  }, []);
+  const industrySectorsQuery = useIndustrySctors();
+  const industrySectors = useMemo<HierarchyNode[]>(
+    () =>
+      (industrySectorsQuery.data?.industry_sectors ?? []).map((s) => ({
+        id: s.id,
+        name: s.name,
+        code: "",
+      })),
+    [industrySectorsQuery.data],
+  );
 
   useEffect(() => {
     if (path.length === 0 && industrySectors.length > 0) {
@@ -237,11 +223,7 @@ function IndustryAnalysis() {
   function optionsForLevel(levelIndex: number): HierarchyNode[] {
     switch (levelIndex) {
       case 0:
-        return industrySectors.map((s) => ({
-          id: s.id,
-          name: s.name,
-          code: "",
-        }));
+        return industrySectors;
       case 1:
         return industryDivisionsQuery.data?.industry_divisions ?? [];
       case 2:
@@ -258,7 +240,7 @@ function IndustryAnalysis() {
   function isLevelLoading(levelIndex: number): boolean {
     switch (levelIndex) {
       case 0:
-        return false; // sessionStorage read is synchronous
+        return industrySectorsQuery.isLoading;
       case 1:
         return industryDivisionsQuery.isLoading;
       case 2:
@@ -297,7 +279,7 @@ function IndustryAnalysis() {
   const deepest = path[path.length - 1] ?? null;
   const deepestLevelIndex = path.length - 1;
   const rangeInvalid = fromDate > toDate;
-  const isInitializing = path.length === 0 && industrySectors.length === 0;
+  const isInitializing = industrySectorsQuery.isLoading;
 
   const {
     data: analysis,
@@ -492,10 +474,16 @@ function IndustryAnalysis() {
 
           {isInitializing ? (
             <p className="text-xs text-zinc-400">Loading industry sectors...</p>
+          ) : industrySectorsQuery.isError ? (
+            <p className="text-xs text-red-500 font-bold">
+              Failed to load industry sectors
+              {industrySectorsQuery.error instanceof Error
+                ? `: ${industrySectorsQuery.error.message}`
+                : "."}
+            </p>
           ) : industrySectors.length === 0 ? (
-            <p className="text-xs text-amber-600 font-bold">
-              No industry data found — please visit the Dashboard page first to
-              load the classification data.
+            <p className="text-xs text-zinc-400">
+              No industry sectors available.
             </p>
           ) : (
             <div className="flex flex-wrap items-end gap-2">
