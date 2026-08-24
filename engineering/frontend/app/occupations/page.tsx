@@ -16,6 +16,7 @@ import {
   Bar,
 } from "recharts";
 import {
+  useMajorGroup,
   useSubMajorGroups,
   useMinorGroups,
   useUnitGroups,
@@ -61,7 +62,6 @@ const tooltipLabelStyle = { color: "#a1a1aa", fontWeight: 600 };
 const barCursor = { fill: "#f4f4f5" };
 
 const DATE_RANGE_STORAGE_KEY = "lmis-date-range:v2";
-const OCC_GROUPS_STORAGE_KEY = "lmis-occupation-groups";
 
 type OccupationLevel =
   | "major-group"
@@ -87,23 +87,6 @@ const MAX_LEVELS = LEVELS.length;
 
 interface PathNode extends HierarchyNode {
   level: OccupationLevel;
-}
-
-interface StoredOccGroup {
-  id: number;
-  name: string;
-  open_job_count: number;
-}
-
-function readStoredMajorGroups(): StoredOccGroup[] {
-  try {
-    const raw = sessionStorage.getItem(OCC_GROUPS_STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return parsed.groups ?? [];
-  } catch {
-    return [];
-  }
 }
 
 const toISO = (dt: Date) => dt.toISOString().slice(0, 10);
@@ -216,17 +199,22 @@ function OccupationAnalysis() {
   );
   const [viewMode, setViewMode] = useState<"chart" | "table">("chart");
 
-  const [majorGroups, setMajorGroups] = useState<StoredOccGroup[]>([]);
-
-  useEffect(() => {
-    setMajorGroups(readStoredMajorGroups());
-  }, []);
+  const majorGroupQuery = useMajorGroup();
+  const majorGroups = useMemo(
+    () => majorGroupQuery.data?.major_groups ?? [],
+    [majorGroupQuery.data],
+  );
 
   useEffect(() => {
     if (path.length === 0 && majorGroups.length > 0) {
       const first = majorGroups[0];
       setPath([
-        { id: first.id, name: first.name, code: "", level: "major-group" },
+        {
+          id: first.id,
+          name: first.name,
+          code: first.code ?? "",
+          level: "major-group",
+        },
       ]);
     }
   }, [path.length, majorGroups]);
@@ -239,7 +227,7 @@ function OccupationAnalysis() {
   function optionsForLevel(levelIndex: number): HierarchyNode[] {
     switch (levelIndex) {
       case 0:
-        return majorGroups.map((g) => ({ id: g.id, name: g.name, code: "" }));
+        return majorGroups;
       case 1:
         return subMajorGroupsQuery.data?.sub_major_groups ?? [];
       case 2:
@@ -256,7 +244,7 @@ function OccupationAnalysis() {
   function isLevelLoading(levelIndex: number): boolean {
     switch (levelIndex) {
       case 0:
-        return false;
+        return majorGroupQuery.isLoading;
       case 1:
         return subMajorGroupsQuery.isLoading;
       case 2:
@@ -295,7 +283,7 @@ function OccupationAnalysis() {
   const deepest = path[path.length - 1] ?? null;
   const deepestLevelIndex = path.length - 1;
   const rangeInvalid = fromDate > toDate;
-  const isInitializing = path.length === 0 && majorGroups.length === 0;
+  const isInitializing = majorGroupQuery.isLoading;
 
   const {
     data: analysis,
@@ -525,10 +513,16 @@ function OccupationAnalysis() {
             <p className="text-xs text-zinc-400">
               Loading occupation groups...
             </p>
+          ) : majorGroupQuery.isError ? (
+            <p className="text-xs text-red-500 font-bold">
+              Failed to load occupation groups
+              {majorGroupQuery.error instanceof Error
+                ? `: ${majorGroupQuery.error.message}`
+                : "."}
+            </p>
           ) : majorGroups.length === 0 ? (
-            <p className="text-xs text-amber-600 font-bold">
-              No occupation data found — please visit the Dashboard page first
-              to load the classification data.
+            <p className="text-xs text-zinc-400">
+              No occupation groups available.
             </p>
           ) : (
             <div className="flex flex-wrap items-end gap-2">

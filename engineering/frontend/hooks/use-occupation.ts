@@ -80,6 +80,14 @@ export function useOccupationAnalysis(
   });
 }
 
+export function useMajorGroup() {
+  return useQuery<MajorGroupListResponse>({
+    queryKey: ["occupation", "major-groups"],
+    queryFn: () => fetchJson(`${BASE}/occupation/major-groups`),
+    staleTime: Infinity
+  })
+}
+
 export function useSubMajorGroups(majorGroupId: number | null) {
   return useQuery<SubMajorGroupChildrenResponse>({
     queryKey: ["occupation", "sub-major-groups", majorGroupId],

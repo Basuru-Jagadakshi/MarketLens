@@ -20,4 +20,8 @@ func registerCrawlerTools(server *mcp.Server, repo *repositories.JobRepository) 
 	registerNoArgTool(server, "get_crawler_runs",
 		"List the most recent crawler runs with their status.",
 		func() (any, error) { return repo.GetAllCrawlerRuns() })
+
+	registerNoArgTool(server, "get_sources",
+		"Get the sources with their crawled active job count.",
+		func() (any, error) {return repo.GetSourcesWithActiveJobCount() })
 }
