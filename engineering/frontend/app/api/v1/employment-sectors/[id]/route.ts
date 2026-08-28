@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getAccessToken } from '@/lib/token';
 
 const GO_API = process.env.GO_BACKEND_URL;
 
@@ -40,6 +41,11 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const token = await getAccessToken()
+  if (!token) {
+    return NextResponse.json({ error: 'Please sign in first' }, { status: 401 })
+  }
+
   const { id } = await params;
   const goUrl = `${GO_API}/employment-sectors/${id}`;
 
@@ -48,7 +54,7 @@ export async function PUT(
 
     const response = await fetch(goUrl, {
       method: "PUT",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`,  },
       body: JSON.stringify(body),
     });
 
@@ -80,11 +86,19 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const token = await getAccessToken()
+  if (!token) {
+    return NextResponse.json({ error: 'Please sign in first' }, { status: 401 })
+  }
+
   const { id } = await params;
   const goUrl = `${GO_API}/employment-sectors/${id}`;
 
   try {
-    const response = await fetch(goUrl, { method: "DELETE" });
+    const response = await fetch(goUrl, { 
+      method: "DELETE", 
+      headers: { Authorization: `Bearer ${token}` }
+    });
     const data = await response.json();
 
     if (!response.ok) {

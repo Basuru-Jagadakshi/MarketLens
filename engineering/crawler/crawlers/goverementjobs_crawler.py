@@ -15,6 +15,7 @@ from PIL import Image
 from playwright.async_api import async_playwright
 from crawlers.base_crawler import BaseJobCrawler
 from utils.dedup_utils import JobDuplicationCheck
+from utils.thunder_id_client import ThunderIDClient 
 from parsers.goverementjobs_parser import GoverementJobsParser
 from utils.occupation_classifier import OccupationClassifier
 from utils.industry_classifier import IndustryClassifier
@@ -35,6 +36,7 @@ class GoverementJobsCrawler(BaseJobCrawler):
         self._parser = GoverementJobsParser()
         self.duplication_checker = JobDuplicationCheck()
         self.async_client = httpx.AsyncClient()
+        self._thunder_client = ThunderIDClient() 
 
     def _remove_sinhala_control_chars(self, text):
         cleaned_text = text.replace('\u200c', '').replace('\u200d', '')
@@ -59,8 +61,8 @@ class GoverementJobsCrawler(BaseJobCrawler):
             soup = BeautifulSoup(result.html, 'html.parser')
 
             pagination_text = soup.select_one('.category-results .paginate').text
-            #total_pages = int(pagination_text.split()[-1])
-            total_pages = 2
+            total_pages = int(pagination_text.split()[-1])
+            #total_pages = 1
             print(total_pages)
             
             for page_num in range(1, total_pages + 1):
@@ -126,6 +128,13 @@ class GoverementJobsCrawler(BaseJobCrawler):
     ) -> None:
 
         logger.info("Goverement jobs crawl started.")
+
+        try:
+            token = await self._thunder_client.get_access_token()
+        except Exception as e:
+            logger.error(f"Failed to obtain ThunderID access token: {e}")
+            raise
+        auth_headers = {"Authorization": f"Bearer {token}"}  
         
         job_data_list = await self._fetch_job_details()
 
@@ -157,6 +166,7 @@ class GoverementJobsCrawler(BaseJobCrawler):
                 BACKEND_BASE_URL,
                 lsh_indexes,
                 minhash_sig,
+                auth_headers,
                 incoming_location=temp_payload.get("location", ""),
             )
 
@@ -168,7 +178,7 @@ class GoverementJobsCrawler(BaseJobCrawler):
                 })
 
                 if len(updated_jobs_buffer) >= BATCH_SIZE:
-                    await async_client.post(f"{BACKEND_BASE_URL}/jobs/batch-update", json={"duplicates": updated_jobs_buffer})
+                    await async_client.post(f"{BACKEND_BASE_URL}/jobs/batch-update", json={"duplicates": updated_jobs_buffer}, headers=auth_headers,)
                     updated_jobs_buffer.clear()
             else:
                 logger.info(f"Unique entry found. Calling LLM to parse entire schema")
@@ -200,19 +210,19 @@ class GoverementJobsCrawler(BaseJobCrawler):
 
                 if len(new_jobs_buffer) >= BATCH_SIZE:
                     payload = {"new_jobs": new_jobs_buffer, "lsh_indexes": lsh_index_buffer}
-                    await async_client.post(f"{BACKEND_BASE_URL}/jobs/batch-save", json=payload)
+                    await async_client.post(f"{BACKEND_BASE_URL}/jobs/batch-save", json=payload, headers=auth_headers,)
                     new_jobs_buffer.clear()
                     lsh_index_buffer.clear()
 
         if updated_jobs_buffer:
             logger.info(f"Flushing remaining {len(updated_jobs_buffer)} update records to backend.")
-            await async_client.post(f"{BACKEND_BASE_URL}/jobs/batch-update", json={"duplicates": updated_jobs_buffer})
+            await async_client.post(f"{BACKEND_BASE_URL}/jobs/batch-update", json={"duplicates": updated_jobs_buffer}, headers=auth_headers,)
             updated_jobs_buffer.clear()
 
         if new_jobs_buffer:
             logger.info(f"Flushing remaining {len(new_jobs_buffer)} insertion records to backend.")
             payload = {"new_jobs": new_jobs_buffer, "lsh_indexes": lsh_index_buffer}
-            await async_client.post(f"{BACKEND_BASE_URL}/jobs/batch-save", json=payload)
+            await async_client.post(f"{BACKEND_BASE_URL}/jobs/batch-save", json=payload, headers=auth_headers,)
             new_jobs_buffer.clear()
             lsh_index_buffer.clear()
 

@@ -15,6 +15,7 @@ from crawlers.goverementjobs_crawler import GoverementJobsCrawler
 from utils.schema_builder import MetadataSchemaBuilder
 from utils.occupation_classifier import OccupationClassifier
 from utils.industry_classifier import IndustryClassifier
+from utils.thunder_id_client import ThunderIDClient
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -29,6 +30,7 @@ class CrawlerManager:
             "govermentjobs": GoverementJobsCrawler,
             "ikman": IkmanCrawler,
         }
+        self._thunder_client = ThunderIDClient() 
 
     #This function created the new crawler session and return the new crawler run id
     async def _start_run(self, client: httpx.AsyncClient) -> int:
@@ -39,7 +41,8 @@ class CrawlerManager:
             "status": "RUNNING",
         }
         try:
-            init_res = await client.post(f"{BACKEND_BASE_URL}/runs", json=start_payload)
+            token = await self._thunder_client.get_access_token()  
+            init_res = await client.post(f"{BACKEND_BASE_URL}/runs", json=start_payload, headers={"Authorization": f"Bearer {token}"}, )
             crawler_run_id = init_res.json().get("id", 1)
             logger.info(f"Initialized Tracking Session Run ID: {crawler_run_id}")
             return crawler_run_id
@@ -52,10 +55,13 @@ class CrawlerManager:
     async def _finalize_run(self, client: httpx.AsyncClient, crawler_run_id: int) -> None:
         try:
             logger.info("Executing pipeline reconciliation. Retiring dead listings from active pool.")
-            await client.post(f"{BACKEND_BASE_URL}/jobs/reconcile", json={"crawler_run_id": crawler_run_id})
+            token = await self._thunder_client.get_access_token()               
+            headers = {"Authorization": f"Bearer {token}"}
+            await client.post(f"{BACKEND_BASE_URL}/jobs/reconcile", json={"crawler_run_id": crawler_run_id}, headers=headers)
             await client.post(
                 f"{BACKEND_BASE_URL}/runs/{crawler_run_id}/complete",
                 json={"id": crawler_run_id, "status": "COMPLETED"},
+                headers=headers,
             )
         except Exception as e:
             logger.error(f"Failed to finalize crawler run {crawler_run_id}: {e}")

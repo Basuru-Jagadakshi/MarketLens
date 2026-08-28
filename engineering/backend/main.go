@@ -4,6 +4,7 @@ import (
 	"marketlens-go-backend/config"
 	"marketlens-go-backend/controllers"
 	"marketlens-go-backend/repositories"
+	"marketlens-go-backend/auth"
 	mcpserver "marketlens-go-backend/mcp"
 
 	"github.com/gin-gonic/gin"
@@ -89,15 +90,16 @@ func main() {
 		v1.GET("/employment-sectors/yearly-trend", jobCtrl.GetYearlyTrendByEmploymentSectorHandler)
 
 		crawler := v1.Group("/crawler")
+		crawler.Use(auth.AuthRequired())
 		{
-			crawler.POST("/runs", jobCtrl.StartCrawlerRunHandler)
-			crawler.POST("/runs/:id/complete", jobCtrl.CompleteCrawlerRunHandler)
+			crawler.POST("/runs", auth.RequireScope("crawler:runs"), jobCtrl.StartCrawlerRunHandler)
+			crawler.POST("/runs/:id/complete", auth.RequireScope("crawler:complete"), jobCtrl.CompleteCrawlerRunHandler)
 
-			crawler.POST("/radar/lookup", jobCtrl.GetJobsByBucketKeysHandler)
+			crawler.POST("/radar/lookup", auth.RequireScope("crawler:lookup"), jobCtrl.GetJobsByBucketKeysHandler)
 
-			crawler.POST("/jobs/batch-save", jobCtrl.BatchSaveJobsHandler)
-			crawler.POST("/jobs/batch-update", jobCtrl.BatchUpdateDuplicatesHandler)
-			crawler.POST("/jobs/reconcile", jobCtrl.ReconcileStaleVacanciesHandler)
+			crawler.POST("/jobs/batch-save", auth.RequireScope("crawler:batch-save"), jobCtrl.BatchSaveJobsHandler)
+			crawler.POST("/jobs/batch-update", auth.RequireScope("crawler:batch-update"), jobCtrl.BatchUpdateDuplicatesHandler)
+			crawler.POST("/jobs/reconcile", auth.RequireScope("crawler:reconcile"), jobCtrl.ReconcileStaleVacanciesHandler)
 		}
 
 		geoData := v1.Group("/geo-data")
@@ -111,154 +113,154 @@ func main() {
 
 		educationLevels := v1.Group("/education-levels")
 		{
-			educationLevels.POST("", jobCtrl.CreateEducationLevelHandler)
+			educationLevels.POST("", auth.AuthRequired(), auth.RequireScope("education-levels:create"), jobCtrl.CreateEducationLevelHandler)
 			educationLevels.GET("", jobCtrl.GetAllEducationLevelsHandler)
 			educationLevels.GET("/:id", jobCtrl.GetEducationLevelByIDHandler)
-			educationLevels.PUT("/:id", jobCtrl.UpdateEducationLevelHandler)
-			educationLevels.DELETE("/:id", jobCtrl.DeleteEducationLevelHandler)
+			educationLevels.PUT("/:id", auth.AuthRequired(), auth.RequireScope("education-levels:update"), jobCtrl.UpdateEducationLevelHandler)
+			educationLevels.DELETE("/:id", auth.AuthRequired(), auth.RequireScope("education-levels:delete"), jobCtrl.DeleteEducationLevelHandler)
 		}
 
 
 		formalities := v1.Group("/formalities")
 		{
-			formalities.POST("", jobCtrl.CreateFormalityHandler)
+			formalities.POST("", auth.AuthRequired(), auth.RequireScope("formalities:create"), jobCtrl.CreateFormalityHandler)
 			formalities.GET("", jobCtrl.GetAllFormalitiesHandler)
 			formalities.GET("/:id", jobCtrl.GetFormalityByIDHandler)
-			formalities.PUT("/:id", jobCtrl.UpdateFormalityHandler)
-			formalities.DELETE("/:id", jobCtrl.DeleteFormalityHandler)
+			formalities.PUT("/:id", auth.AuthRequired(), auth.RequireScope("formalities:update"), jobCtrl.UpdateFormalityHandler)
+			formalities.DELETE("/:id", auth.AuthRequired(), auth.RequireScope("formalities:delete"), jobCtrl.DeleteFormalityHandler)
 		}
 
 		genders := v1.Group("/genders")
 		{
-			genders.POST("", jobCtrl.CreateGenderHandler)
+			genders.POST("", auth.AuthRequired(), auth.RequireScope("genders:create"), jobCtrl.CreateGenderHandler)
 			genders.GET("", jobCtrl.GetAllGendersHandler)
 			genders.GET("/:id", jobCtrl.GetGenderByIDHandler)
-			genders.PUT("/:id", jobCtrl.UpdateGenderHandler)
-			genders.DELETE("/:id", jobCtrl.DeleteGenderHandler)
+			genders.PUT("/:id", auth.AuthRequired(), auth.RequireScope("genders:update"), jobCtrl.UpdateGenderHandler)
+			genders.DELETE("/:id", auth.AuthRequired(), auth.RequireScope("genders:delete"), jobCtrl.DeleteGenderHandler)
 		}
 
 		employmentSectors := v1.Group("/employment-sectors")
 		{
-			employmentSectors.POST("", jobCtrl.CreateEmploymentSectorHandler)
+			employmentSectors.POST("", auth.AuthRequired(), auth.RequireScope("employment-sectors:create"), jobCtrl.CreateEmploymentSectorHandler)
 			employmentSectors.GET("", jobCtrl.GetAllEmploymentSectorsHandler)
 			employmentSectors.GET("/:id", jobCtrl.GetEmploymentSectorByIDHandler)
-			employmentSectors.PUT("/:id", jobCtrl.UpdateEmploymentSectorHandler)
-			employmentSectors.DELETE("/:id", jobCtrl.DeleteEmploymentSectorHandler)
+			employmentSectors.PUT("/:id", auth.AuthRequired(), auth.RequireScope("employment-sectors:update"), jobCtrl.UpdateEmploymentSectorHandler)
+			employmentSectors.DELETE("/:id", auth.AuthRequired(), auth.RequireScope("employment-sectors:delete"), jobCtrl.DeleteEmploymentSectorHandler)
 		}
 
 		vocationalEducations := v1.Group("/vocational-educations")
 		{
-			vocationalEducations.POST("", jobCtrl.CreateVocationalEducationHandler)
+			vocationalEducations.POST("", auth.AuthRequired(), auth.RequireScope("vocational-educations:create"), jobCtrl.CreateVocationalEducationHandler)
 			vocationalEducations.GET("", jobCtrl.GetAllVocationalEducationsHandler)
 			vocationalEducations.GET("/:id", jobCtrl.GetVocationalEducationByIDHandler)
-			vocationalEducations.PUT("/:id", jobCtrl.UpdateVocationalEducationHandler)
-			vocationalEducations.DELETE("/:id", jobCtrl.DeleteVocationalEducationHandler)
+			vocationalEducations.PUT("/:id", auth.AuthRequired(), auth.RequireScope("vocational-educations:update"), jobCtrl.UpdateVocationalEducationHandler)
+			vocationalEducations.DELETE("/:id", auth.AuthRequired(), auth.RequireScope("vocational-educations:delete"), jobCtrl.DeleteVocationalEducationHandler)
 		}
 
 		experiences := v1.Group("/experiences")
 		{
-			experiences.POST("", jobCtrl.CreateExperienceHandler)
+			experiences.POST("", auth.AuthRequired(), auth.RequireScope("experiences:create"), jobCtrl.CreateExperienceHandler)
 			experiences.GET("/:id", jobCtrl.GetExperienceByIDHandler)
-			experiences.PUT("/:id", jobCtrl.UpdateExperienceHandler)
-			experiences.DELETE("/:id", jobCtrl.DeleteExperienceHandler)
+			experiences.PUT("/:id", auth.AuthRequired(), auth.RequireScope("experiences:update"), jobCtrl.UpdateExperienceHandler)
+			experiences.DELETE("/:id", auth.AuthRequired(), auth.RequireScope("experiences:delete"), jobCtrl.DeleteExperienceHandler)
 		}
 
 		majorGroups := v1.Group("/major-groups")
 		{
-			majorGroups.POST("", jobCtrl.CreateMajorGroupHandler)
+			majorGroups.POST("", auth.AuthRequired(), auth.RequireScope("major-groups:create"), jobCtrl.CreateMajorGroupHandler)
 			majorGroups.GET("", jobCtrl.GetAllMajorGroupsHandler)
 			majorGroups.GET("/:id", jobCtrl.GetMajorGroupByIDHandler)
-			majorGroups.PUT("/:id", jobCtrl.UpdateMajorGroupHandler)
-			majorGroups.DELETE("/:id", jobCtrl.DeleteMajorGroupHandler)
+			majorGroups.PUT("/:id", auth.AuthRequired(), auth.RequireScope("major-groups:update"), jobCtrl.UpdateMajorGroupHandler)
+			majorGroups.DELETE("/:id", auth.AuthRequired(), auth.RequireScope("major-groups:delete"), jobCtrl.DeleteMajorGroupHandler)
 			majorGroups.GET("/:id/sub-major-groups", jobCtrl.GetSubMajorGroupsByMajorGroupHandler)
 		}
 
 		subMajorGroups := v1.Group("/sub-major-groups")
 		{
-			subMajorGroups.POST("", jobCtrl.CreateSubMajorGroupHandler)
+			subMajorGroups.POST("", auth.AuthRequired(), auth.RequireScope("sub-major-groups:create"), jobCtrl.CreateSubMajorGroupHandler)
 			subMajorGroups.GET("", jobCtrl.GetAllSubMajorGroupsHandler)
 			subMajorGroups.GET("/:id", jobCtrl.GetSubMajorGroupByIDHandler)
-			subMajorGroups.PUT("/:id", jobCtrl.UpdateSubMajorGroupHandler)
-			subMajorGroups.DELETE("/:id", jobCtrl.DeleteSubMajorGroupHandler)
+			subMajorGroups.PUT("/:id", auth.AuthRequired(), auth.RequireScope("sub-major-groups:update"), jobCtrl.UpdateSubMajorGroupHandler)
+			subMajorGroups.DELETE("/:id", auth.AuthRequired(), auth.RequireScope("sub-major-groups:delete"), jobCtrl.DeleteSubMajorGroupHandler)
 			subMajorGroups.GET("/:id/minor-groups", jobCtrl.GetMinorGroupsBySubMajorGroupHandler)
 		}
 
 		minorGroups := v1.Group("/minor-groups")
 		{
-			minorGroups.POST("", jobCtrl.CreateMinorGroupHandler)
+			minorGroups.POST("", auth.AuthRequired(), auth.RequireScope("minor-groups:create"), jobCtrl.CreateMinorGroupHandler)
 			minorGroups.GET("", jobCtrl.GetAllMinorGroupsHandler)
 			minorGroups.GET("/:id", jobCtrl.GetMinorGroupByIDHandler)
-			minorGroups.PUT("/:id", jobCtrl.UpdateMinorGroupHandler)
-			minorGroups.DELETE("/:id", jobCtrl.DeleteMinorGroupHandler)
+			minorGroups.PUT("/:id", auth.AuthRequired(), auth.RequireScope("minor-groups:update"), jobCtrl.UpdateMinorGroupHandler)
+			minorGroups.DELETE("/:id", auth.AuthRequired(), auth.RequireScope("minor-groups:delete"), jobCtrl.DeleteMinorGroupHandler)
 			minorGroups.GET("/:id/unit-groups", jobCtrl.GetUnitGroupsByMinorGroupHandler)
 		}
 
 		unitGroups := v1.Group("/unit-groups")
 		{
-			unitGroups.POST("", jobCtrl.CreateUnitGroupHandler)
+			unitGroups.POST("", auth.AuthRequired(), auth.RequireScope("unit-groups:create"), jobCtrl.CreateUnitGroupHandler)
 			unitGroups.GET("", jobCtrl.GetAllUnitGroupsHandler)
 			unitGroups.GET("/:id", jobCtrl.GetUnitGroupByIDHandler)
-			unitGroups.PUT("/:id", jobCtrl.UpdateUnitGroupHandler)
-			unitGroups.DELETE("/:id", jobCtrl.DeleteUnitGroupHandler)
+			unitGroups.PUT("/:id", auth.AuthRequired(), auth.RequireScope("unit-groups:update"), jobCtrl.UpdateUnitGroupHandler)
+			unitGroups.DELETE("/:id", auth.AuthRequired(), auth.RequireScope("unit-groups:delete"), jobCtrl.DeleteUnitGroupHandler)
 			unitGroups.GET("/:id/occupation-groups", jobCtrl.GetOccupationGroupsByUnitGroupHandler)
 		}
 
 		occupationGroups := v1.Group("/occupation-groups")
 		{
-			occupationGroups.POST("", jobCtrl.CreateOccupationGroupHandler)
+			occupationGroups.POST("", auth.AuthRequired(), auth.RequireScope("occupation-groups:create"), jobCtrl.CreateOccupationGroupHandler)
 			occupationGroups.GET("", jobCtrl.GetAllOccupationGroupsHandler)
 			occupationGroups.GET("/:id", jobCtrl.GetOccupationGroupByIDHandler)
-			occupationGroups.PUT("/:id", jobCtrl.UpdateOccupationGroupHandler)
-			occupationGroups.DELETE("/:id", jobCtrl.DeleteOccupationGroupHandler)
+			occupationGroups.PUT("/:id", auth.AuthRequired(), auth.RequireScope("occupation-groups:update"), jobCtrl.UpdateOccupationGroupHandler)
+			occupationGroups.DELETE("/:id", auth.AuthRequired(), auth.RequireScope("occupation-groups:delete"), jobCtrl.DeleteOccupationGroupHandler)
 		}
 
 		industrySectors := v1.Group("/industry-sectors")
 		{
-			industrySectors.POST("", jobCtrl.CreateIndustrySectorHandler)
+			industrySectors.POST("", auth.AuthRequired(), auth.RequireScope("industry-sectors:create"), jobCtrl.CreateIndustrySectorHandler)
 			industrySectors.GET("", jobCtrl.GetAllIndustrySectorsHandler)
 			industrySectors.GET("/:id", jobCtrl.GetIndustrySectorByIDHandler)
-			industrySectors.PUT("/:id", jobCtrl.UpdateIndustrySectorHandler)
-			industrySectors.DELETE("/:id", jobCtrl.DeleteIndustrySectorHandler)
+			industrySectors.PUT("/:id", auth.AuthRequired(), auth.RequireScope("industry-sectors:update"), jobCtrl.UpdateIndustrySectorHandler)
+			industrySectors.DELETE("/:id", auth.AuthRequired(), auth.RequireScope("industry-sectors:delete"), jobCtrl.DeleteIndustrySectorHandler)
 			industrySectors.GET("/:id/industry-divisions", jobCtrl.GetIndustryDivisionsByIndustrySectorHandler)
 		}
 
 		industryDivisions := v1.Group("/industry-divisions")
 		{
-			industryDivisions.POST("", jobCtrl.CreateIndustryDivisionHandler)
+			industryDivisions.POST("", auth.AuthRequired(), auth.RequireScope("industry-divisions:create"), jobCtrl.CreateIndustryDivisionHandler)
 			industryDivisions.GET("", jobCtrl.GetAllIndustryDivisionsHandler)
 			industryDivisions.GET("/:id", jobCtrl.GetIndustryDivisionByIDHandler)
-			industryDivisions.PUT("/:id", jobCtrl.UpdateIndustryDivisionHandler)
-			industryDivisions.DELETE("/:id", jobCtrl.DeleteIndustryDivisionHandler)
+			industryDivisions.PUT("/:id", auth.AuthRequired(), auth.RequireScope("industry-divisions:update"), jobCtrl.UpdateIndustryDivisionHandler)
+			industryDivisions.DELETE("/:id", auth.AuthRequired(), auth.RequireScope("industry-divisions:delete"), jobCtrl.DeleteIndustryDivisionHandler)
 			industryDivisions.GET("/:id/industry-groups", jobCtrl.GetIndustryGroupsByIndustryDivisionHandler)
 		}
 
 		industryGroups := v1.Group("/industry-groups")
 		{
-			industryGroups.POST("", jobCtrl.CreateIndustryGroupHandler)
+			industryGroups.POST("", auth.AuthRequired(), auth.RequireScope("industry-groups:create"), jobCtrl.CreateIndustryGroupHandler)
 			industryGroups.GET("", jobCtrl.GetAllIndustryGroupsHandler)
 			industryGroups.GET("/:id", jobCtrl.GetIndustryGroupByIDHandler)
-			industryGroups.PUT("/:id", jobCtrl.UpdateIndustryGroupHandler)
-			industryGroups.DELETE("/:id", jobCtrl.DeleteIndustryGroupHandler)
+			industryGroups.PUT("/:id", auth.AuthRequired(), auth.RequireScope("industry-groups:update"), jobCtrl.UpdateIndustryGroupHandler)
+			industryGroups.DELETE("/:id", auth.AuthRequired(), auth.RequireScope("industry-groups:delete"), jobCtrl.DeleteIndustryGroupHandler)
 			industryGroups.GET("/:id/industry-classes", jobCtrl.GetIndustryClassesByIndustryGroupHandler)
 		}
 
 		industryClasses := v1.Group("/industry-classes")
 		{
-			industryClasses.POST("", jobCtrl.CreateIndustryClassHandler)
+			industryClasses.POST("", auth.AuthRequired(), auth.RequireScope("industry-classes:create"), jobCtrl.CreateIndustryClassHandler)
 			industryClasses.GET("", jobCtrl.GetAllIndustryClassesHandler)
 			industryClasses.GET("/:id", jobCtrl.GetIndustryClassByIDHandler)
-			industryClasses.PUT("/:id", jobCtrl.UpdateIndustryClassHandler)
-			industryClasses.DELETE("/:id", jobCtrl.DeleteIndustryClassHandler)
+			industryClasses.PUT("/:id", auth.AuthRequired(), auth.RequireScope("industry-classes:update"), jobCtrl.UpdateIndustryClassHandler)
+			industryClasses.DELETE("/:id", auth.AuthRequired(), auth.RequireScope("industry-classes:delete"), jobCtrl.DeleteIndustryClassHandler)
 			industryClasses.GET("/:id/industry-subclasses", jobCtrl.GetIndustrySubclassesByIndustryClassHandler)
 		}
 
 		industrySubclasses := v1.Group("/industry-subclasses")
 		{
-			industrySubclasses.POST("", jobCtrl.CreateIndustrySubclassHandler)
+			industrySubclasses.POST("", auth.AuthRequired(), auth.RequireScope("industry-sub-classes:create"), jobCtrl.CreateIndustrySubclassHandler)
 			industrySubclasses.GET("", jobCtrl.GetAllIndustrySubclassesHandler)
 			industrySubclasses.GET("/:id", jobCtrl.GetIndustrySubclassByIDHandler)
-			industrySubclasses.PUT("/:id", jobCtrl.UpdateIndustrySubclassHandler)
-			industrySubclasses.DELETE("/:id", jobCtrl.DeleteIndustrySubclassHandler)
+			industrySubclasses.PUT("/:id", auth.AuthRequired(), auth.RequireScope("industry-sub-classes:update"), jobCtrl.UpdateIndustrySubclassHandler)
+			industrySubclasses.DELETE("/:id", auth.AuthRequired(), auth.RequireScope("industry-sub-classes:delete"), jobCtrl.DeleteIndustrySubclassHandler)
 		}
 	}
 

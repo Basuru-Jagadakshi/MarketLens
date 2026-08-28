@@ -11,6 +11,7 @@ from crawl4ai import LLMExtractionStrategy, LLMConfig
 from bs4 import BeautifulSoup
 from crawlers.base_crawler import BaseJobCrawler
 from utils.dedup_utils import JobDuplicationCheck
+from utils.thunder_id_client import ThunderIDClient
 from parsers.xpressjobs_parser import XpressJobsParser
 from utils.occupation_classifier import OccupationClassifier
 from utils.industry_classifier import IndustryClassifier
@@ -25,6 +26,7 @@ class XpresJobsCrawler(BaseJobCrawler):
         self._parser = XpressJobsParser()
         self.duplication_checker = JobDuplicationCheck()
         self.async_client = httpx.AsyncClient(timeout=30.0)
+        self._thunder_client = ThunderIDClient() 
 
     def _clean_html(self, html_content):
         if not html_content:
@@ -86,8 +88,8 @@ class XpresJobsCrawler(BaseJobCrawler):
             # Move to next page
             page += 1
 
-            if page > 2:
-                break
+            # if page > 2:
+            #     break
             
             await asyncio.sleep(10)
                 
@@ -105,6 +107,13 @@ class XpresJobsCrawler(BaseJobCrawler):
     ) -> None:
 
         logger.info("Xpress jobs crawl started.")
+
+        try:
+            token = await self._thunder_client.get_access_token()
+        except Exception as e:
+            logger.error(f"Failed to obtain ThunderID access token: {e}")
+            raise
+        auth_headers = {"Authorization": f"Bearer {token}"} 
         
         job_data_list = await self._process_all_jobs()
 
@@ -136,6 +145,7 @@ class XpresJobsCrawler(BaseJobCrawler):
                 BACKEND_BASE_URL,
                 lsh_indexes,
                 minhash_sig,
+                auth_headers,
                 incoming_location=temp_payload.get("location", ""),
             )
 
@@ -147,7 +157,7 @@ class XpresJobsCrawler(BaseJobCrawler):
                 })
 
                 if len(updated_jobs_buffer) >= BATCH_SIZE:
-                    await async_client.post(f"{BACKEND_BASE_URL}/jobs/batch-update", json={"duplicates": updated_jobs_buffer})
+                    await async_client.post(f"{BACKEND_BASE_URL}/jobs/batch-update", json={"duplicates": updated_jobs_buffer}, headers=auth_headers,)
                     updated_jobs_buffer.clear()
             else:
                 logger.info(f"Unique entry found. Calling LLM to parse entire schema")
@@ -179,19 +189,19 @@ class XpresJobsCrawler(BaseJobCrawler):
 
                 if len(new_jobs_buffer) >= BATCH_SIZE:
                     payload = {"new_jobs": new_jobs_buffer, "lsh_indexes": lsh_index_buffer}
-                    await async_client.post(f"{BACKEND_BASE_URL}/jobs/batch-save", json=payload)
+                    await async_client.post(f"{BACKEND_BASE_URL}/jobs/batch-save", json=payload, headers=auth_headers,)
                     new_jobs_buffer.clear()
                     lsh_index_buffer.clear()
 
         if updated_jobs_buffer:
             logger.info(f"Flushing remaining {len(updated_jobs_buffer)} update records to backend.")
-            await async_client.post(f"{BACKEND_BASE_URL}/jobs/batch-update", json={"duplicates": updated_jobs_buffer})
+            await async_client.post(f"{BACKEND_BASE_URL}/jobs/batch-update", json={"duplicates": updated_jobs_buffer}, headers=auth_headers,)
             updated_jobs_buffer.clear()
 
         if new_jobs_buffer:
             logger.info(f"Flushing remaining {len(new_jobs_buffer)} insertion records to backend.")
             payload = {"new_jobs": new_jobs_buffer, "lsh_indexes": lsh_index_buffer}
-            await async_client.post(f"{BACKEND_BASE_URL}/jobs/batch-save", json=payload)
+            await async_client.post(f"{BACKEND_BASE_URL}/jobs/batch-save", json=payload, headers=auth_headers,)
             new_jobs_buffer.clear()
             lsh_index_buffer.clear()
 

@@ -1,5 +1,12 @@
 "use client";
 
+import {
+  SignedIn,
+  SignedOut,
+  SignInButton,
+  UserDropdown,
+} from "@thunderid/nextjs";
+
 interface HeaderProps {
   title: string;
   subtitle?: string;
@@ -11,7 +18,6 @@ export default function Header({
   subtitle,
   avatarInitials = "BJ",
 }: HeaderProps) {
-
   return (
     <header className="bg-white border-b border-gray-100 px-8 py-3 flex flex-col md:flex-row justify-between items-start md:items-center gap-2 sticky top-0 z-40">
       {/* Left: Page Title */}
@@ -25,11 +31,28 @@ export default function Header({
       </div>
 
       <div className="flex flex-wrap items-center gap-4 ml-auto md:ml-0 w-full md:w-auto justify-end">
-
-        {/* User Avatar */}
-        <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white text-xs font-black shadow-md border border-white">
-          {avatarInitials}
-        </div>
+        <SignedIn>
+          <UserDropdown />
+        </SignedIn>
+        <SignedOut>
+          <SignInButton>
+            {({
+              signIn,
+              isLoading,
+            }: {
+              signIn?: () => Promise<void>;
+              isLoading?: boolean;
+            }) => (
+              <button
+                className="bg-black text-white px-4 py-2 rounded-md text-sm font-medium cursor-pointer hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-60 transition-colors"
+                onClick={() => void signIn?.()}
+                disabled={isLoading}
+              >
+                {isLoading ? "Signing in…" : "Sign in"}
+              </button>
+            )}
+          </SignInButton>
+        </SignedOut>
       </div>
     </header>
   );
