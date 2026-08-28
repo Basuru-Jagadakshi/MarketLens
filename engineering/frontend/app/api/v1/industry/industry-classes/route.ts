@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getAccessToken } from "@/lib/token";
 
 const GO_API = process.env.GO_BACKEND_URL;
 
@@ -36,6 +37,11 @@ export async function GET() {
 
 // Create new industry class
 export async function POST(request: NextRequest) {
+  const token = await getAccessToken()
+  if (!token) {
+    return NextResponse.json({ error: 'Please sign in first' }, { status: 401 })
+  }
+
   const goUrl = `${GO_API}/industry-classes`;
 
   try {
@@ -43,7 +49,7 @@ export async function POST(request: NextRequest) {
 
     const response = await fetch(goUrl, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, },
       body: JSON.stringify(body),
     });
 

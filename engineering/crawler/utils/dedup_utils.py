@@ -66,6 +66,7 @@ class JobDuplicationCheck:
         backend_base_url: str,
         lsh_indexes: List[Dict[str, Any]],
         current_sig: List[int],
+        auth_headers: Dict[str, str],
         incoming_location: str = "",
         jaccard_threshold: float = 0.65,
     ) -> Tuple[bool, Any]:
@@ -74,7 +75,7 @@ class JobDuplicationCheck:
             flat_bucket_keys = [item["bucket_key"] for item in lsh_indexes]
             request_payload = {"bucket_keys": flat_bucket_keys}
 
-            response = await client.post(f"{backend_base_url}/radar/lookup", json=request_payload)
+            response = await client.post(f"{backend_base_url}/radar/lookup", json=request_payload, headers=auth_headers,)
             if response.status_code != 200:
                 logger.warning(f"Lookup server returned unexpected status code: {response.status_code}")
                 return False, None

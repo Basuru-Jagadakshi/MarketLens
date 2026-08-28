@@ -9,6 +9,7 @@ from utils.dedup_utils import JobDuplicationCheck
 from parsers.ikman_parser import IkmanParser
 from utils.occupation_classifier import OccupationClassifier
 from utils.industry_classifier import IndustryClassifier
+from utils.thunder_id_client import ThunderIDClient  
 from config import BACKEND_BASE_URL, BATCH_SIZE
 
 from crawl4ai import (
@@ -27,6 +28,7 @@ class IkmanCrawler(BaseJobCrawler):
     def __init__(self):
         self.parser = IkmanParser()
         self.duplication_checker = JobDuplicationCheck()
+        self._thunder_client = ThunderIDClient() 
 
     #This function returns the last page number from the site
     async def _get_last_page_from_text(self) -> int:
@@ -58,9 +60,16 @@ class IkmanCrawler(BaseJobCrawler):
         industry_classifier: IndustryClassifier,
     ) -> None:
 
+        try:
+            token = await self._thunder_client.get_access_token()
+        except Exception as e:
+            logger.error(f"Failed to obtain ThunderID access token: {e}")
+            raise
+        auth_headers = {"Authorization": f"Bearer {token}"}   
+
         count = 1
-        #max_pages = await self._get_last_page_from_text()
-        max_pages = 1
+        max_pages = await self._get_last_page_from_text()
+        #max_pages = 1
 
         new_jobs_buffer: List[Dict[str, Any]] = []
         lsh_index_buffer: List[Dict[str, Any]] = []
@@ -111,6 +120,7 @@ class IkmanCrawler(BaseJobCrawler):
                     BACKEND_BASE_URL,
                     lsh_indexes,
                     minhash_sig,
+                    auth_headers,
                     incoming_location=temp_payload.get("location", ""),
                 )
 
@@ -122,7 +132,7 @@ class IkmanCrawler(BaseJobCrawler):
                     })
 
                     if len(updated_jobs_buffer) >= BATCH_SIZE:
-                        await async_client.post(f"{BACKEND_BASE_URL}/jobs/batch-update", json={"duplicates": updated_jobs_buffer})
+                        await async_client.post(f"{BACKEND_BASE_URL}/jobs/batch-update", json={"duplicates": updated_jobs_buffer}, headers=auth_headers, )
                         updated_jobs_buffer.clear()
                 else:
                     logger.info(f"Unique entry found. Calling LLM to parse entire schema: {result.url}")
@@ -157,19 +167,19 @@ class IkmanCrawler(BaseJobCrawler):
 
                     if len(new_jobs_buffer) >= BATCH_SIZE:
                         payload = {"new_jobs": new_jobs_buffer, "lsh_indexes": lsh_index_buffer}
-                        await async_client.post(f"{BACKEND_BASE_URL}/jobs/batch-save", json=payload)
+                        await async_client.post(f"{BACKEND_BASE_URL}/jobs/batch-save", json=payload, headers=auth_headers,)
                         new_jobs_buffer.clear()
                         lsh_index_buffer.clear()
 
             if updated_jobs_buffer:
                 logger.info(f"Flushing remaining {len(updated_jobs_buffer)} update records to backend.")
-                await async_client.post(f"{BACKEND_BASE_URL}/jobs/batch-update", json={"duplicates": updated_jobs_buffer})
+                await async_client.post(f"{BACKEND_BASE_URL}/jobs/batch-update", json={"duplicates": updated_jobs_buffer}, headers=auth_headers,)
                 updated_jobs_buffer.clear()
 
             if new_jobs_buffer:
                 logger.info(f"Flushing remaining {len(new_jobs_buffer)} insertion records to backend.")
                 payload = {"new_jobs": new_jobs_buffer, "lsh_indexes": lsh_index_buffer}
-                await async_client.post(f"{BACKEND_BASE_URL}/jobs/batch-save", json=payload)
+                await async_client.post(f"{BACKEND_BASE_URL}/jobs/batch-save", json=payload, headers=auth_headers,)
                 new_jobs_buffer.clear()
                 lsh_index_buffer.clear()
 

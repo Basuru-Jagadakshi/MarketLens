@@ -11,6 +11,7 @@ from utils.dedup_utils import JobDuplicationCheck
 from utils.schema_builder import MetadataSchemaBuilder
 from utils.occupation_classifier import OccupationClassifier
 from utils.industry_classifier import IndustryClassifier
+from utils.thunder_id_client import ThunderIDClient
 from config import BACKEND_BASE_URL, BATCH_SIZE
 
 from manual_upload.models import JobInput
@@ -23,6 +24,14 @@ app = FastAPI()
 @app.post("/manual-upload-jobs")
 async def manual_upload_jobs(jobs: List[JobInput]):
     duplication_checker = JobDuplicationCheck()
+    thunder_client = ThunderIDClient()
+
+    try:
+        token = await thunder_client.get_access_token()
+    except Exception as e:
+        logger.error(f"Failed to obtain ThunderID access token: {e}")
+        raise
+    auth_headers = {"Authorization": f"Bearer {token}"} 
 
     async with httpx.AsyncClient(timeout=30.0) as client:
 
@@ -58,6 +67,7 @@ async def manual_upload_jobs(jobs: List[JobInput]):
                 BACKEND_BASE_URL,
                 lsh_indexes,
                 minhash_sig,
+                auth_headers,
                 incoming_location=temp_payload.get("location", ""),
             )
 
@@ -68,7 +78,7 @@ async def manual_upload_jobs(jobs: List[JobInput]):
                 })
 
                 if len(updated_jobs_buffer) >= BATCH_SIZE:
-                    await client.post(f"{BACKEND_BASE_URL}/jobs/batch-update", json={"duplicates": updated_jobs_buffer})
+                    await client.post(f"{BACKEND_BASE_URL}/jobs/batch-update", json={"duplicates": updated_jobs_buffer}, headers=auth_headers,)
                     updated_jobs_buffer.clear()
 
                 continue
@@ -100,18 +110,18 @@ async def manual_upload_jobs(jobs: List[JobInput]):
                 if len(new_jobs_buffer) >= BATCH_SIZE:
                     await client.post(
                         f"{BACKEND_BASE_URL}/jobs/batch-save",
-                        json={"new_jobs": new_jobs_buffer, "lsh_indexes": lsh_index_buffer},
+                        json={"new_jobs": new_jobs_buffer, "lsh_indexes": lsh_index_buffer}, headers=auth_headers,
                     )
                     new_jobs_buffer.clear()
                     lsh_index_buffer.clear()
 
         if updated_jobs_buffer:
-            await client.post(f"{BACKEND_BASE_URL}/jobs/batch-update", json={"duplicates": updated_jobs_buffer})
+            await client.post(f"{BACKEND_BASE_URL}/jobs/batch-update", json={"duplicates": updated_jobs_buffer}, headers=auth_headers,)
 
         if new_jobs_buffer:
             await client.post(
                 f"{BACKEND_BASE_URL}/jobs/batch-save",
-                json={"new_jobs": new_jobs_buffer, "lsh_indexes": lsh_index_buffer},
+                json={"new_jobs": new_jobs_buffer, "lsh_indexes": lsh_index_buffer}, headers=auth_headers,
             )
 
     return {"status": "completed", "processed": len(jobs), "crawler_run_id": crawler_run_id}

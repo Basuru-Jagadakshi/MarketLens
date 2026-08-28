@@ -16,9 +16,9 @@ load_dotenv(dotenv_path=env_path)
 
 SL_TZ = ZoneInfo("Asia/Colombo")
 
-RUN_HOUR = 8
-RUN_MINUTE = 6
-RUN_INTERVAL_DAYS = 10
+RUN_HOUR = 14
+RUN_MINUTE = 25
+RUN_INTERVAL_DAYS = 7
 
 
 async def crawl_job():

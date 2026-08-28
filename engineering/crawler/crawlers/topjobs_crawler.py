@@ -14,6 +14,7 @@ from playwright.async_api import async_playwright
 from crawl4ai import LLMExtractionStrategy, LLMConfig
 from crawlers.base_crawler import BaseJobCrawler
 from utils.dedup_utils import JobDuplicationCheck
+from utils.thunder_id_client import ThunderIDClient 
 from parsers.topjobs_parser import TopJobsParser
 from utils.occupation_classifier import OccupationClassifier
 from utils.industry_classifier import IndustryClassifier
@@ -37,6 +38,7 @@ class TopJobsCrawler(BaseJobCrawler):
     def __init__(self):
         self._parser = TopJobsParser()
         self.duplication_checker = JobDuplicationCheck()
+        self._thunder_client = ThunderIDClient() 
 
     async def _get_total_pages(self, html: str) -> int:
         soup = BeautifulSoup(html, "html.parser")
@@ -77,8 +79,8 @@ class TopJobsCrawler(BaseJobCrawler):
             page = await context.new_page()
 
             await page.goto(f"{LISTING_URL}&pageNo=1", wait_until="networkidle")
-            #total_pages = await self._get_total_pages(await page.content())
-            total_pages = 1
+            total_pages = await self._get_total_pages(await page.content())
+            #total_pages = 1
             logger.info(f"Total pages detected: {total_pages}")
 
 
@@ -170,6 +172,13 @@ class TopJobsCrawler(BaseJobCrawler):
     ) -> None:
 
         logger.info("Top jobs crawl started.")
+
+        try:
+            token = await self._thunder_client.get_access_token()
+        except Exception as e:
+            logger.error(f"Failed to obtain ThunderID access token: {e}")
+            raise
+        auth_headers = {"Authorization": f"Bearer {token}"}
         
         job_data_list = await self._extract_complete_jobs_details()
 
@@ -201,6 +210,7 @@ class TopJobsCrawler(BaseJobCrawler):
                 BACKEND_BASE_URL,
                 lsh_indexes,
                 minhash_sig,
+                auth_headers,
                 incoming_location=temp_payload.get("location", ""),
             )
 
@@ -212,7 +222,7 @@ class TopJobsCrawler(BaseJobCrawler):
                 })
 
                 if len(updated_jobs_buffer) >= BATCH_SIZE:
-                    await async_client.post(f"{BACKEND_BASE_URL}/jobs/batch-update", json={"duplicates": updated_jobs_buffer})
+                    await async_client.post(f"{BACKEND_BASE_URL}/jobs/batch-update", json={"duplicates": updated_jobs_buffer}, headers=auth_headers,)
                     updated_jobs_buffer.clear()
             else:
                 logger.info(f"Unique entry found. Calling LLM to parse entire schema")
@@ -244,19 +254,19 @@ class TopJobsCrawler(BaseJobCrawler):
 
                 if len(new_jobs_buffer) >= BATCH_SIZE:
                     payload = {"new_jobs": new_jobs_buffer, "lsh_indexes": lsh_index_buffer}
-                    await async_client.post(f"{BACKEND_BASE_URL}/jobs/batch-save", json=payload)
+                    await async_client.post(f"{BACKEND_BASE_URL}/jobs/batch-save", json=payload, headers=auth_headers,)
                     new_jobs_buffer.clear()
                     lsh_index_buffer.clear()
 
         if updated_jobs_buffer:
             logger.info(f"Flushing remaining {len(updated_jobs_buffer)} update records to backend.")
-            await async_client.post(f"{BACKEND_BASE_URL}/jobs/batch-update", json={"duplicates": updated_jobs_buffer})
+            await async_client.post(f"{BACKEND_BASE_URL}/jobs/batch-update", json={"duplicates": updated_jobs_buffer}, headers=auth_headers,)
             updated_jobs_buffer.clear()
 
         if new_jobs_buffer:
             logger.info(f"Flushing remaining {len(new_jobs_buffer)} insertion records to backend.")
             payload = {"new_jobs": new_jobs_buffer, "lsh_indexes": lsh_index_buffer}
-            await async_client.post(f"{BACKEND_BASE_URL}/jobs/batch-save", json=payload)
+            await async_client.post(f"{BACKEND_BASE_URL}/jobs/batch-save", json=payload, headers=auth_headers,)
             new_jobs_buffer.clear()
             lsh_index_buffer.clear()
 

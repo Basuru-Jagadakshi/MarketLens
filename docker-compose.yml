@@ -51,7 +51,7 @@ services:
     networks:
       - app-network
 
-  # # CRAWLER SERVICE 
+  # CRAWLER SERVICE 
   crawler:
     build:
       context: ./engineering/crawler
@@ -69,8 +69,40 @@ services:
     networks:
       - app-network
 
+  # THUNDER ID 
+  thunder-setup:
+    image: ghcr.io/thunder-id/thunderid:1.0.0
+    profiles: ["setup"] 
+    entrypoint: ["./setup.sh"]
+    restart: "no"
+    volumes:
+      - ./engineering/thunder/deployment.yaml:/opt/thunderid/deployment.yaml
+      - thunderid-data:/opt/thunderid/database
+      - thunderid-certs:/opt/thunderid/config/certs
+      - thunderid-secrets:/opt/thunderid/config/secrets
+    networks:
+      - app-network
+
+  thunder:
+    image: ghcr.io/thunder-id/thunderid:1.0.0
+    restart: unless-stopped
+    ports:
+      - "8090:8090"
+    env_file:
+      - ./engineering/thunder/.env 
+    volumes:
+      - ./engineering/thunder/deployment.yaml:/opt/thunderid/deployment.yaml
+      - thunderid-data:/opt/thunderid/database
+      - thunderid-certs:/opt/thunderid/config/certs:ro
+      - thunderid-secrets:/opt/thunderid/config/secrets:ro
+    networks:
+      - app-network
+
 volumes:
   pgdata:
+  thunderid-data:
+  thunderid-certs:
+  thunderid-secrets:
 
 networks:
   app-network:
