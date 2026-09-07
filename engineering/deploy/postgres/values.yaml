@@ -1,0 +1,42 @@
+image:
+  repository: postgres
+  tag: "16-alpine"
+  pullPolicy: IfNotPresent
+
+fullnameOverride: "marketlens-postgres"
+
+service:
+  port: 5432
+
+persistence:
+  size: 1Gi
+  storageClass: ""     # empty = use cluster's default StorageClass
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 999
+  fsGroup: 999          # postgres's default group in the official image — needed for volume write permissions
+
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 999
+  capabilities:
+    drop:
+      - ALL
+
+resources: {}
+
+serviceAccount:
+  create: true
+  automount: true
+  annotations: {}
+  name: ""
+
+secrets:
+  postgresUser: app_user
+  postgresPassword: ""
+  postgresDb: market_lens_database
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

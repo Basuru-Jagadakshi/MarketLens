@@ -1,0 +1,31 @@
+image:
+  tag: "0.1.0"
+  pullPolicy: IfNotPresent
+
+replicaCount: 2
+
+config:
+  thunderIdBaseUrl: "https://auth.marketlens.tvec.gov.lk"
+  thunderIdApplicationId: "<prod-app-id>"
+  thunderIdClientId: "<prod-client-id>"
+
+ingress:
+  enabled: true
+  className: "nginx"
+  hosts:
+    - host: marketlens.tvec.gov.lk
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: marketlens-tls
+      hosts:
+        - marketlens.tvec.gov.lk
+
+resources:
+  requests:
+    cpu: 250m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi

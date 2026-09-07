@@ -1,0 +1,27 @@
+image:
+  tag: "0.1.0"
+  pullPolicy: IfNotPresent
+
+replicaCount: 1
+
+config:
+  thunderIdBaseUrl: "https://auth-staging.marketlens.tvec.gov.lk"
+  thunderIdApplicationId: "<staging-app-id>"
+  thunderIdClientId: "<staging-client-id>"
+
+ingress:
+  enabled: true
+  className: "nginx"
+  hosts:
+    - host: marketlens-staging.tvec.gov.lk
+      paths:
+        - path: /
+          pathType: Prefix
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi

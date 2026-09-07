@@ -21,6 +21,10 @@ func main() {
 	jobRepo := repositories.NewJobRepository(config.DB)
 	jobCtrl := controllers.NewJobController(jobRepo)
 
+	// Kubernetes liveness/readiness probes - unversioned, sit outside /api/v1
+	r.GET("/healthz", jobCtrl.HealthzHandler)
+	r.GET("/readyz", jobCtrl.ReadyzHandler)
+
 	mcpServer := mcpserver.New(jobRepo)
     go func() {
         log.Println("MCP server listening on :9090/mcp")

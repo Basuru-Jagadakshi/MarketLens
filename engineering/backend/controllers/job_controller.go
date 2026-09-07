@@ -23,6 +23,20 @@ func NewJobController(repo *repositories.JobRepository) *JobController {
 	return &JobController{repo: repo}
 }
 
+//This function confirms the process itself is up and responding to HTTP - used for Kubernetes liveness probes
+func (ctrl *JobController) HealthzHandler(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{"status": "ok"})
+}
+
+//This function confirms the database connection is reachable - used for Kubernetes readiness probes
+func (ctrl *JobController) ReadyzHandler(c *gin.Context) {
+	if err := ctrl.repo.Ping(); err != nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"status": "not ready", "details": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"status": "ready"})
+}
+
 //This function returns the top hiring employers for a given occupation hierarchy
 //level and id, filtered by date range.
 func (ctrl *JobController) GetTopHiringEmployersByOccupationLevelHandler(c *gin.Context) {

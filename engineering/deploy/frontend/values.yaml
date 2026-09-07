@@ -1,0 +1,86 @@
+replicaCount: 1
+
+image:
+  repository: marketlens-frontend
+  pullPolicy: Never
+  tag: ""
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: "marketlens-frontend"
+
+serviceAccount:
+  create: true
+  automount: true
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  readOnlyRootFilesystem: false
+  capabilities:
+    drop:
+      - ALL
+
+service:
+  type: ClusterIP
+  port: 3000
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: marketlens.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+resources: {}
+
+livenessProbe:
+  httpGet:
+    path: /api/healthz
+    port: http
+readinessProbe:
+  httpGet:
+    path: /api/readyz
+    port: http
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 100
+  targetCPUUtilizationPercentage: 80
+
+volumes: []
+volumeMounts: []
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+config:
+  goBackendUrl: "http://marketlens-backend:8080/api/v1"
+  goBackendHealthUrl: "http://marketlens-backend:8080"
+  thunderIdBaseUrl: ""
+  thunderIdApplicationId: ""
+  thunderIdClientId: ""
+  nodeTlsRejectUnauthorized: ""
+
+secrets:
+  thunderIdSecret: ""
+  thunderIdClientSecret: ""
+
+thunderHostAlias:
+  ip: ""
+  hostname: ""

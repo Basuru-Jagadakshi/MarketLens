@@ -1,0 +1,23 @@
+image:
+  tag: "0.1.0"
+  pullPolicy: IfNotPresent
+
+replicaCount: 2
+
+config:
+  dbHost: marketlens-postgres
+  thunderBaseUrl: "http://marketlens-thunder:8090"
+  thunderInsecureTls: "false"    # real certs expected in prod
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 5
+
+resources:
+  requests:
+    cpu: 250m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi

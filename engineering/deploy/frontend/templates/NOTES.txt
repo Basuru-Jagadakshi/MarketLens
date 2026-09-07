@@ -1,0 +1,21 @@
+MarketLens Frontend ({{ .Release.Name }}) has been deployed.
+
+{{- if .Values.ingress.enabled }}
+{{- range $host := .Values.ingress.hosts }}
+  {{- range .paths }}
+  Visit http{{ if $.Values.ingress.tls }}s{{ end }}://{{ $host.host }}{{ .path }}
+  {{- end }}
+{{- end }}
+{{- else }}
+Ingress is not enabled for this release. To access the app locally:
+
+  kubectl port-forward svc/{{ include "frontend.fullname" . }} 3000:{{ .Values.service.port }}
+
+Then visit http://localhost:3000
+{{- end }}
+
+To check Pod status:
+  kubectl get pods -l app.kubernetes.io/name={{ include "frontend.name" . }}
+
+To view logs:
+  kubectl logs -l app.kubernetes.io/name={{ include "frontend.name" . }}
