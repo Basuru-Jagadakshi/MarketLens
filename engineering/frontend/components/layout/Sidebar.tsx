@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { clsx } from "clsx";
 import { useEffect, useRef, useState } from "react";
+import Image from "next/image";
 
 const navigation = [
   { name: "Dashboard", href: "/", icon: LayoutDashboardIcon },
@@ -74,13 +75,19 @@ export default function Sidebar() {
           collapsed ? "px-3.5 justify-center" : "px-6",
         )}
       >
-        <div className="w-9 h-9 rounded-md bg-white flex items-center justify-center border border-zinc-700 shrink-0">
-          <span className="text-black font-black text-sm">ML</span>
+        <div className="w-9 h-9 rounded-md bg-white flex items-center justify-center overflow-hidden shrink-0">
+          <Image
+            src="/logo.png"
+            alt="TVEC Logo"
+            width={45}
+            height={45}
+            className="object-contain scale-110"
+          />
         </div>
         {!collapsed && (
           <div className="min-w-0">
             <h1 className="text-white font-bold text-sm tracking-tight leading-tight">
-              Market Lens
+              TVEC
             </h1>
             <p className="text-zinc-400 text-[10px] uppercase font-semibold tracking-wider leading-tight mt-0.5">
               Labour Intelligence
