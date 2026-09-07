@@ -431,6 +431,7 @@ function OccupationAnalysis() {
       <Header
         title="Labour Market Demand Dashboard"
         subtitle="National overview of labour market demand across occupations and industries"
+        logoSrc="/logo.png"
       />
 
       <div className="p-4 md:p-8 space-y-6 md:space-y-8 w-full max-w-[1400px] mx-auto pb-20">

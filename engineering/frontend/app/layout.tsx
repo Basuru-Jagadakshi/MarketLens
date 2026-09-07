@@ -4,9 +4,10 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import Sidebar from "@/components/layout/Sidebar";
 import QueryProvider from "@/providers/query-provider";
-import { scopeString } from "../lib/scopes"
+import { scopeString } from "../lib/scopes";
+import { SignedIn, SignedOut } from "@thunderid/nextjs";
 
-export const dynamic = 'force-dynamic'
+export const dynamic = "force-dynamic";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -32,8 +33,13 @@ export default function RootLayout({
           {/* Wrap your entire application structure with the query cache context provider */}
           <QueryProvider>
             <div className="flex min-h-screen">
-              <Sidebar />
-              <main className="flex-1 ml-64 min-h-screen">{children}</main>
+              <SignedIn>
+                <Sidebar />
+                <main className="flex-1 ml-64 min-h-screen">{children}</main>
+              </SignedIn>
+              <SignedOut>
+                <main className="flex-1 min-h-screen">{children}</main>
+              </SignedOut>
             </div>
           </QueryProvider>
         </ThunderIDProvider>
