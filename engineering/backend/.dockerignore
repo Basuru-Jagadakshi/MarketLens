@@ -1,0 +1,38 @@
+# Environment/secrets — critical even if not shown in tree, exclude defensively
+.env
+.env.*
+*.env
+!.env.example
+
+# Version control
+.git
+.gitignore
+
+# Build artifacts (compiled binary, if you've built locally before)
+main
+backend
+*.exe
+*.test
+
+# Go build/test caches
+vendor/
+
+# Test files — not needed in the production image, only for `go build`'s dependency graph
+**/*_test.go
+tests/
+
+# IDE/editor
+.vscode
+.idea
+*.swp
+.DS_Store
+
+# Docs 
+*.md
+openapi.yaml
+
+# Docker/deploy-related 
+Dockerfile*
+.dockerignore
+docker-compose*.yml
+deploy/

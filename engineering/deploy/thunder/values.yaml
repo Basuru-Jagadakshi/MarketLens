@@ -1,0 +1,751 @@
+# Copyright 2025-2026 The ThunderID Authors
+# SPDX-License-Identifier: Apache-2.0
+
+deployment:
+  replicaCount: 1
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  securityContext:
+    readOnlyRootFilesystem: false
+    enableRunAsUser: true
+    runAsUser: 10001
+    enableRunAsGroup: true
+    runAsGroup: 10001
+    enableFsGroup: true
+    fsGroup: 10001
+    seccompProfile:
+      enabled: false
+      type: "RuntimeDefault"
+  # Pod termination grace period. K8s API server waits this period after pre stop hook and sending TERM signal
+  terminationGracePeriodSeconds: 10
+  image:
+    # -- Container image registry host name
+    registry: "ghcr.io/thunder-id"
+    # -- Container image repository name
+    repository: "thunderid"
+    # -- Container image digest
+    digest: ""
+    # -- Container image tag. Either "tag" or "digest" should be defined
+    tag: "1.0.0"
+    pullPolicy: "Always"
+  startupProbe:
+    initialDelaySeconds: 1
+    periodSeconds: 2
+    failureThreshold: 30
+  livenessProbe:
+    periodSeconds: 10
+  readinessProbe:
+    initialDelaySeconds: 1
+    periodSeconds: 10
+  container:
+    port: 8090
+  resources:
+    limits:
+      cpu: 200m
+      memory: 100Mi
+    requests:
+      cpu: 100m
+      memory: 50Mi
+  # Additional environment variables with plain values.
+  # The log level is configured via configuration.log.level, not an environment variable.
+  # Example:
+  # env:
+  #   - name: EXTERNAL_API_BASE_URL
+  #     value: https://api.example.com
+  env: []
+  # Additional environment variables sourced from existing Kubernetes Secrets.
+  # Example:
+  # secretEnv:
+  #   - name: EXTERNAL_API_TOKEN
+  #     secretName: thunderid-runtime-secrets
+  #     secretKey: external-api-token
+  #     optional: false
+  secretEnv: []
+
+hpa:
+  enabled: false
+  maxReplicas: 10
+  averageUtilizationCPU: 65
+  averageUtilizationMemory: 75
+
+pdb:
+  minAvailable: "50%"
+
+nameOverride: ""
+fullnameOverride: "thunderid"
+
+serviceAccount:
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: "thunderid-service-account"
+  create: true
+
+service:
+  port: 8090
+
+ingress:
+  enabled: true
+  className: "nginx"
+  commonAnnotations: &commonAnnotations
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
+    nginx.ingress.kubernetes.io/affinity: cookie
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-buffer-size: 64k
+    nginx.ingress.kubernetes.io/proxy-buffering: "on"
+    nginx.ingress.kubernetes.io/session-cookie-conditional-samesite-none: "true"
+    nginx.ingress.kubernetes.io/session-cookie-hash: sha1
+    nginx.ingress.kubernetes.io/session-cookie-name: paf
+    nginx.ingress.kubernetes.io/session-cookie-path: /
+    nginx.ingress.kubernetes.io/session-cookie-samesite: None
+  customAnnotations: &customAnnotations
+    {}
+  combinedAnnotations:
+    !!merge <<: *commonAnnotations
+    !!merge <<: *customAnnotations
+  hostname: thunderid.local
+  paths:
+    - path: /
+      pathType: Prefix
+  tlsSecretsName: "thunderid-tls"
+
+# Gateway API configuration (Envoy Gateway)
+gateway:
+  enabled: false
+  name: "thunderid-gateway"
+  className: "eg"
+  tls:
+    enabled: true
+    secretName: "thunderid-tls"
+    mode: Terminate
+
+# Gateway API HTTPRoute configuration (alternative to Ingress)
+httproute:
+  enabled: false
+  annotations: {}
+  # parentRefs specify which Gateway(s) this route attaches to
+  parentRefs:
+    - name: "thunderid-gateway"
+    #   namespace: gateway-ns
+  hostnames: []
+    # - thunderid.example.com
+
+# ThunderID specific configurations
+configuration:
+  # Server configuration
+  server:
+    port: 8090
+    httpOnly: false
+    # Logical deployment identifier. Every record is scoped to it, so give each
+    # deployment sharing a database its own value. Defaults to "default-deployment".
+    identifier: ""
+    # The URL where users reach ThunderID in their browser.
+    # ThunderID uses it to build the login and error redirect links.
+    publicUrl: "https://thunderid.local"
+    # Security configuration.
+    # jwksCacheTtl controls how long fetched JWKS responses are cached in-process for
+    # every JWKS consumer in the server (trusted issuer validation, federated OIDC
+    # authenticators such as Google, etc.). Value is in seconds; default: 300.
+    #
+    # Trusted Issuer configuration (for federated/DP deployments). Setting `issuer`
+    # activates the feature; jwksUrl and audience are then required. The server accepts
+    # tokens from the external authentication server and validates them via its JWKS
+    # endpoint. Add the CP origin to cors.allowedOrigins when using this feature.
+    #
+    # directAuthSecret gates the Direct API endpoints (/auth/**, /register/passkey/**). Callers send it
+    # in the Direct-Auth-Secret header. When setup.enabled=true, the setup job generates a secret onto
+    # the secrets PVC and the server reads it from there, so the Direct API works out of the box. Set an
+    # explicit value here to override the generated secret; leave it unset (and setup.enabled=false) to
+    # keep the Direct API blocked.
+    # security:
+    #   jwksCacheTtl: 300
+    #   directAuthSecret: "<strong-random-secret>"
+    #   trustedIssuer:
+    #     issuer: "https://cp.example.com"
+    #     jwksUrl: "https://cp.example.com/oauth2/jwks"
+    #     audience: "FEDERATED_CONSOLE"
+    #     requiredClaims:
+    #       - claim: "ouId"
+    #         value: "<tenant-ou-id>"
+
+  # Gate client configuration.
+  # hostname/port/scheme default to server.publicUrl. Required only when Gate is hosted separately.
+  gateClient:
+    path: "/gate"
+    # hostname: "thunderid.local"
+    # port: 443
+    # scheme: "https"
+
+  # Branding configuration for the Console and Gate frontends.
+  # productName: Display name shown in the browser tab and UI.
+  # favicon: Path or URL to the favicon icons. Use an object with `light` and `dark`
+  #          keys for color-scheme-aware icons (both keys are required).
+  brand:
+    productName: "ThunderID"
+    favicon:
+      light: "assets/images/favicon.ico"
+      dark: "assets/images/favicon-inverted.ico"
+
+  # Console client configuration
+  consoleClient:
+    path: "/console"
+    clientId: "CONSOLE"
+    scopes: "['openid', 'profile', 'email', 'group', 'ou', 'system']"
+    # Resource indicator (audience) the console sends on token requests. Must match the
+    # identifier of the System resource server seeded by the bootstrap defaults, which is
+    # "<server.publicUrl>/mcp". Leave empty to derive it from server.publicUrl (default);
+    # set an explicit value only if the resource server identifier is customized.
+    resourceIdentifier: "https://thunderid.local/mcp"
+    # Trusted issuer for console authentication (for federated/DP deployments).
+    # When set, the console authenticates against this external server instead of
+    # the local server.
+    # trustedIssuer:
+    #   hostname: "cp.example.com"
+    #   port: 443
+    #   httpOnly: false
+    #   publicUrl: "https://cp.example.com"
+    #   clientId: "FEDERATED_CONSOLE"
+    #   scopes: "['openid', 'profile', 'email', 'group', 'ou', 'system']"
+    #   # Type of external authorization server. Set to `generic` when the trusted
+    #   # issuer is a generic OIDC provider. When `generic`, the console skips
+    #   # ThunderID-specific bootstrap calls (flow metadata, branding preferences)
+    #   # that would otherwise fail against a generic OIDC provider.
+    #   # Defaults to `thunderid`.
+    #   type: "thunderid"
+
+  # TLS configuration
+  tls:
+    minVersion: "1.3"
+    certFile: "config/certs/server.cert"
+    keyFile: "config/certs/server.key"
+
+  # Crypto configuration
+  crypto:
+    encryption:
+      # WARNING: Replace the default key with a 32-byte (64 character) hex string in production deployments
+      key: "file://config/certs/crypto.key"
+    passwordHashing:
+      algorithm: "PBKDF2"
+      argon2id:
+        iterations: 2
+        memory: 19456
+        parallelism: 1
+        key_size: 32
+        salt_size: 16
+      pbkdf2:
+        iterations: 600000
+        key_size: 32
+        salt_size: 16
+      sha256:
+        salt_size: 16
+    keys:
+      - id: "default-key"
+        certFile: "config/certs/signing.cert"
+        keyFile: "config/certs/signing.key"
+      # ECDSA signing key used by the OpenID4VP/OpenID4VCI engines (generated by the setup job).
+      - id: "ecdsa-key"
+        certFile: "config/certs/ecdsa-signing.cert"
+        keyFile: "config/certs/ecdsa-signing.key"
+
+  # Attribute cache configuration
+  attributeCache:
+    encryption:
+      enabled: false
+
+  # Database configuration
+  database:
+    config:
+      # WARNING: Use sqlite only if you are running a single pod.
+      type: "sqlite" # postgres or sqlite
+      sqlite:
+        path: "database/configdb.db"
+        options: "_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)&_pragma=foreign_keys(1)"
+        max_open_conns: 500
+        max_idle_conns: 100
+        conn_max_lifetime: 3600
+        max_retries: 3
+        min_retry_backoff_ms: 50
+        max_retry_backoff_ms: 2000
+    # Runtime-transient database configuration
+    runtime_transient:
+      # WARNING: Use sqlite only if you are running a single pod.
+      type: "sqlite" # postgres, sqlite, or redis
+      sqlite:
+        path: "database/runtime_transient.db"
+        options: "_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)&_pragma=foreign_keys(1)"
+        max_open_conns: 500
+        max_idle_conns: 100
+        conn_max_lifetime: 3600
+        max_retries: 3
+        min_retry_backoff_ms: 50
+        max_retry_backoff_ms: 2000
+      redis:
+        address: ""      # Redis server address, e.g. "localhost:6379"
+        username: ""
+        password: ""
+        passwordRef:
+          name: ""
+          key: ""
+        db: 0             # Redis logical database index (0-15)
+        key_prefix: ""   # Prefix for all Redis keys, e.g. "thunderid:"
+    entity:
+      # WARNING: Use sqlite only if you are running a single pod.
+      type: "sqlite" # postgres or sqlite
+      sqlite:
+        path: "database/entitydb.db"
+        options: "_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)&_pragma=foreign_keys(1)"
+        max_open_conns: 500
+        max_idle_conns: 100
+        conn_max_lifetime: 3600
+        max_retries: 3
+        min_retry_backoff_ms: 50
+        max_retry_backoff_ms: 2000
+    # Runtime-persistent database configuration. Stores SSO sessions, revoked tokens, and consent records.
+    runtime_persistent:
+      # WARNING: Use sqlite only if you are running a single pod.
+      type: "sqlite" # postgres or sqlite
+      sqlite:
+        path: "database/runtime_persistent.db"
+        options: "_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)&_pragma=foreign_keys(1)"
+        max_open_conns: 500
+        max_idle_conns: 100
+        conn_max_lifetime: 3600
+        max_retries: 3
+        min_retry_backoff_ms: 50
+        max_retry_backoff_ms: 2000
+
+  # Cache configuration
+  cache:
+    disabled: true
+    type: "inmemory"
+    size: 1000
+    ttl: 3600
+    evictionPolicy: "LRU"
+    cleanupInterval: 300
+    redis:
+      address: "localhost:6379"
+      username: ""
+      password: ""
+      db: 0
+      keyPrefix: "thunderid"
+
+  # Token Configuration
+  jwt:
+    issuer: ""  # Optional. Derived from server's URL if not set.
+    validityPeriod: 3600
+    audience: "application"
+    # This must match the key ID defined in the crypto.keys section
+    preferredKeyId: "default-key"
+
+  # OAuth configuration
+  oauth:
+    refreshToken:
+      renewOnGrant: true
+      revokePreviousOnRenew: true
+      validityPeriod: 86400
+    authorizationCode:
+      validityPeriod: 600
+    authorizationRequest:
+      validityPeriod: 3600
+    dcr:
+      enabled: true
+      insecure: false
+    # Report an authentication flow failure that maps to the OAuth server_error code to the client.
+    sendServerErrorsToClient: false
+    # Client token endpoint auth methods allowed during registration.
+    allowedAuthMethods:
+      - "client_secret_basic"
+      - "client_secret_post"
+      - "private_key_jwt"
+      - "none"
+    # OAuth response types allowed during client registration.
+    allowedResponseTypes:
+      - "code"
+    # OAuth grant types allowed during client registration.
+    allowedGrantTypes:
+      - "client_credentials"
+      - "authorization_code"
+      - "refresh_token"
+      - "urn:ietf:params:oauth:grant-type:token-exchange"
+      - "urn:openid:params:grant-type:ciba"
+      - "urn:ietf:params:oauth:grant-type:jwt-bearer"
+
+  # Flow configuration
+  flow:
+    maxVersionHistory: 3
+    autoInferRegistration: false
+    # Optional whitelist of built-in executor names to register at startup.
+    # Leave empty to register all built-in executors.
+    executors: []
+    # Optional whitelist of built-in interceptor names to register at startup.
+    # Leave empty to register all built-in interceptors.
+    interceptors: []
+    # Storage mode for flows: "mutable", "declarative", or "composite".
+    # Leave empty to inherit the global declarativeResources.enabled setting.
+    store: ""
+
+  # Passkey configuration
+  passkey:
+    allowedOrigins:
+      - "https://localhost:8090"
+
+  # OpenID4VP (verifiable presentation / verifier) configuration.
+  # Leave signingKeyId empty to keep the verifier signing engine disabled.
+  openid4vp:
+    # Scheme used to derive the verifier client_id from the signing certificate.
+    # One of: "x509_hash", "x509_san_dns", "redirect_uri".
+    clientIdScheme: "x509_san_dns"
+    # Key ID (from crypto.keys) used to sign the request object. Empty disables OpenID4VP.
+    signingKeyId: ""
+    # Ephemeral key ID (from crypto.keys) used for response encryption.
+    ephemeralKeyId: "vp-enc"
+    # Supported response encryption (JWE enc) values.
+    responseEncValues:
+      - "A128GCM"
+      - "A256GCM"
+      - "A128CBC-HS256"
+      - "A256CBC-HS512"
+    requestValiditySeconds: 300
+    stateTtlSeconds: 300
+    leewaySeconds: 30
+    keyBindingMaxAgeSeconds: 300
+    resultTokenValiditySeconds: 300
+    # Enforce holder key binding on presentations.
+    enforceKeyBinding: true
+    # Optional verifier registration certificate (EUDI) file path. Empty to disable.
+    registrationCertFile: ""
+    # Trusted issuer anchors (root CAs) used to validate credential issuer chains.
+    # Each entry: { name, certFile }.
+    trustedAnchors: []
+    # Storage mode for presentation definitions: "mutable", "declarative", or "composite".
+    # Leave empty to inherit the global declarativeResources.enabled setting.
+    store: ""
+
+  # OpenID4VCI (verifiable credential issuance / issuer) configuration.
+  # Leave signingKeyId empty to keep the issuer engine disabled.
+  openid4vci:
+    # Key ID (from crypto.keys) used to sign issued SD-JWT credentials. Empty disables OpenID4VCI.
+    signingKeyId: ""
+    nonceTtlSeconds: 300
+    proofMaxAgeSeconds: 300
+    credentialValiditySeconds: 2592000
+    batchSize: 5
+    # Require the credential_configuration_id scope on the issuance token.
+    enforceScope: false
+    # Storage mode for credential configurations: "mutable", "declarative", or "composite".
+    # Leave empty to inherit the global declarativeResources.enabled setting.
+    store: ""
+
+  # SMTP server used to deliver emails (email OTP, magic link, verification).
+  # Leave host empty to omit the section, in which case no email can be sent.
+  # port and fromAddress are required once host is set. enableStartTls and
+  # enableAuthentication both default to true when omitted.
+  email:
+    smtp:
+      host: ""
+      port: 587
+      fromAddress: ""
+      username: ""
+      enableStartTls: true
+      enableAuthentication: true
+      # Inline SMTP password. Stored in the "<release>-db-credentials" Secret and
+      # injected as the SMTP_PASSWORD environment variable.
+      password: ""
+      # Source the SMTP password from an existing Kubernetes Secret. When both
+      # name and key are set, it takes precedence over the inline password above.
+      passwordRef:
+        name: ""
+        key: ""
+
+  # Logging configuration. Logs go to the console (stdout) so a log collector can pick
+  # them up from the pod, which is the expected setup on Kubernetes. Everything below
+  # console output is optional; omitted keys keep the server defaults.
+  log:
+    level: "info"
+    output:
+      console:
+        enabled: true
+      # format sets the log line format for every output, including the console, so
+      # set it to "json" on its own to emit JSON to stdout for a log collector.
+      # file:
+      #   format: "json"
+      # The remaining file settings turn on file output. The container root filesystem
+      # is read-only by default (deployment.securityContext.readOnlyRootFilesystem), so
+      # point path at /tmp, which the chart mounts as an emptyDir, or at another
+      # writable mount. Prefer console output.
+      # file:
+      #   enabled: true
+      #   path: "logs"
+      #   fileName: "thunderid.log"
+      #   format: "text"
+      #   rotation:
+      #     size:
+      #       enabled: false
+      #       maxSizeMb: 10
+      #     time:
+      #       enabled: true
+      #       intervalDays: 1
+      #     maxBackups: 20
+      #     maxAgeDays: 0
+      #     compress: false
+    # Optional. Extra path prefixes served without an access log line.
+    # access:
+    #   excludePaths:
+    #     - /health
+
+  # Storage mode per resource type: "mutable", "declarative", or "composite".
+  # Only set these when declarativeResources.enabled=true and the resource should be
+  # sourced from mounted files. An unset key inherits the global setting.
+  # Example:
+  # stores:
+  #   application: composite
+  #   identity_provider: declarative
+  # Supported keys: user, group, role, theme, layout, translation, agent, user_type,
+  # organization_unit, identity_provider, application, server_config, resource.
+  stores: {}
+
+
+# Persistence configuration for SQLite databases
+# Only relevant when using SQLite as the database type
+persistence:
+  enabled: false
+  storageClass: ""
+  accessMode: ReadWriteOnce
+  size: 1Gi
+  annotations: {}
+
+# Storage for the cryptographic material (TLS, JWT signing, and AES encryption keys) that the setup
+# job generates. This generation is a quickstart/evaluation convenience: nothing is baked into the
+# image, and every install gets its own unique keys on this dedicated PVC, which the server reads.
+# Only used when setup.enabled=true.
+#
+# Treat this PVC as persistent — losing it invalidates all issued tokens and previously-encrypted
+# data. For production, do not rely on the auto-generated self-signed TLS certificate; terminate TLS
+# with a CA-issued certificate at your ingress/gateway (see ingress.tlsSecretsName / gateway.tls) and
+# review the production deployment guide.
+#
+# accessMode defaults to ReadWriteOnce, which fits a single-node or single-replica install. If
+# deployment.replicaCount > 1 and the replicas can be scheduled onto different nodes, set accessMode
+# to ReadWriteMany (needs a storage class that supports it) so every replica can read the material,
+# or provide your own key material and set setup.enabled=false.
+certs:
+  persistence:
+    storageClass: ""
+    accessMode: ReadWriteOnce
+    size: 16Mi
+    annotations: {}
+
+# Storage for runtime secrets that the setup job generates (currently the Direct Auth Secret that gates
+# the Direct API). Kept on a dedicated PVC because deployment.yaml is mounted read-only, so the setup
+# job cannot persist the secret into the configuration itself. The server reads it via a file://
+# reference in deployment.yaml. Only used when setup.enabled=true.
+#
+# accessMode defaults to ReadWriteOnce. If deployment.replicaCount > 1 and replicas can land on
+# different nodes, set accessMode to ReadWriteMany (needs a supporting storage class), or set
+# configuration.server.security.directAuthSecret to supply the secret inline and skip generation.
+secrets:
+  persistence:
+    storageClass: ""
+    accessMode: ReadWriteOnce
+    size: 16Mi
+    annotations: {}
+
+# Declarative resources mount configuration.
+# Mounts files under ThunderID's config/resources directory.
+declarativeResources:
+  # Enable mounting declarative resources into ThunderID pods.
+  enabled: false
+  # Mount path inside ThunderID container.
+  mountPath: /opt/thunderid/config/resources
+  # Mount resources as read-only.
+  readOnly: true
+  # Combined file mode.
+  # Each key listed here is mounted as <key>.yaml directly under mountPath.
+  # Files must use the # resource_type: <type> header format so the directory
+  # scanner can identify each document.
+  # Mutually exclusive with configMap.items / secret.items.
+  singleFile:
+    # Keys in the ConfigMap or Secret to mount as combined resource YAML files.
+    # Example:
+    # keys:
+    #   - resources
+    #   - extra-resources
+    keys: []
+  # Source from an existing ConfigMap.
+  # When 'items' is empty, all keys are mounted.
+  # Each item supports either:
+  #   - string: key and path are the same
+  #   - object: explicit key/path mapping
+  configMap:
+    # Name of an existing ConfigMap in the same namespace.
+    # Example: thunderid-declarative-resources (see install/helm/examples/declarative-resources-configmap.yaml)
+    name: ""
+    items: []
+    # Example — references the bundled sample ConfigMap:
+    # name: thunderid-declarative-resources
+    # items:
+    #   - key: my-web-app
+    #     path: applications/my-web-app.yaml
+    #     mountPath: /opt/thunderid/config/resources/applications/my-web-app.yaml
+    #   - key: google-idp
+    #     path: connections/google.yaml
+    #     mountPath: /opt/thunderid/config/resources/connections/google.yaml
+    #   - key: default-org
+    #     path: organization_units/default.yaml
+    #     mountPath: /opt/thunderid/config/resources/organization_units/default.yaml
+  # Source from an existing Secret.
+  # Use this when resource files contain sensitive values (e.g. pre-substituted secrets).
+  # Supports the same string/object item formats as configMap above.
+  secret:
+    name: ""
+    items: []
+    # Example:
+    # name: thunderid-declarative-resources-secret
+    # items:
+    #   - key: my-app-with-secrets
+    #     path: applications/my-app.yaml
+    #     mountPath: /opt/thunderid/config/resources/applications/my-app.yaml
+    #   - key: google-idp
+    #     path: connections/google.yaml
+    #     mountPath: /opt/thunderid/config/resources/connections/google.yaml
+
+# Setup Job configuration
+# Runs setup.sh as a one-time initialization job during Helm install
+setup:
+  # Enable setup job (runs on first install only via Helm hook)
+  enabled: true
+  # Number of retries if setup fails
+  backoffLimit: 3
+  # Whether to preserve the setup job after completion
+  # When false: Job is deleted immediately on success, and after ttlSecondsAfterFinished on failure
+  # When true: Job is kept indefinitely (ttlSecondsAfterFinished is not applied)
+  preserveJob: true
+  # Time to keep failed jobs after completion (seconds, 0 = indefinite)
+  # Only applies when preserveJob=false. Successful jobs are deleted immediately via hook-delete-policy.
+  ttlSecondsAfterFinished: 86400  # 24 hours
+  # Enable debug mode for setup
+  debug: true
+  # Admin user credentials seeded by the setup job (only when setup.enabled=true).
+  #
+  # Password resolution order (highest precedence first):
+  #   1. passwordRef  - sourced from an existing Kubernetes Secret
+  #   2. password     - the inline value below
+  #   3. generated    - a random password is stored in the "<release>-admin-credentials"
+  #                     Secret. Retrieve it with the command printed after installation.
+  # Username resolution: usernameRef if set, otherwise the inline username below.
+  # No default password is shipped: leaving everything unset generates one securely.
+  admin:
+    username: "admin"
+    # Source the admin username from an existing Kubernetes Secret. When
+    # usernameRef.name and usernameRef.key are both set, it takes precedence over
+    # the inline username above. name and key must be set together.
+    usernameRef:
+      name: ""
+      key: ""
+    # Inline admin password. Leave empty to generate a random one.
+    # Ignored when passwordRef is set.
+    password: ""
+    # Source the admin password from an existing Kubernetes Secret. When
+    # passwordRef.name and passwordRef.key are both set, it takes precedence over
+    # the inline password above and over generation. name and key must be set
+    # together. Point usernameRef and passwordRef at the same Secret name with
+    # different keys to source both credentials from one Secret.
+    passwordRef:
+      name: ""
+      key: ""
+  # Additional command-line arguments for setup.sh
+  args: []
+    # Example:
+    # - "--debug"
+  # Additional environment variables for setup job
+  env: []
+    # Example:
+    # - name: BOOTSTRAP_FAIL_FAST
+    #   value: "true"
+    # - name: BOOTSTRAP_SKIP_PATTERN
+    #   value: "test"
+  # Additional environment variables sourced from existing Kubernetes Secrets.
+  # Example:
+  # secretEnv:
+  #   - name: BOOTSTRAP_API_KEY
+  #     secretName: server-setup-secrets
+  #     secretKey: bootstrap-api-key
+  #     optional: false
+  secretEnv: []
+  # Resource limits for setup job
+  resources:
+    limits:
+      cpu: 200m
+      memory: 100Mi
+    requests:
+      cpu: 100m
+      memory: 50Mi
+  # Additional volume mounts for setup job
+  extraVolumeMounts: []
+    # Example:
+    # - name: secrets
+    #   mountPath: /run/secrets
+    #   readOnly: true
+  # Additional volumes for setup job
+  extraVolumes: []
+    # Example:
+    # - name: secrets
+    #   secret:
+    #     secretName: thunderid-secrets
+
+# Bootstrap configuration
+# Custom bootstrap resource definitions extend ThunderID's setup process. Files are
+# mounted into the bootstrap directory and applied by the in-process
+# bootstrap (`thunderid bootstrap`) through the import service. Each document is a
+# YAML/JSON resource definition (e.g. organization_unit, user_type, user, role,
+# application) — the same format as the shipped defaults; not shell scripts.
+#
+# ⚠️ IMPORTANT: Bootstrap patterns are MUTUALLY EXCLUSIVE
+#   Choose ONE pattern only. Using both 'scripts' and 'configMap' will fail validation.
+#
+#   - Pattern 1: Use 'scripts' for inline resource definitions
+#   - Pattern 2 OR 3: Use 'configMap' (with or without 'files')
+#
+bootstrap:
+  # Pattern 1: Inline resource definitions (key: filename, value: file content).
+  # Each file is mounted individually with subPath, alongside the shipped defaults.
+  scripts: {}
+    # Example - Creating a custom user (filename must end in .yaml/.yml/.json):
+    # 70-custom-users.yaml: |
+    #   # resource_type: user
+    #   type: Person
+    #   ouHandle: default
+    #   attributes:
+    #     username: alice
+    #     sub: alice
+    #     email: alice@example.com
+    #     name: Alice Johnson
+    #   credentials:
+    #     password: alice123
+    #
+  # Pattern 2 & 3: Reference an external ConfigMap with resource definition files.
+  #
+  # Behavior depends on whether 'files' is specified:
+  # - WITH files list: Mounts only specified files (preserves defaults) - Pattern 2
+  # - WITHOUT files (empty/omitted): Mounts entire ConfigMap (replaces all defaults) - Pattern 3
+  #
+  # Example 1 - Pattern 2: Add specific resource files (preserves defaults)
+  #   configMap:
+  #     name: "my-bootstrap"
+  #     files:
+  #       - 70-custom-users.yaml
+  #       - 80-custom-apps.yaml
+  #
+  # Example 2 - Pattern 3: Replace the entire default resource bundle
+  #   configMap:
+  #     name: "complete-bootstrap"
+  #     # No files = replaces all defaults (must provide a complete resource set)
+  #
+  configMap:
+    # Name of the ConfigMap containing resource definition files
+    name: ""
+    # List of script filenames to mount from the ConfigMap
+    # If empty/omitted: mounts entire ConfigMap (replaces all defaults - Pattern 3)
+    # If specified: mounts only these files (preserves defaults - Pattern 2)
+    files: []

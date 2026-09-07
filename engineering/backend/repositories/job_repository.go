@@ -21,6 +21,18 @@ func NewJobRepository(db *gorm.DB) *JobRepository {
 	return &JobRepository{db: db}
 }
 
+//This function pings the database connection to confirm it's reachable - used for Kubernetes readiness probes
+func (r *JobRepository) Ping() error {
+	if r.db == nil {
+		return errors.New("database not initialized")
+	}
+	sqlDB, err := r.db.DB()
+	if err != nil {
+		return err
+	}
+	return sqlDB.Ping()
+}
+
 //This function builds a subquery of job_post.ids that fall under the given
 //occupation/industry hierarchy level and id — used to scope other aggregations
 //(like employment sector breakdown) to that level.

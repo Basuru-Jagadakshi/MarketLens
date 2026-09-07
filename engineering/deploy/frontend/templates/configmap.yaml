@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "frontend.fullname" . }}-config
+  labels:
+    {{- include "frontend.labels" . | nindent 4 }}
+data:
+  GO_BACKEND_URL: {{ .Values.config.goBackendUrl | quote }}
+  GO_BACKEND_HEALTH_URL: {{ .Values.config.goBackendHealthUrl | quote}}
+  NEXT_PUBLIC_THUNDERID_BASE_URL: {{ .Values.config.thunderIdBaseUrl | quote }}
+  NEXT_PUBLIC_THUNDERID_APPLICATION_ID: {{ .Values.config.thunderIdApplicationId | quote }}
+  NEXT_PUBLIC_THUNDERID_CLIENT_ID: {{ .Values.config.thunderIdClientId | quote }}
+  {{- if .Values.config.nodeTlsRejectUnauthorized }}
+  NODE_TLS_REJECT_UNAUTHORIZED: {{ .Values.config.nodeTlsRejectUnauthorized | quote }}
+  {{- end }}

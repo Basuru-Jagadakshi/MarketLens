@@ -1,0 +1,17 @@
+PostgreSQL for MarketLens ({{ .Release.Name }}) has been deployed.
+
+Connection details (from within the cluster):
+  Host:     {{ include "postgres.fullname" . }}
+  Port:     {{ .Values.service.port }}
+  Database: {{ .Values.secrets.postgresDb }}
+
+To connect locally for debugging (e.g. via psql or pgAdmin):
+  kubectl port-forward {{ include "postgres.fullname" . }}-0 5432:5432
+
+Then connect to localhost:5432 with your database client.
+
+To check the Pod status:
+  kubectl get pods -l app.kubernetes.io/name={{ include "postgres.name" . }}
+
+To view logs:
+  kubectl logs {{ include "postgres.fullname" . }}-0

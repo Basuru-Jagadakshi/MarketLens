@@ -40,3 +40,6 @@ sql.txt
 
 #sql lite dbs
 :memory
+
+
+values-*-secrets.yaml
