@@ -8,7 +8,17 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const goUrl = `${GO_API}/sub-major-groups/${id}/minor-groups`;
+  const { searchParams } = new URL(request.url);
+
+  const fromDate = searchParams.get("from-date");
+  const toDate = searchParams.get("to-date");
+
+  const goParams = new URLSearchParams();
+  if (fromDate) goParams.set("from-date", fromDate);
+  if (toDate) goParams.set("to-date", toDate);
+  const queryString = goParams.toString();
+
+  const goUrl = `${GO_API}/sub-major-groups/${id}/minor-groups${queryString ? `?${queryString}` : ""}`;
 
   console.log("[sub-major-groups-minor-groups] fetching from Go:", goUrl);
 

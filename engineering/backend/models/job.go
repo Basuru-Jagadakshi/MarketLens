@@ -3,6 +3,7 @@ package models
 import (
 	"time"
 	"github.com/lib/pq"
+	"gorm.io/gorm"
 )
 
 // Lookup / reference tables 
@@ -53,6 +54,7 @@ type EducationLevel struct {
 	Level     string    `json:"level"      gorm:"size:100;not null"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
+	DeletedAt gorm.DeletedAt `json:"-" gorm:"index"`
 }
 
 func (EducationLevel) TableName() string { return "education_level" }
@@ -91,6 +93,7 @@ type Experience struct {
 	Name      string    `json:"name"       gorm:"size:100;not null"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
+	DeletedAt gorm.DeletedAt `json:"-" gorm:"index"`
 }
 
 func (Experience) TableName() string { return "experience" }
@@ -113,6 +116,7 @@ type Formality struct {
 	FormalityType	string		`json:"formality_type"		gorm:"size:50;not null"`
 	CreatedAt		time.Time	`json:"created_at"`
 	UpdatedAt		time.Time	`json:"updated_at"`
+	DeletedAt gorm.DeletedAt `json:"-" gorm:"index"`
 }
 
 func (Formality) TableName() string { return "formality" } 
@@ -123,6 +127,7 @@ type Gender struct {
 	GenderType		string		`json:"gender_type"		gorm:"size:50;not null"` 
 	CreatedAt		time.Time	`json:"created_at"`
 	UpdatedAt		time.Time	`json:"updated_at"`
+	DeletedAt gorm.DeletedAt `json:"-" gorm:"index"`
 }
 
 func (Gender) TableName() string { return "gender" }
@@ -133,6 +138,7 @@ type VocationalEducation struct {
 	Level			string		`json:"level"			gorm:"size:50;not null"`
 	CreatedAt		time.Time	`json:"created_at"`
 	UpdatedAt		time.Time	`json:"updated_at"`
+	DeletedAt gorm.DeletedAt `json:"-" gorm:"index"`
 }
 
 func (VocationalEducation) TableName() string { return "vocational_education" }
@@ -143,6 +149,7 @@ type EmploymentSector struct {
 	Sector    string    `json:"sector"     gorm:"size:100;not null"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
+	DeletedAt gorm.DeletedAt `json:"-" gorm:"index"`
 }
  
 func (EmploymentSector) TableName() string { return "employment_sector" }
@@ -154,6 +161,7 @@ type MajorGroup struct {
 	Code      string    `json:"code"       gorm:"size:50;not null"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
+	DeletedAt gorm.DeletedAt `json:"-" gorm:"index"`
 }
  
 func (MajorGroup) TableName() string { return "major_group" }
@@ -166,6 +174,7 @@ type SubMajorGroup struct {
 	Code         string      `json:"code"           gorm:"size:50;not null"`
 	CreatedAt    time.Time   `json:"created_at"`
 	UpdatedAt    time.Time   `json:"updated_at"`
+	DeletedAt gorm.DeletedAt `json:"-" gorm:"index"`
 }
 
 func (SubMajorGroup) TableName() string { return "sub_major_group" }
@@ -178,6 +187,7 @@ type MinorGroup struct {
 	Code            string         `json:"code"               gorm:"size:50;not null"`
 	CreatedAt       time.Time      `json:"created_at"`
 	UpdatedAt       time.Time      `json:"updated_at"`
+	DeletedAt gorm.DeletedAt `json:"-" gorm:"index"`
 }
  
 func (MinorGroup) TableName() string { return "minor_group" }
@@ -190,6 +200,7 @@ type UnitGroup struct {
 	Code         string      `json:"code"           gorm:"size:50;not null"`
 	CreatedAt    time.Time   `json:"created_at"`
 	UpdatedAt    time.Time   `json:"updated_at"`
+	DeletedAt gorm.DeletedAt `json:"-" gorm:"index"`
 }
  
 func (UnitGroup) TableName() string { return "unit_group" }
@@ -202,6 +213,7 @@ type OccupationGroup struct {
 	Code        string     `json:"code"          gorm:"size:50;not null"`
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
+	DeletedAt gorm.DeletedAt `json:"-" gorm:"index"`
 }
  
 func (OccupationGroup) TableName() string { return "occupation_group" }
@@ -213,6 +225,7 @@ type IndustrySector struct {
 	Code      string    `json:"code"       gorm:"size:50;not null"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
+	DeletedAt gorm.DeletedAt `json:"-" gorm:"index"`
 }
  
 func (IndustrySector) TableName() string { return "industry_sector" }
@@ -225,6 +238,7 @@ type IndustryDivision struct {
 	Code             string          `json:"code"               gorm:"size:50;not null"`
 	CreatedAt        time.Time       `json:"created_at"`
 	UpdatedAt        time.Time       `json:"updated_at"`
+	DeletedAt gorm.DeletedAt `json:"-" gorm:"index"`
 }
  
 func (IndustryDivision) TableName() string { return "industry_division" }
@@ -237,6 +251,7 @@ type IndustryGroup struct {
 	Code               string            `json:"code"                 gorm:"size:50;not null"`
 	CreatedAt          time.Time         `json:"created_at"`
 	UpdatedAt          time.Time         `json:"updated_at"`
+	DeletedAt gorm.DeletedAt `json:"-" gorm:"index"`
 }
  
 func (IndustryGroup) TableName() string { return "industry_group" }
@@ -249,6 +264,7 @@ type IndustryClass struct {
 	Code            string         `json:"code"              gorm:"size:50;not null"`
 	CreatedAt       time.Time      `json:"created_at"`
 	UpdatedAt       time.Time      `json:"updated_at"`
+	DeletedAt gorm.DeletedAt `json:"-" gorm:"index"`
 }
  
 func (IndustryClass) TableName() string { return "industry_class" }
@@ -261,6 +277,7 @@ type IndustrySubclass struct {
 	Code            string         `json:"code"              gorm:"size:50;not null"`
 	CreatedAt       time.Time      `json:"created_at"`
 	UpdatedAt       time.Time      `json:"updated_at"`
+	DeletedAt gorm.DeletedAt `json:"-" gorm:"index"`
 }
  
 func (IndustrySubclass) TableName() string { return "industry_subclass" }

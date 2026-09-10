@@ -80,46 +80,62 @@ export function useOccupationAnalysis(
   });
 }
 
-export function useMajorGroup() {
+export function useMajorGroup(fromDate: string, toDate: string) {
   return useQuery<MajorGroupListResponse>({
-    queryKey: ["occupation", "major-groups"],
-    queryFn: () => fetchJson(`${BASE}/occupation/major-groups`),
-    staleTime: Infinity
-  })
+    queryKey: ["occupation", "major-groups", fromDate, toDate],
+    queryFn: () => {
+      const params = new URLSearchParams({ "from-date": fromDate, "to-date": toDate });
+      return fetchJson(`${BASE}/occupation/major-groups?${params.toString()}`);
+    },
+    enabled: Boolean(fromDate) && Boolean(toDate),
+    staleTime: 1000 * 60 * 10,
+  });
 }
 
-export function useSubMajorGroups(majorGroupId: number | null) {
+export function useSubMajorGroups(majorGroupId: number | null, fromDate: string, toDate: string) {
   return useQuery<SubMajorGroupChildrenResponse>({
-    queryKey: ["occupation", "sub-major-groups", majorGroupId],
-    queryFn: () => fetchJson(`${BASE}/occupation/major-groups/${majorGroupId}/sub-major-groups`),
-    enabled: majorGroupId !== null,
+    queryKey: ["occupation", "sub-major-groups", majorGroupId, fromDate, toDate],
+    queryFn: () => {
+      const params = new URLSearchParams({ "from-date": fromDate, "to-date": toDate });
+      return fetchJson(`${BASE}/occupation/major-groups/${majorGroupId}/sub-major-groups?${params.toString()}`);
+    },
+    enabled: majorGroupId !== null && Boolean(fromDate) && Boolean(toDate),
     staleTime: 1000 * 60 * 10,
   });
 }
 
-export function useMinorGroups(subMajorGroupId: number | null) {
+export function useMinorGroups(subMajorGroupId: number | null, fromDate: string, toDate: string) {
   return useQuery<MinorGroupChildrenResponse>({
-    queryKey: ["occupation", "minor-groups", subMajorGroupId],
-    queryFn: () => fetchJson(`${BASE}/occupation/sub-major-groups/${subMajorGroupId}/minor-groups`),
-    enabled: subMajorGroupId !== null,
+    queryKey: ["occupation", "minor-groups", subMajorGroupId, fromDate, toDate],
+    queryFn: () => {
+      const params = new URLSearchParams({ "from-date": fromDate, "to-date": toDate });
+      return fetchJson(`${BASE}/occupation/sub-major-groups/${subMajorGroupId}/minor-groups?${params.toString()}`);
+    },
+    enabled: subMajorGroupId !== null && Boolean(fromDate) && Boolean(toDate),
     staleTime: 1000 * 60 * 10,
   });
 }
 
-export function useUnitGroups(minorGroupId: number | null) {
+export function useUnitGroups(minorGroupId: number | null, fromDate: string, toDate: string) {
   return useQuery<UnitGroupChildrenResponse>({
-    queryKey: ["occupation", "unit-groups", minorGroupId],
-    queryFn: () => fetchJson(`${BASE}/occupation/minor-groups/${minorGroupId}/unit-groups`),
-    enabled: minorGroupId !== null,
+    queryKey: ["occupation", "unit-groups", minorGroupId, fromDate, toDate],
+    queryFn: () => {
+      const params = new URLSearchParams({ "from-date": fromDate, "to-date": toDate });
+      return fetchJson(`${BASE}/occupation/minor-groups/${minorGroupId}/unit-groups?${params.toString()}`);
+    },
+    enabled: minorGroupId !== null && Boolean(fromDate) && Boolean(toDate),
     staleTime: 1000 * 60 * 10,
   });
 }
 
-export function useOccupationGroups(unitGroupId: number | null) {
+export function useOccupationGroups(unitGroupId: number | null, fromDate: string, toDate: string) {
   return useQuery<OccupationGroupChildrenResponse>({
-    queryKey: ["occupation", "occupation-groups", unitGroupId],
-    queryFn: () => fetchJson(`${BASE}/occupation/unit-groups/${unitGroupId}/occupation-groups`),
-    enabled: unitGroupId !== null,
+    queryKey: ["occupation", "occupation-groups", unitGroupId, fromDate, toDate],
+    queryFn: () => {
+      const params = new URLSearchParams({ "from-date": fromDate, "to-date": toDate });
+      return fetchJson(`${BASE}/occupation/unit-groups/${unitGroupId}/occupation-groups?${params.toString()}`);
+    },
+    enabled: unitGroupId !== null && Boolean(fromDate) && Boolean(toDate),
     staleTime: 1000 * 60 * 10,
   });
 }

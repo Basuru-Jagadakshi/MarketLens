@@ -3,9 +3,20 @@ import { getAccessToken } from "@/lib/token";
 
 const GO_API = process.env.GO_BACKEND_URL;
 
-// Get all industry sectors
-export async function GET() {
-  const goUrl = `${GO_API}/industry-sectors`;
+// Get all industry sectors - currently-active by default, or active during a
+// given date range if from-date and to-date query params are provided
+export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url);
+
+  const fromDate = searchParams.get("from-date");
+  const toDate = searchParams.get("to-date");
+
+  const goParams = new URLSearchParams();
+  if (fromDate) goParams.set("from-date", fromDate);
+  if (toDate) goParams.set("to-date", toDate);
+  const queryString = goParams.toString();
+
+  const goUrl = `${GO_API}/industry-sectors${queryString ? `?${queryString}` : ""}`;
 
   console.log("[industry-sectors] fetching from Go:", goUrl);
 
