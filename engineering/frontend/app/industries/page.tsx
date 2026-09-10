@@ -16,7 +16,7 @@ import {
   Bar,
 } from "recharts";
 import {
-  useIndustrySctors,
+  useIndustrySectors,
   useIndustryDivisions,
   useIndustryGroups,
   useIndustryClasses,
@@ -195,7 +195,7 @@ function IndustryAnalysis() {
   const [path, setPath] = useState<PathNode[]>([]);
   const [viewMode, setViewMode] = useState<"chart" | "table">("chart");
 
-  const industrySectorsQuery = useIndustrySctors();
+  const industrySectorsQuery = useIndustrySectors(fromDate, toDate);
   const industrySectors = useMemo<HierarchyNode[]>(
     () =>
       (industrySectorsQuery.data?.industry_sectors ?? []).map((s) => ({
@@ -215,10 +215,26 @@ function IndustryAnalysis() {
     }
   }, [path.length, industrySectors]);
 
-  const industryDivisionsQuery = useIndustryDivisions(path[0]?.id ?? null);
-  const industryGroupsQuery = useIndustryGroups(path[1]?.id ?? null);
-  const industryClassesQuery = useIndustryClasses(path[2]?.id ?? null);
-  const industrySubclassesQuery = useIndustrySubclasses(path[3]?.id ?? null);
+  const industryDivisionsQuery = useIndustryDivisions(
+    path[0]?.id ?? null,
+    fromDate,
+    toDate,
+  );
+  const industryGroupsQuery = useIndustryGroups(
+    path[1]?.id ?? null,
+    fromDate,
+    toDate,
+  );
+  const industryClassesQuery = useIndustryClasses(
+    path[2]?.id ?? null,
+    fromDate,
+    toDate,
+  );
+  const industrySubclassesQuery = useIndustrySubclasses(
+    path[3]?.id ?? null,
+    fromDate,
+    toDate,
+  );
 
   function optionsForLevel(levelIndex: number): HierarchyNode[] {
     switch (levelIndex) {
@@ -253,6 +269,54 @@ function IndustryAnalysis() {
         return false;
     }
   }
+
+  function isLevelSettled(levelIndex: number): boolean {
+    switch (levelIndex) {
+      case 0:
+        return industrySectorsQuery.isSuccess;
+      case 1:
+        return industryDivisionsQuery.isSuccess;
+      case 2:
+        return industryGroupsQuery.isSuccess;
+      case 3:
+        return industryClassesQuery.isSuccess;
+      case 4:
+        return industrySubclassesQuery.isSuccess;
+      default:
+        return false;
+    }
+  }
+
+  const [prunedNotice, setPrunedNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (path.length === 0) return;
+
+    for (let i = 0; i < path.length; i++) {
+      if (!isLevelSettled(i)) return;
+
+      const options = optionsForLevel(i);
+      if (!options.some((o) => o.id === path[i].id)) {
+        setPrunedNotice(path[i].name);
+        setPath(path.slice(0, i));
+        return;
+      }
+    }
+
+    setPrunedNotice(null);
+  }, [
+    path,
+    industrySectorsQuery.isSuccess,
+    industrySectors,
+    industryDivisionsQuery.isSuccess,
+    industryDivisionsQuery.data,
+    industryGroupsQuery.isSuccess,
+    industryGroupsQuery.data,
+    industryClassesQuery.isSuccess,
+    industryClassesQuery.data,
+    industrySubclassesQuery.isSuccess,
+    industrySubclassesQuery.data,
+  ]);
 
   const handleSelect = (levelIndex: number, idStr: string) => {
     const options = optionsForLevel(levelIndex);
@@ -551,6 +615,12 @@ function IndustryAnalysis() {
                 </button>
               )}
             </div>
+          )}
+          {prunedNotice && (
+            <p className="text-[11px] text-amber-600 font-bold mt-3">
+              {prunedNotice} has no data in this date range, showing the closest
+              level with data.
+            </p>
           )}
         </div>
 

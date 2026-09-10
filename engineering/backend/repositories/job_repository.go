@@ -302,9 +302,13 @@ func (r *JobRepository) GetVocationalEducationByLevel(standard, level string, id
 		return nil, err
 	}
 
+	endOfToDate := toDate.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
+
 	var results []models.VocationalEducationJobCount
 	err = r.db.Table("vocational_education").
 		Select("vocational_education.id, vocational_education.level, COALESCE(SUM(job_post.no_of_vacancies), 0) AS open_job_count").
+		Where("vocational_education.created_at <= ?", endOfToDate).
+		Where("vocational_education.deleted_at IS NULL OR vocational_education.deleted_at >= ?", fromDate).
 		Joins(
 			"LEFT JOIN meta_data ON meta_data.vocational_education_id = vocational_education.id "+
 				"AND meta_data.posted_at::date BETWEEN ? AND ? "+
@@ -331,9 +335,13 @@ func (r *JobRepository) GetGenderByLevel(standard, level string, id uint, fromDa
 		return nil, err
 	}
 
+	endOfToDate := toDate.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
+
 	var results []models.GenderJobCount
 	err = r.db.Table("gender").
 		Select("gender.id, gender.gender_type, COALESCE(SUM(job_post.no_of_vacancies), 0) AS open_job_count").
+		Where("gender.created_at <= ?", endOfToDate).
+ 		Where("gender.deleted_at IS NULL OR gender.deleted_at >= ?", fromDate).
 		Joins(
 			"LEFT JOIN meta_data ON meta_data.gender_id = gender.id "+
 				"AND meta_data.posted_at::date BETWEEN ? AND ? "+
@@ -360,9 +368,13 @@ func (r *JobRepository) GetFormalityByLevel(standard, level string, id uint, fro
 		return nil, err
 	}
 
+	endOfToDate := toDate.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
+
 	var results []models.FormalityJobCount
 	err = r.db.Table("formality").
 		Select("formality.id, formality.formality_type, COALESCE(SUM(job_post.no_of_vacancies), 0) AS open_job_count").
+		Where("formality.created_at <= ?", endOfToDate).
+ 		Where("formality.deleted_at IS NULL OR formality.deleted_at >= ?", fromDate).
 		Joins(
 			"LEFT JOIN meta_data ON meta_data.formality_id = formality.id "+
 				"AND meta_data.posted_at::date BETWEEN ? AND ? "+
@@ -389,9 +401,13 @@ func (r *JobRepository) GetEducationLevelByLevel(standard, level string, id uint
 		return nil, err
 	}
 
+	endOfToDate := toDate.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
+
 	var results []models.EducationLevelJobCount
 	err = r.db.Table("education_level").
 		Select("education_level.id, education_level.level, COALESCE(SUM(job_post.no_of_vacancies), 0) AS open_job_count").
+		Where("education_level.created_at <= ?", endOfToDate).
+ 		Where("education_level.deleted_at IS NULL OR education_level.deleted_at >= ?", fromDate).
 		Joins(
 			"LEFT JOIN meta_data ON meta_data.education_level_id = education_level.id "+
 				"AND meta_data.posted_at::date BETWEEN ? AND ? "+
@@ -447,9 +463,13 @@ func (r *JobRepository) GetExperienceByLevel(standard, level string, id uint, fr
 		return nil, err
 	}
 
+	endOfToDate := toDate.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
+
 	var results []models.ExperienceJobCount
 	err = r.db.Table("experience").
 		Select("experience.id, experience.name, COALESCE(SUM(job_post.no_of_vacancies), 0) AS open_job_count").
+		Where("experience.created_at <= ?", endOfToDate).
+ 		Where("experience.deleted_at IS NULL OR experience.deleted_at >= ?", fromDate).
 		Joins(
 			"LEFT JOIN meta_data ON meta_data.experience_id = experience.id "+
 				"AND meta_data.posted_at::date BETWEEN ? AND ? "+
@@ -476,9 +496,13 @@ func (r *JobRepository) GetEmploymentSectorByLevel(standard, level string, id ui
 		return nil, err
 	}
 
+	endOfToDate := toDate.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
+
 	var results []models.EmploymentSectorJobCount
 	err = r.db.Table("employment_sector").
 		Select("employment_sector.id, employment_sector.sector, COALESCE(SUM(job_post.no_of_vacancies), 0) AS open_job_count").
+		Where("employment_sector.created_at <= ?", endOfToDate).
+ 		Where("employment_sector.deleted_at IS NULL OR employment_sector.deleted_at >= ?", fromDate).
 		Joins(
 			"LEFT JOIN meta_data ON meta_data.employment_sector_id = employment_sector.id "+
 				"AND meta_data.posted_at::date BETWEEN ? AND ? "+
@@ -510,6 +534,8 @@ func (r *JobRepository) GetLevelChildren(standard, level string, id uint, fromDa
 			childLevel = "sub-major-group"
 			query = r.db.Table("sub_major_group").
 				Select("sub_major_group.id, sub_major_group.name, sub_major_group.code, COALESCE(SUM(job_post.no_of_vacancies), 0) AS open_job_count").
+				Where("sub_major_group.created_at <= ?", toDate.Add(23*time.Hour+59*time.Minute+59*time.Second)).
+                Where("sub_major_group.deleted_at IS NULL OR sub_major_group.deleted_at >= ?", fromDate).
 				Joins("LEFT JOIN minor_group ON minor_group.sub_major_group_id = sub_major_group.id").
 				Joins("LEFT JOIN unit_group ON unit_group.minor_group_id = minor_group.id").
 				Joins("LEFT JOIN occupation_group ON occupation_group.unit_group_id = unit_group.id").
@@ -522,6 +548,8 @@ func (r *JobRepository) GetLevelChildren(standard, level string, id uint, fromDa
 			childLevel = "minor-group"
 			query = r.db.Table("minor_group").
 				Select("minor_group.id, minor_group.name, minor_group.code, COALESCE(SUM(job_post.no_of_vacancies), 0) AS open_job_count").
+				Where("minor_group.created_at <= ?", toDate.Add(23*time.Hour+59*time.Minute+59*time.Second)).
+                Where("minor_group.deleted_at IS NULL OR minor_group.deleted_at >= ?", fromDate).
 				Joins("LEFT JOIN unit_group ON unit_group.minor_group_id = minor_group.id").
 				Joins("LEFT JOIN occupation_group ON occupation_group.unit_group_id = unit_group.id").
 				Joins("LEFT JOIN meta_data ON meta_data.occupation_group_id = occupation_group.id AND meta_data.posted_at::date BETWEEN ? AND ?", fromDate, toDate).
@@ -533,6 +561,8 @@ func (r *JobRepository) GetLevelChildren(standard, level string, id uint, fromDa
 			childLevel = "unit-group"
 			query = r.db.Table("unit_group").
 				Select("unit_group.id, unit_group.name, unit_group.code, COALESCE(SUM(job_post.no_of_vacancies), 0) AS open_job_count").
+				Where("unit_group.created_at <= ?", toDate.Add(23*time.Hour+59*time.Minute+59*time.Second)).
+	            Where("unit_group.deleted_at IS NULL OR unit_group.deleted_at >= ?", fromDate).
 				Joins("LEFT JOIN occupation_group ON occupation_group.unit_group_id = unit_group.id").
 				Joins("LEFT JOIN meta_data ON meta_data.occupation_group_id = occupation_group.id AND meta_data.posted_at::date BETWEEN ? AND ?", fromDate, toDate).
 				Joins("LEFT JOIN job_post ON job_post.id = meta_data.job_post_id").
@@ -543,6 +573,8 @@ func (r *JobRepository) GetLevelChildren(standard, level string, id uint, fromDa
 			childLevel = "occupation-group"
 			query = r.db.Table("occupation_group").
 				Select("occupation_group.id, occupation_group.name, occupation_group.code, COALESCE(SUM(job_post.no_of_vacancies), 0) AS open_job_count").
+				Where("occupation_group.created_at <= ?", toDate.Add(23*time.Hour+59*time.Minute+59*time.Second)).
+	            Where("occupation_group.deleted_at IS NULL OR occupation_group.deleted_at >= ?", fromDate).
 				Joins("LEFT JOIN meta_data ON meta_data.occupation_group_id = occupation_group.id AND meta_data.posted_at::date BETWEEN ? AND ?", fromDate, toDate).
 				Joins("LEFT JOIN job_post ON job_post.id = meta_data.job_post_id").
 				Where("occupation_group.unit_group_id = ?", id).
@@ -560,6 +592,8 @@ func (r *JobRepository) GetLevelChildren(standard, level string, id uint, fromDa
 			childLevel = "industry-division"
 			query = r.db.Table("industry_division").
 				Select("industry_division.id, industry_division.name, industry_division.code, COALESCE(SUM(job_post.no_of_vacancies), 0) AS open_job_count").
+				Where("industry_division.created_at <= ?", toDate.Add(23*time.Hour+59*time.Minute+59*time.Second)).
+ 				Where("industry_division.deleted_at IS NULL OR industry_division.deleted_at >= ?", fromDate).
 				Joins("LEFT JOIN industry_group ON industry_group.industry_division_id = industry_division.id").
 				Joins("LEFT JOIN industry_class ON industry_class.industry_group_id = industry_group.id").
 				Joins("LEFT JOIN industry_subclass ON industry_subclass.industry_class_id = industry_class.id").
@@ -572,6 +606,8 @@ func (r *JobRepository) GetLevelChildren(standard, level string, id uint, fromDa
 			childLevel = "industry-group"
 			query = r.db.Table("industry_group").
 				Select("industry_group.id, industry_group.name, industry_group.code, COALESCE(SUM(job_post.no_of_vacancies), 0) AS open_job_count").
+				Where("industry_group.created_at <= ?", toDate.Add(23*time.Hour+59*time.Minute+59*time.Second)).
+ 				Where("industry_group.deleted_at IS NULL OR industry_group.deleted_at >= ?", fromDate).
 				Joins("LEFT JOIN industry_class ON industry_class.industry_group_id = industry_group.id").
 				Joins("LEFT JOIN industry_subclass ON industry_subclass.industry_class_id = industry_class.id").
 				Joins("LEFT JOIN meta_data ON meta_data.industry_subclass_id = industry_subclass.id AND meta_data.posted_at::date BETWEEN ? AND ?", fromDate, toDate).
@@ -583,6 +619,8 @@ func (r *JobRepository) GetLevelChildren(standard, level string, id uint, fromDa
 			childLevel = "industry-class"
 			query = r.db.Table("industry_class").
 				Select("industry_class.id, industry_class.name, industry_class.code, COALESCE(SUM(job_post.no_of_vacancies), 0) AS open_job_count").
+				Where("industry_class.created_at <= ?", toDate.Add(23*time.Hour+59*time.Minute+59*time.Second)).
+  				Where("industry_class.deleted_at IS NULL OR industry_class.deleted_at >= ?", fromDate).
 				Joins("LEFT JOIN industry_subclass ON industry_subclass.industry_class_id = industry_class.id").
 				Joins("LEFT JOIN meta_data ON meta_data.industry_subclass_id = industry_subclass.id AND meta_data.posted_at::date BETWEEN ? AND ?", fromDate, toDate).
 				Joins("LEFT JOIN job_post ON job_post.id = meta_data.job_post_id").
@@ -593,6 +631,8 @@ func (r *JobRepository) GetLevelChildren(standard, level string, id uint, fromDa
 			childLevel = "industry-subclass"
 			query = r.db.Table("industry_subclass").
 				Select("industry_subclass.id, industry_subclass.name, industry_subclass.code, COALESCE(SUM(job_post.no_of_vacancies), 0) AS open_job_count").
+				Where("industry_subclass.created_at <= ?", toDate.Add(23*time.Hour+59*time.Minute+59*time.Second)).
+ 				Where("industry_subclass.deleted_at IS NULL OR industry_subclass.deleted_at >= ?", fromDate).
 				Joins("LEFT JOIN meta_data ON meta_data.industry_subclass_id = industry_subclass.id AND meta_data.posted_at::date BETWEEN ? AND ?", fromDate, toDate).
 				Joins("LEFT JOIN job_post ON job_post.id = meta_data.job_post_id").
 				Where("industry_subclass.industry_class_id = ?", id).
@@ -707,9 +747,12 @@ func (r *JobRepository) GetTotalJobCountByLevel(standard, level string, id uint,
 //This function returns vacancy counts grouped by industry sector, for jobs posted within the given date range
 func (r *JobRepository) GetIndustryJobCountByDateRange(fromDate, toDate time.Time) ([]models.IndustryJobCount, error) {
 	var results []models.IndustryJobCount
+	endOfToDate := toDate.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
 
 	err := r.db.Table("industry_sector").
 		Select("industry_sector.id, industry_sector.name, COALESCE(SUM(job_post.no_of_vacancies), 0) AS open_job_count").
+		Where("industry_sector.created_at <= ?", endOfToDate).
+ 		Where("industry_sector.deleted_at IS NULL OR industry_sector.deleted_at >= ?", fromDate).
 		Joins("LEFT JOIN industry_division ON industry_division.industry_sector_id = industry_sector.id").
 		Joins("LEFT JOIN industry_group ON industry_group.industry_division_id = industry_division.id").
 		Joins("LEFT JOIN industry_class ON industry_class.industry_group_id = industry_group.id").
@@ -730,9 +773,12 @@ func (r *JobRepository) GetIndustryJobCountByDateRange(fromDate, toDate time.Tim
 //This function returns vacancy counts grouped by major group (occupation), for jobs posted within the given date range
 func (r *JobRepository) GetOccupationJobCountByDateRange(fromDate, toDate time.Time) ([]models.OccupationJobCount, error) {
 	var results []models.OccupationJobCount
+	endOfToDate := toDate.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
 
 	err := r.db.Table("major_group").
 		Select("major_group.id, major_group.name, COALESCE(SUM(job_post.no_of_vacancies), 0) AS open_job_count").
+		Where("major_group.created_at <= ?", endOfToDate).
+ 		Where("major_group.deleted_at IS NULL OR major_group.deleted_at >= ?", fromDate).
 		Joins("LEFT JOIN sub_major_group ON sub_major_group.major_group_id = major_group.id").
 		Joins("LEFT JOIN minor_group ON minor_group.sub_major_group_id = sub_major_group.id").
 		Joins("LEFT JOIN unit_group ON unit_group.minor_group_id = minor_group.id").
@@ -1910,9 +1956,32 @@ func (r *JobRepository) GetYearlyTrendByEmploymentSector(employmentSectorID uint
 
 // Methods need to multi level filtering in the Crawler
 // Occupation levels by parent ids
+func (r *JobRepository) GetAllMajorGroupsForDateRange(fromDate, toDate time.Time) ([]models.MajorGroup, error) {
+	var items []models.MajorGroup
+	endOfToDate := toDate.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
+	err := r.db.
+		Unscoped().
+		Where("created_at <= ?", endOfToDate).
+		Where("deleted_at IS NULL OR deleted_at >= ?", fromDate).
+		Find(&items).Error
+	return items, err
+}
+
 func (r *JobRepository) GetSubMajorGroupsByMajorGroup(majorGroupID uint) ([]models.SubMajorGroup, error) {
 	var items []models.SubMajorGroup
 	err := r.db.Where("major_group_id = ?", majorGroupID).Find(&items).Error
+	return items, err
+}
+
+func (r *JobRepository) GetSubMajorGroupsByMajorGroupForDateRange(majorGroupID uint, fromDate, toDate time.Time) ([]models.SubMajorGroup, error) {
+	var items []models.SubMajorGroup
+	endOfToDate := toDate.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
+	err := r.db.
+		Unscoped().
+		Where("major_group_id = ?", majorGroupID).
+		Where("created_at <= ?", endOfToDate).
+		Where("deleted_at IS NULL OR deleted_at >= ?", fromDate).
+		Find(&items).Error
 	return items, err
 }
 
@@ -1922,9 +1991,33 @@ func (r *JobRepository) GetMinorGroupsBySubMajorGroup(subMajorGroupID uint) ([]m
 	return items, err
 }
 
+func (r *JobRepository) GetMinorGroupsBySubMajorGroupForDateRange(subMajorGroupID uint, fromDate, toDate time.Time) ([]models.MinorGroup, error) {
+	var items []models.MinorGroup
+	endOfToDate := toDate.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
+	err := r.db.
+		Unscoped().
+		Where("sub_major_group_id = ?", subMajorGroupID).
+		Where("created_at <= ?", endOfToDate).
+		Where("deleted_at IS NULL OR deleted_at >= ?", fromDate).
+		Find(&items).Error
+	return items, err
+}
+
 func (r *JobRepository) GetUnitGroupsByMinorGroup(minorGroupID uint) ([]models.UnitGroup, error) {
 	var items []models.UnitGroup
 	err := r.db.Where("minor_group_id = ?", minorGroupID).Find(&items).Error
+	return items, err
+}
+
+func (r *JobRepository) GetUnitGroupsByMinorGroupForDateRange(minorGroupID uint, fromDate, toDate time.Time) ([]models.UnitGroup, error) {
+	var items []models.UnitGroup
+	endOfToDate := toDate.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
+	err := r.db.
+		Unscoped().
+		Where("minor_group_id = ?", minorGroupID).
+		Where("created_at <= ?", endOfToDate).
+		Where("deleted_at IS NULL OR deleted_at >= ?", fromDate).
+		Find(&items).Error
 	return items, err
 }
 
@@ -1934,10 +2027,47 @@ func (r *JobRepository) GetOccupationGroupsByUnitGroup(unitGroupID uint) ([]mode
 	return items, err
 }
 
+func (r *JobRepository) GetOccupationGroupsByUnitGroupForDateRange(unitGroupID uint, fromDate, toDate time.Time) ([]models.OccupationGroup, error) {
+	var items []models.OccupationGroup
+	endOfToDate := toDate.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
+	err := r.db.
+		Unscoped().
+		Where("unit_group_id = ?", unitGroupID).
+		Where("created_at <= ?", endOfToDate).
+		Where("deleted_at IS NULL OR deleted_at >= ?", fromDate).
+		Find(&items).Error
+	return items, err
+}
+
 // Industry levels by parent ids
+func (r *JobRepository) GetAllIndustrySectorsForDateRange(fromDate, toDate time.Time) ([]models.IndustrySector, error) {
+	var items []models.IndustrySector
+	endOfToDate := toDate.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
+
+	err := r.db.
+		Unscoped().
+		Where("created_at <= ?", endOfToDate).
+		Where("deleted_at IS NULL OR deleted_at::date >= ?", fromDate.Format("2006-01-02")).
+		Find(&items).Error
+	return items, err
+}
+
 func (r *JobRepository) GetIndustryDivisionsByIndustrySector(industrySectorID uint) ([]models.IndustryDivision, error) {
 	var items []models.IndustryDivision
 	err := r.db.Where("industry_sector_id = ?", industrySectorID).Find(&items).Error
+	return items, err
+}
+
+func (r *JobRepository) GetIndustryDivisionsByIndustrySectorForDateRange(industrySectorID uint, fromDate, toDate time.Time) ([]models.IndustryDivision, error) {
+	var items []models.IndustryDivision
+	endOfToDate := toDate.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
+
+	err := r.db.
+		Unscoped().
+		Where("industry_sector_id = ?", industrySectorID).
+		Where("created_at <= ?", endOfToDate).
+		Where("deleted_at IS NULL OR deleted_at::date >= ?", fromDate.Format("2006-01-02")).
+		Find(&items).Error
 	return items, err
 }
 
@@ -1947,15 +2077,54 @@ func (r *JobRepository) GetIndustryGroupsByIndustryDivision(industryDivisionID u
 	return items, err
 }
 
+func (r *JobRepository) GetIndustryGroupsByIndustryDivisionForDateRange(industryDivisionID uint, fromDate, toDate time.Time) ([]models.IndustryGroup, error) {
+	var items []models.IndustryGroup
+	endOfToDate := toDate.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
+
+	err := r.db.
+		Unscoped().
+		Where("industry_division_id = ?", industryDivisionID).
+		Where("created_at <= ?", endOfToDate).
+		Where("deleted_at IS NULL OR deleted_at::date >= ?", fromDate.Format("2006-01-02")).
+		Find(&items).Error
+	return items, err
+}
+
 func (r *JobRepository) GetIndustryClassesByIndustryGroup(industryGroupID uint) ([]models.IndustryClass, error) {
 	var items []models.IndustryClass
 	err := r.db.Where("industry_group_id = ?", industryGroupID).Find(&items).Error
 	return items, err
 }
 
+func (r *JobRepository) GetIndustryClassesByIndustryGroupForDateRange(industryGroupID uint, fromDate, toDate time.Time) ([]models.IndustryClass, error) {
+	var items []models.IndustryClass
+	endOfToDate := toDate.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
+
+	err := r.db.
+		Unscoped().
+		Where("industry_group_id = ?", industryGroupID).
+		Where("created_at <= ?", endOfToDate).
+		Where("deleted_at IS NULL OR deleted_at::date >= ?", fromDate.Format("2006-01-02")).
+		Find(&items).Error
+	return items, err
+}
+
 func (r *JobRepository) GetIndustrySubclassesByIndustryClass(industryClassID uint) ([]models.IndustrySubclass, error) {
 	var items []models.IndustrySubclass
 	err := r.db.Where("industry_class_id = ?", industryClassID).Find(&items).Error
+	return items, err
+}
+
+func (r *JobRepository) GetIndustrySubclassesByIndustryClassForDateRange(industryClassID uint, fromDate, toDate time.Time) ([]models.IndustrySubclass, error) {
+	var items []models.IndustrySubclass
+	endOfToDate := toDate.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
+
+	err := r.db.
+		Unscoped().
+		Where("industry_class_id = ?", industryClassID).
+		Where("created_at <= ?", endOfToDate).
+		Where("deleted_at IS NULL OR deleted_at::date >= ?", fromDate.Format("2006-01-02")).
+		Find(&items).Error
 	return items, err
 }
 

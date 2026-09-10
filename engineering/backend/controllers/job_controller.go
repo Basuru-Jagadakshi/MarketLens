@@ -2573,7 +2573,32 @@ func (ctrl *JobController) GetSubMajorGroupsByMajorGroupHandler(c *gin.Context) 
 		return
 	}
 
-	items, err := ctrl.repo.GetSubMajorGroupsByMajorGroup(id)
+	fromDateStr := c.Query("from-date")
+	toDateStr := c.Query("to-date")
+
+	var items []models.SubMajorGroup
+	var err error
+
+	if fromDateStr != "" && toDateStr != "" {
+		fromDate, parseErr := time.Parse("2006-01-02", fromDateStr)
+		if parseErr != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid from-date format, expected YYYY-MM-DD"})
+			return
+		}
+		toDate, parseErr := time.Parse("2006-01-02", toDateStr)
+		if parseErr != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid to-date format, expected YYYY-MM-DD"})
+			return
+		}
+		if toDate.Before(fromDate) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "to-date must not be before from-date"})
+			return
+		}
+		items, err = ctrl.repo.GetSubMajorGroupsByMajorGroupForDateRange(id, fromDate, toDate)
+	} else {
+		items, err = ctrl.repo.GetSubMajorGroupsByMajorGroup(id)
+	}
+
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error":   "Failed to retrieve sub major groups",
@@ -2597,7 +2622,32 @@ func (ctrl *JobController) GetMinorGroupsBySubMajorGroupHandler(c *gin.Context) 
 		return
 	}
 
-	items, err := ctrl.repo.GetMinorGroupsBySubMajorGroup(id)
+	fromDateStr := c.Query("from-date")
+	toDateStr := c.Query("to-date")
+
+	var items []models.MinorGroup
+	var err error
+
+	if fromDateStr != "" && toDateStr != "" {
+		fromDate, parseErr := time.Parse("2006-01-02", fromDateStr)
+		if parseErr != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid from-date format, expected YYYY-MM-DD"})
+			return
+		}
+		toDate, parseErr := time.Parse("2006-01-02", toDateStr)
+		if parseErr != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid to-date format, expected YYYY-MM-DD"})
+			return
+		}
+		if toDate.Before(fromDate) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "to-date must not be before from-date"})
+			return
+		}
+		items, err = ctrl.repo.GetMinorGroupsBySubMajorGroupForDateRange(id, fromDate, toDate)
+	} else {
+		items, err = ctrl.repo.GetMinorGroupsBySubMajorGroup(id)
+	}
+
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error":   "Failed to retrieve minor groups",
@@ -2621,7 +2671,32 @@ func (ctrl *JobController) GetUnitGroupsByMinorGroupHandler(c *gin.Context) {
 		return
 	}
 
-	items, err := ctrl.repo.GetUnitGroupsByMinorGroup(id)
+	fromDateStr := c.Query("from-date")
+	toDateStr := c.Query("to-date")
+
+	var items []models.UnitGroup
+	var err error
+
+	if fromDateStr != "" && toDateStr != "" {
+		fromDate, parseErr := time.Parse("2006-01-02", fromDateStr)
+		if parseErr != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid from-date format, expected YYYY-MM-DD"})
+			return
+		}
+		toDate, parseErr := time.Parse("2006-01-02", toDateStr)
+		if parseErr != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid to-date format, expected YYYY-MM-DD"})
+			return
+		}
+		if toDate.Before(fromDate) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "to-date must not be before from-date"})
+			return
+		}
+		items, err = ctrl.repo.GetUnitGroupsByMinorGroupForDateRange(id, fromDate, toDate)
+	} else {
+		items, err = ctrl.repo.GetUnitGroupsByMinorGroup(id)
+	}
+
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error":   "Failed to retrieve unit groups",
@@ -2645,7 +2720,32 @@ func (ctrl *JobController) GetOccupationGroupsByUnitGroupHandler(c *gin.Context)
 		return
 	}
 
-	items, err := ctrl.repo.GetOccupationGroupsByUnitGroup(id)
+	fromDateStr := c.Query("from-date")
+	toDateStr := c.Query("to-date")
+
+	var items []models.OccupationGroup
+	var err error
+
+	if fromDateStr != "" && toDateStr != "" {
+		fromDate, parseErr := time.Parse("2006-01-02", fromDateStr)
+		if parseErr != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid from-date format, expected YYYY-MM-DD"})
+			return
+		}
+		toDate, parseErr := time.Parse("2006-01-02", toDateStr)
+		if parseErr != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid to-date format, expected YYYY-MM-DD"})
+			return
+		}
+		if toDate.Before(fromDate) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "to-date must not be before from-date"})
+			return
+		}
+		items, err = ctrl.repo.GetOccupationGroupsByUnitGroupForDateRange(id, fromDate, toDate)
+	} else {
+		items, err = ctrl.repo.GetOccupationGroupsByUnitGroup(id)
+	}
+
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error":   "Failed to retrieve occupation groups",
@@ -2662,6 +2762,8 @@ func (ctrl *JobController) GetOccupationGroupsByUnitGroupHandler(c *gin.Context)
 }
 
 // Industry levels by parent ids
+//This function returns industry divisions under an industry sector, currently-active by default,
+//or active during a given date range if from-date and to-date query params are provided
 func (ctrl *JobController) GetIndustryDivisionsByIndustrySectorHandler(c *gin.Context) {
 	idStr := c.Param("id")
 	var id uint
@@ -2670,7 +2772,32 @@ func (ctrl *JobController) GetIndustryDivisionsByIndustrySectorHandler(c *gin.Co
 		return
 	}
 
-	items, err := ctrl.repo.GetIndustryDivisionsByIndustrySector(id)
+	fromDateStr := c.Query("from-date")
+	toDateStr := c.Query("to-date")
+
+	var items []models.IndustryDivision
+	var err error
+
+	if fromDateStr != "" && toDateStr != "" {
+		fromDate, parseErr := time.Parse("2006-01-02", fromDateStr)
+		if parseErr != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid from-date format, expected YYYY-MM-DD"})
+			return
+		}
+		toDate, parseErr := time.Parse("2006-01-02", toDateStr)
+		if parseErr != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid to-date format, expected YYYY-MM-DD"})
+			return
+		}
+		if toDate.Before(fromDate) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "to-date must not be before from-date"})
+			return
+		}
+		items, err = ctrl.repo.GetIndustryDivisionsByIndustrySectorForDateRange(id, fromDate, toDate)
+	} else {
+		items, err = ctrl.repo.GetIndustryDivisionsByIndustrySector(id)
+	}
+
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error":   "Failed to retrieve industry divisions",
@@ -2686,6 +2813,8 @@ func (ctrl *JobController) GetIndustryDivisionsByIndustrySectorHandler(c *gin.Co
 	})
 }
 
+//This function returns industry groups under an industry division, currently-active by default,
+//or active during a given date range if from-date and to-date query params are provided
 func (ctrl *JobController) GetIndustryGroupsByIndustryDivisionHandler(c *gin.Context) {
 	idStr := c.Param("id")
 	var id uint
@@ -2694,7 +2823,32 @@ func (ctrl *JobController) GetIndustryGroupsByIndustryDivisionHandler(c *gin.Con
 		return
 	}
 
-	items, err := ctrl.repo.GetIndustryGroupsByIndustryDivision(id)
+	fromDateStr := c.Query("from-date")
+	toDateStr := c.Query("to-date")
+
+	var items []models.IndustryGroup
+	var err error
+
+	if fromDateStr != "" && toDateStr != "" {
+		fromDate, parseErr := time.Parse("2006-01-02", fromDateStr)
+		if parseErr != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid from-date format, expected YYYY-MM-DD"})
+			return
+		}
+		toDate, parseErr := time.Parse("2006-01-02", toDateStr)
+		if parseErr != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid to-date format, expected YYYY-MM-DD"})
+			return
+		}
+		if toDate.Before(fromDate) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "to-date must not be before from-date"})
+			return
+		}
+		items, err = ctrl.repo.GetIndustryGroupsByIndustryDivisionForDateRange(id, fromDate, toDate)
+	} else {
+		items, err = ctrl.repo.GetIndustryGroupsByIndustryDivision(id)
+	}
+
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error":   "Failed to retrieve industry groups",
@@ -2710,6 +2864,8 @@ func (ctrl *JobController) GetIndustryGroupsByIndustryDivisionHandler(c *gin.Con
 	})
 }
 
+//This function returns industry classes under an industry group, currently-active by default,
+//or active during a given date range if from-date and to-date query params are provided
 func (ctrl *JobController) GetIndustryClassesByIndustryGroupHandler(c *gin.Context) {
 	idStr := c.Param("id")
 	var id uint
@@ -2718,7 +2874,32 @@ func (ctrl *JobController) GetIndustryClassesByIndustryGroupHandler(c *gin.Conte
 		return
 	}
 
-	items, err := ctrl.repo.GetIndustryClassesByIndustryGroup(id)
+	fromDateStr := c.Query("from-date")
+	toDateStr := c.Query("to-date")
+
+	var items []models.IndustryClass
+	var err error
+
+	if fromDateStr != "" && toDateStr != "" {
+		fromDate, parseErr := time.Parse("2006-01-02", fromDateStr)
+		if parseErr != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid from-date format, expected YYYY-MM-DD"})
+			return
+		}
+		toDate, parseErr := time.Parse("2006-01-02", toDateStr)
+		if parseErr != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid to-date format, expected YYYY-MM-DD"})
+			return
+		}
+		if toDate.Before(fromDate) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "to-date must not be before from-date"})
+			return
+		}
+		items, err = ctrl.repo.GetIndustryClassesByIndustryGroupForDateRange(id, fromDate, toDate)
+	} else {
+		items, err = ctrl.repo.GetIndustryClassesByIndustryGroup(id)
+	}
+
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error":   "Failed to retrieve industry classes",
@@ -2734,6 +2915,8 @@ func (ctrl *JobController) GetIndustryClassesByIndustryGroupHandler(c *gin.Conte
 	})
 }
 
+//This function returns industry subclasses under an industry class, currently-active by default,
+//or active during a given date range if from-date and to-date query params are provided
 func (ctrl *JobController) GetIndustrySubclassesByIndustryClassHandler(c *gin.Context) {
 	idStr := c.Param("id")
 	var id uint
@@ -2742,7 +2925,32 @@ func (ctrl *JobController) GetIndustrySubclassesByIndustryClassHandler(c *gin.Co
 		return
 	}
 
-	items, err := ctrl.repo.GetIndustrySubclassesByIndustryClass(id)
+	fromDateStr := c.Query("from-date")
+	toDateStr := c.Query("to-date")
+
+	var items []models.IndustrySubclass
+	var err error
+
+	if fromDateStr != "" && toDateStr != "" {
+		fromDate, parseErr := time.Parse("2006-01-02", fromDateStr)
+		if parseErr != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid from-date format, expected YYYY-MM-DD"})
+			return
+		}
+		toDate, parseErr := time.Parse("2006-01-02", toDateStr)
+		if parseErr != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid to-date format, expected YYYY-MM-DD"})
+			return
+		}
+		if toDate.Before(fromDate) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "to-date must not be before from-date"})
+			return
+		}
+		items, err = ctrl.repo.GetIndustrySubclassesByIndustryClassForDateRange(id, fromDate, toDate)
+	} else {
+		items, err = ctrl.repo.GetIndustrySubclassesByIndustryClass(id)
+	}
+
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error":   "Failed to retrieve industry subclasses",
@@ -3298,12 +3506,44 @@ func (ctrl *JobController) CreateMajorGroupHandler(c *gin.Context) {
 }
  
 func (ctrl *JobController) GetAllMajorGroupsHandler(c *gin.Context) {
-	items, err := ctrl.repo.GetAllMajorGroups()
+	fromDateStr := c.Query("from-date")
+	toDateStr := c.Query("to-date")
+
+	var items []models.MajorGroup
+	var err error
+
+	if fromDateStr != "" && toDateStr != "" {
+		fromDate, parseErr := time.Parse("2006-01-02", fromDateStr)
+		if parseErr != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid from-date format, expected YYYY-MM-DD"})
+			return
+		}
+		toDate, parseErr := time.Parse("2006-01-02", toDateStr)
+		if parseErr != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid to-date format, expected YYYY-MM-DD"})
+			return
+		}
+		if toDate.Before(fromDate) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "to-date must not be before from-date"})
+			return
+		}
+		items, err = ctrl.repo.GetAllMajorGroupsForDateRange(fromDate, toDate)
+	} else {
+		items, err = ctrl.repo.GetAllMajorGroups()
+	}
+
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch major groups", "details": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "Failed to retrieve major groups",
+			"details": err.Error(),
+		})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"count": len(items), "major_groups": items})
+
+	c.JSON(http.StatusOK, gin.H{
+		"count":        len(items),
+		"major_groups": items,
+	})
 }
  
 func (ctrl *JobController) GetMajorGroupByIDHandler(c *gin.Context) {
@@ -3705,8 +3945,35 @@ func (ctrl *JobController) CreateIndustrySectorHandler(c *gin.Context) {
 	c.JSON(http.StatusCreated, item)
 }
  
+//This function returns all currently-active industry sectors, or ones active during a
+//given date range if from-date and to-date query params are provided
 func (ctrl *JobController) GetAllIndustrySectorsHandler(c *gin.Context) {
-	items, err := ctrl.repo.GetAllIndustrySectors()
+	fromDateStr := c.Query("from-date")
+	toDateStr := c.Query("to-date")
+
+	var items []models.IndustrySector
+	var err error
+
+	if fromDateStr != "" && toDateStr != "" {
+		fromDate, parseErr := time.Parse("2006-01-02", fromDateStr)
+		if parseErr != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid from-date format, expected YYYY-MM-DD"})
+			return
+		}
+		toDate, parseErr := time.Parse("2006-01-02", toDateStr)
+		if parseErr != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid to-date format, expected YYYY-MM-DD"})
+			return
+		}
+		if toDate.Before(fromDate) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "to-date must not be before from-date"})
+			return
+		}
+		items, err = ctrl.repo.GetAllIndustrySectorsForDateRange(fromDate, toDate)
+	} else {
+		items, err = ctrl.repo.GetAllIndustrySectors()
+	}
+
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch industry sectors", "details": err.Error()})
 		return

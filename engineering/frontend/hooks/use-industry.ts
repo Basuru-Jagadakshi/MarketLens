@@ -20,46 +20,62 @@ async function fetchJson<T>(url: string): Promise<T> {
   return res.json();
 }
 
-export function useIndustrySctors() {
+export function useIndustrySectors(fromDate: string, toDate: string) {
   return useQuery<IndustryListResponse>({
-    queryKey: ["industry", "sectors"],
-    queryFn: () => fetchJson(`${BASE}/industry/industry-sectors`),
-    staleTime: Infinity
-  })
+    queryKey: ["industry", "sectors", fromDate, toDate],
+    queryFn: () => {
+      const params = new URLSearchParams({ "from-date": fromDate, "to-date": toDate });
+      return fetchJson(`${BASE}/industry/industry-sectors?${params.toString()}`);
+    },
+    enabled: Boolean(fromDate) && Boolean(toDate),
+    staleTime: 1000 * 60 * 10,
+  });
 }
 
-export function useIndustryDivisions(industrySectorId: number | null) {
+export function useIndustryDivisions(industrySectorId: number | null, fromDate: string, toDate: string) {
   return useQuery<IndustryDivisionChildrenResponse>({
-    queryKey: ["industry", "industry-divisions", industrySectorId],
-    queryFn: () => fetchJson(`${BASE}/industry/industry-sectors/${industrySectorId}/industry-divisions`),
-    enabled: industrySectorId !== null,
+    queryKey: ["industry", "industry-divisions", industrySectorId, fromDate, toDate],
+    queryFn: () => {
+      const params = new URLSearchParams({ "from-date": fromDate, "to-date": toDate });
+      return fetchJson(`${BASE}/industry/industry-sectors/${industrySectorId}/industry-divisions?${params.toString()}`);
+    },
+    enabled: industrySectorId !== null && Boolean(fromDate) && Boolean(toDate),
     staleTime: 1000 * 60 * 10,
   });
 }
 
-export function useIndustryGroups(industryDivisionId: number | null) {
+export function useIndustryGroups(industryDivisionId: number | null, fromDate: string, toDate: string) {
   return useQuery<IndustryGroupChildrenResponse>({
-    queryKey: ["industry", "industry-groups", industryDivisionId],
-    queryFn: () => fetchJson(`${BASE}/industry/industry-divisions/${industryDivisionId}/industry-groups`),
-    enabled: industryDivisionId !== null,
+    queryKey: ["industry", "industry-groups", industryDivisionId, fromDate, toDate],
+    queryFn: () => {
+      const params = new URLSearchParams({ "from-date": fromDate, "to-date": toDate });
+      return fetchJson(`${BASE}/industry/industry-divisions/${industryDivisionId}/industry-groups?${params.toString()}`);
+    },
+    enabled: industryDivisionId !== null && Boolean(fromDate) && Boolean(toDate),
     staleTime: 1000 * 60 * 10,
   });
 }
 
-export function useIndustryClasses(industryGroupId: number | null) {
+export function useIndustryClasses(industryGroupId: number | null, fromDate: string, toDate: string) {
   return useQuery<IndustryClassChildrenResponse>({
-    queryKey: ["industry", "industry-classes", industryGroupId],
-    queryFn: () => fetchJson(`${BASE}/industry/industry-groups/${industryGroupId}/industry-classes`),
-    enabled: industryGroupId !== null,
+    queryKey: ["industry", "industry-classes", industryGroupId, fromDate, toDate],
+    queryFn: () => {
+      const params = new URLSearchParams({ "from-date": fromDate, "to-date": toDate });
+      return fetchJson(`${BASE}/industry/industry-groups/${industryGroupId}/industry-classes?${params.toString()}`);
+    },
+    enabled: industryGroupId !== null && Boolean(fromDate) && Boolean(toDate),
     staleTime: 1000 * 60 * 10,
   });
 }
 
-export function useIndustrySubclasses(industryClassId: number | null) {
+export function useIndustrySubclasses(industryClassId: number | null, fromDate: string, toDate: string) {
   return useQuery<IndustrySubclassChildrenResponse>({
-    queryKey: ["industry", "industry-subclasses", industryClassId],
-    queryFn: () => fetchJson(`${BASE}/industry/industry-classes/${industryClassId}/industry-subclasses`),
-    enabled: industryClassId !== null,
+    queryKey: ["industry", "industry-subclasses", industryClassId, fromDate, toDate],
+    queryFn: () => {
+      const params = new URLSearchParams({ "from-date": fromDate, "to-date": toDate });
+      return fetchJson(`${BASE}/industry/industry-classes/${industryClassId}/industry-subclasses?${params.toString()}`);
+    },
+    enabled: industryClassId !== null && Boolean(fromDate) && Boolean(toDate),
     staleTime: 1000 * 60 * 10,
   });
 }

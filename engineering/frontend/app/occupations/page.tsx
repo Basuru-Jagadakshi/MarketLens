@@ -199,7 +199,7 @@ function OccupationAnalysis() {
   );
   const [viewMode, setViewMode] = useState<"chart" | "table">("chart");
 
-  const majorGroupQuery = useMajorGroup();
+  const majorGroupQuery = useMajorGroup(fromDate, toDate);
   const majorGroups = useMemo(
     () => majorGroupQuery.data?.major_groups ?? [],
     [majorGroupQuery.data],
@@ -219,10 +219,10 @@ function OccupationAnalysis() {
     }
   }, [path.length, majorGroups]);
 
-  const subMajorGroupsQuery = useSubMajorGroups(path[0]?.id ?? null);
-  const minorGroupsQuery = useMinorGroups(path[1]?.id ?? null);
-  const unitGroupsQuery = useUnitGroups(path[2]?.id ?? null);
-  const occupationGroupsQuery = useOccupationGroups(path[3]?.id ?? null);
+  const subMajorGroupsQuery = useSubMajorGroups(path[0]?.id ?? null, fromDate, toDate);
+  const minorGroupsQuery    = useMinorGroups(path[1]?.id ?? null, fromDate, toDate);
+  const unitGroupsQuery     = useUnitGroups(path[2]?.id ?? null, fromDate, toDate);
+  const occupationGroupsQuery = useOccupationGroups(path[3]?.id ?? null, fromDate, toDate);
 
   function optionsForLevel(levelIndex: number): HierarchyNode[] {
     switch (levelIndex) {
@@ -257,6 +257,44 @@ function OccupationAnalysis() {
         return false;
     }
   }
+
+  function isLevelSettled(levelIndex: number): boolean {
+    switch (levelIndex) {
+      case 0: return majorGroupQuery.isSuccess;
+      case 1: return subMajorGroupsQuery.isSuccess;
+      case 2: return minorGroupsQuery.isSuccess;
+      case 3: return unitGroupsQuery.isSuccess;
+      case 4: return occupationGroupsQuery.isSuccess;
+      default: return false;
+    }
+  }
+
+  const [prunedNotice, setPrunedNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (path.length === 0) return;
+
+    for (let i = 0; i < path.length; i++) {
+      if (!isLevelSettled(i)) return;
+
+      const options = optionsForLevel(i);
+      if (!options.some((o) => o.id === path[i].id)) {
+        setPrunedNotice(path[i].name);
+        setPath(path.slice(0, i));
+        return;
+      }
+    }
+
+    setPrunedNotice(null);
+    
+  }, [
+    path,
+    majorGroupQuery.isSuccess, majorGroups,
+    subMajorGroupsQuery.isSuccess, subMajorGroupsQuery.data,
+    minorGroupsQuery.isSuccess, minorGroupsQuery.data,
+    unitGroupsQuery.isSuccess, unitGroupsQuery.data,
+    occupationGroupsQuery.isSuccess, occupationGroupsQuery.data,
+  ]);
 
   const handleSelect = (levelIndex: number, idStr: string) => {
     const options = optionsForLevel(levelIndex);
@@ -590,6 +628,12 @@ function OccupationAnalysis() {
                 </button>
               )}
             </div>
+          )}
+          {prunedNotice && (
+            <p className="text-[11px] text-amber-600 font-bold mt-3">
+              {prunedNotice} has no data in this date range, showing the
+              closest level with data.
+            </p>
           )}
         </div>
 
