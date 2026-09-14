@@ -75,6 +75,8 @@ services:
     profiles: ["setup"] 
     entrypoint: ["./setup.sh"]
     restart: "no"
+    env_file:
+      - ./engineering/thunder/.env
     volumes:
       - ./engineering/thunder/deployment.yaml:/opt/thunderid/deployment.yaml
       - thunderid-data:/opt/thunderid/database

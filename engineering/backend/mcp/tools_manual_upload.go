@@ -12,8 +12,6 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// newspaperJob mirrors your crawler's manual_upload/models.py JobInput
-// exactly (employer, job_role, location, description, source).
 type newspaperJob struct {
 	Employer    string `json:"employer" jsonschema:"employer/company name as printed in the ad"`
 	JobRole     string `json:"job_role" jsonschema:"job title / role as printed in the ad"`
@@ -23,18 +21,10 @@ type newspaperJob struct {
 }
 
 type submitNewspaperVacanciesInput struct {
-	Jobs []newspaperJob `json:"jobs" jsonschema:"list of job vacancies extracted from the uploaded newspaper image"`
+	Jobs          []newspaperJob `json:"jobs" jsonschema:"list of job vacancies extracted from the uploaded newspaper image"`
+	UserConfirmed bool           `json:"user_confirmed" jsonschema:"set to true ONLY after you have shown the extracted jobs to the user and they explicitly approved them. Never set this on your own."`
 }
 
-// registerManualUploadTools wires up the newspaper-vacancy submission tool.
-//
-// IMPORTANT: this tool does NOT read images. When a user uploads a
-// newspaper photo in chat, Claude reads it directly (Claude is
-// multimodal) and extracts each job listing itself - employer, role,
-// location, description, and the newspaper's name as source. Only the
-// resulting structured JSON list gets passed into this tool, which posts
-// it straight to the crawler's /manual-upload-jobs endpoint for
-// deduplication, LLM classification, and storage.
 func registerManualUploadTools(server *mcp.Server) {
 	mcp.AddTool(server, &mcp.Tool{
 		Name: "submit_newspaper_vacancies",
@@ -42,10 +32,31 @@ func registerManualUploadTools(server *mcp.Server) {
 			"classification, and storage in the labour market database. This tool does not read " +
 			"images itself - before calling it, read the uploaded newspaper image yourself and " +
 			"extract each job's employer, role, location, description, and the newspaper's name " +
-			"as the source.",
+			"as the source.\n\n" +
+			"IMPORTANT: Do not call this tool immediately after extraction. First present the " +
+			"extracted jobs to the user as a readable list or table, ask them to confirm or " +
+			"correct the data, and only call this tool once the user has explicitly approved.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, in submitNewspaperVacanciesInput) (*mcp.CallToolResult, any, error) {
 		if len(in.Jobs) == 0 {
 			return nil, nil, fmt.Errorf("jobs list must not be empty - extract at least one job from the image first")
+		}
+
+		if !in.UserConfirmed {
+			return nil, nil, fmt.Errorf(
+				"user_confirmed is false: show the extracted jobs to the user for review, " +
+					"get explicit approval, then call this tool again with user_confirmed=true")
+		}
+
+		scopes, _ := ctx.Value(scopesKey).([]string)
+		hasScope := false
+		for _, s := range scopes {
+			if s == "submit-newspaper-vacancies" {
+				hasScope = true
+				break
+			}
+		}
+		if !hasScope {
+			return nil, nil, fmt.Errorf("missing required scope: submit-newspaper-vacancies")
 		}
 
 		body, err := json.Marshal(in.Jobs)

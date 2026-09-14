@@ -10,18 +10,9 @@ import (
 	"marketlens-go-backend/repositories"
 )
 
-// ---------------------------------------------------------------------------
-// NOTE ON METHOD NAMES: the CRUD list/get-by-id methods below
-// (GetAllMajorGroups, GetMajorGroupByID, etc.) follow the naming convention
-// used consistently throughout job_repository.go for every other reference
-// table in this project. If any of these don't match a method that
-// actually exists (e.g. it's named GetMajorGroupById with lowercase "d"),
-// just rename the call on the left of the dot - nothing else about the
-// tool registration needs to change.
-// ---------------------------------------------------------------------------
 
 func registerHierarchyTools(server *mcp.Server, repo *repositories.JobRepository) {
-	// ---- Occupation hierarchy: list + get-by-id ----
+	
 
 	registerNoArgTool(server, "get_major_groups", "List all occupation major groups (top level of the SLSO occupation hierarchy).",
 		func() (any, error) { return repo.GetAllMajorGroups() })
@@ -64,7 +55,7 @@ func registerHierarchyTools(server *mcp.Server, repo *repositories.JobRepository
 	registerIDTool(server, "get_occupation_group", "Get a single occupation group by id.",
 		func(id uint) (any, error) { return repo.GetOccupationGroupByID(id) })
 
-	// ---- Industry hierarchy: list + get-by-id ----
+	
 
 	registerNoArgTool(server, "get_industry_sectors", "List all industry sectors (top level of the SLSIC industry hierarchy).",
 		func() (any, error) { return repo.GetAllIndustrySectors() })
@@ -107,10 +98,6 @@ func registerHierarchyTools(server *mcp.Server, repo *repositories.JobRepository
 	registerIDTool(server, "get_industry_subclass", "Get a single industry subclass by id.",
 		func(id uint) (any, error) { return repo.GetIndustrySubclassByID(id) })
 
-	// ---- Generic hierarchy analysis tools ----
-	// These mirror the /api/v1/:standard/:level/:id/:analysisType routes -
-	// "standard" is "occupation" or "industry", "level" is one of the five
-	// level names for that standard (e.g. "major-group", "industry-sector").
 
 	registerChildrenTool(server, repo)
 	registerLevelBreakdownTool(server, "get_total_job_count_by_level",

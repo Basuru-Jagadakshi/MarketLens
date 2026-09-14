@@ -3,35 +3,70 @@ package mcpserver
 import (
 	"context"
 	"net/http"
+	"encoding/json"
+	"os"          
+	"strings"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"marketlens-go-backend/repositories"
 )
 
-// ---------------------------------------------------------------------------
-// This package wires the existing JobRepository directly into MCP tools.
-// Tools call repository methods in-process (no HTTP round-trip to the Go
-// API's own routes), which is the whole point of building this inside the
-// Go project rather than as a separate client hitting localhost:8080.
-//
-// FILE LAYOUT (matches your existing project tree):
-//
-//   mcp/
-//   ├── server.go            (this file - core setup + generic helpers +
-//   │                          simple reference-table tools)
-//   ├── tools_hierarchy.go    (occupation/industry hierarchy CRUD-list tools
-//   │                          + the generic children/breakdown tools)
-//   ├── tools_analysis.go     (occupation skills, vacancy trend/total,
-//   │                          date-range occupation/industry counts)
-//   ├── tools_stats.go        (dashboard "active jobs by X" stats)
-//   └── tools_crawler.go      (crawler run monitoring)
-//
-// main.go only needs two additions: build the server once via
-// mcpserver.New(repo), then start its HTTP handler on its own port
-// alongside your existing Gin server. See the wiring notes at the bottom
-// of this file.
-// ---------------------------------------------------------------------------
+const (
+	protectedResPath = "/.well-known/oauth-protected-resource/mcp"
+)
+
+type contextKey string
+
+func mustGetEnv(name string) string {
+	v := os.Getenv(name)
+	if v == "" {
+		panic("missing required environment variable: " + name)
+	}
+	return v
+}
+
+func mcpResourceID() string      { return mustGetEnv("MCP_RESOURCE_ID") }
+func thunderIssuerURL() string   { return mustGetEnv("THUNDER_ISSUER") }
+func mcpPublicBaseURL() string   { return mustGetEnv("MCP_PUBLIC_BASE_URL") }
+
+func serveProtectedResourceMetadata(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]any{
+		"resource":                 mcpResourceID(),        
+		"authorization_servers":    []string{thunderIssuerURL()}, 
+		"scopes_supported": []string{"submit-newspaper-vacancies"},
+		"bearer_methods_supported": []string{"header"},
+	})
+}
+
+const (
+	bearerTokenKey contextKey = "bearer_token"
+	scopesKey      contextKey = "scopes"        
+)
+
+func requireValidToken(next http.Handler) http.Handler {   
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		authHeader := r.Header.Get("Authorization")
+		if !strings.HasPrefix(authHeader, "Bearer ") {
+			w.Header().Set("WWW-Authenticate",
+				`Bearer resource_metadata="`+mcpPublicBaseURL()+protectedResPath+`"`)
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		rawToken := strings.TrimPrefix(authHeader, "Bearer ")
+
+		_, scopes, err := verifyMCPToken(rawToken)  
+		if err != nil {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+
+		ctx := context.WithValue(r.Context(), bearerTokenKey, rawToken)
+		ctx = context.WithValue(ctx, scopesKey, scopes)   
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
 
 // New builds the MCP server and registers every read-only (GET-equivalent)
 // tool against the given repository.
@@ -52,27 +87,18 @@ func New(repo *repositories.JobRepository) *mcp.Server {
 }
 
 // StartHTTP serves the given MCP server over Streamable HTTP at addr
-// (e.g. ":9090"). This is the transport ngrok should point at - MCP
-// clients (including Claude.ai's custom connector setup) speak to this
-// endpoint over plain HTTP/SSE, not stdio.
+// (e.g. ":9090"). 
 func StartHTTP(server *mcp.Server, addr string) error {
 	handler := mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server {
 		return server
 	}, nil)
 
 	mux := http.NewServeMux()
-	mux.Handle("/mcp", handler)
+	mux.HandleFunc(protectedResPath, serveProtectedResourceMetadata)
+	mux.Handle("/mcp", requireValidToken(handler))   
 
 	return http.ListenAndServe(addr, mux)
 }
-
-// ---------------------------------------------------------------------------
-// GENERIC REGISTRATION HELPERS
-// mcp.AddTool is itself generic - it derives the JSON input/output schema
-// from the struct types you give it via `json`/`jsonschema` tags. These
-// wrappers let every individual tool registration below collapse to a
-// one-line call instead of hand-writing a full handler function each time.
-// ---------------------------------------------------------------------------
 
 // emptyInput is used for tools that take no parameters at all.
 type emptyInput struct{}
@@ -124,12 +150,6 @@ type idAndDateRangeInput struct {
 	FromDate string `json:"from_date" jsonschema:"start date, format YYYY-MM-DD"`
 	ToDate   string `json:"to_date" jsonschema:"end date, format YYYY-MM-DD"`
 }
-
-// ---------------------------------------------------------------------------
-// SIMPLE REFERENCE-TABLE TOOLS
-// Flat lookup tables with no filtering - straight passthrough to the
-// existing GetAllX repository methods used by your KPI admin CRUD pages.
-// ---------------------------------------------------------------------------
 
 func registerLookupTools(server *mcp.Server, repo *repositories.JobRepository) {
 	registerNoArgTool(server, "get_industries", "List all industries (top-level lookup table).",

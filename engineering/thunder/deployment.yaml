@@ -63,6 +63,11 @@ crypto:
 jwt:
     preferred_key_id: "default-key"
 
+oauth:
+  dcr:
+    enabled: true
+    insecure: true
+
 passkey:
   allowed_origins:
     - "https://thunder:8090"
