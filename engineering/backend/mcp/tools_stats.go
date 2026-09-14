@@ -6,17 +6,6 @@ import (
 	"marketlens-go-backend/repositories"
 )
 
-// ---------------------------------------------------------------------------
-// IMPORTANT: these tools cover the dashboard's "current snapshot" stats
-// (GET /stats/active-jobs, /stats/by-occupation, etc.), which were built
-// earlier in this project than most of the repository methods referenced
-// in mcp/tools_hierarchy.go and mcp/tools_analysis.go. The exact repository
-// method names below follow this project's established naming convention
-// (GetActiveJobCountByX for a stats/by-x route), but double-check each one
-// against job_repository.go before building - if a name doesn't match,
-// only the right-hand side of each func() call below needs changing, not
-// the tool registration itself.
-// ---------------------------------------------------------------------------
 
 func registerStatsTools(server *mcp.Server, repo *repositories.JobRepository) {
 	registerNoArgTool(server, "get_active_job_stats",
@@ -35,9 +24,6 @@ func registerStatsTools(server *mcp.Server, repo *repositories.JobRepository) {
 		"Get current active job counts grouped by experience level.",
 		func() (any, error) { return repo.GetActiveJobCountByExperience() })
 
-	// registerNoArgTool(server, "get_stats_by_education",
-	// 	"Get current active job counts grouped by education level.",
-	// 	func() (any, error) { return repo.GetActiveJobCountByEducation() })
 
 	registerNoArgTool(server, "get_stats_by_formality",
 		"Get current active job counts grouped by formal/informal sector.",

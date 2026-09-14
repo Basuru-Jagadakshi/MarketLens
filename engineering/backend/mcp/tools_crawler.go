@@ -6,8 +6,6 @@ import (
 	"marketlens-go-backend/repositories"
 )
 
-// registerCrawlerTools wires up crawler monitoring reads (matches the
-// GET /crawler/last-job-count, /crawler/time-gap, /crawler/runs routes).
 func registerCrawlerTools(server *mcp.Server, repo *repositories.JobRepository) {
 	registerNoArgTool(server, "get_crawler_last_job_count",
 		"Get the job count from the most recently completed crawler run.",

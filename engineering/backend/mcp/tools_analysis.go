@@ -10,9 +10,7 @@ import (
 	"marketlens-go-backend/repositories"
 )
 
-// parseDateRange validates and parses a plain from/to date pair (no
-// standard/level/id involved) - used by the vacancy trend/total and
-// date-range occupation/industry tools.
+// parseDateRange validates and parses a plain from/to date pair 
 func parseDateRange(fromStr, toStr string) (time.Time, time.Time, error) {
 	if fromStr == "" || toStr == "" {
 		return time.Time{}, time.Time{}, fmt.Errorf("from_date and to_date are both required (format YYYY-MM-DD)")
@@ -32,7 +30,7 @@ func parseDateRange(fromStr, toStr string) (time.Time, time.Time, error) {
 }
 
 func registerAnalysisTools(server *mcp.Server, repo *repositories.JobRepository) {
-	// ---- Occupation skills (occupation only - no industry equivalent exists) ----
+	// Occupation skills (occupation only - no industry equivalent exists) 
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "get_top_15_skills_by_occupation",
@@ -94,7 +92,7 @@ func registerAnalysisTools(server *mcp.Server, repo *repositories.JobRepository)
 		return nil, out, err
 	})
 
-	// ---- Adaptive vacancy trend + total (national, not level-scoped) ----
+	// Adaptive vacancy trend + total (national, not level-scoped) 
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name: "get_vacancy_trend",
@@ -136,9 +134,7 @@ func registerAnalysisTools(server *mcp.Server, repo *repositories.JobRepository)
 		return nil, map[string]any{"total_vacancies": total}, err
 	})
 
-	// ---- Date-range occupation/industry counts (national breakdown, all
-	//      major groups / all industry sectors at once - not scoped to
-	//      a single hierarchy node) ----
+	// Date-range occupation/industry counts
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "get_occupations_by_date_range",
