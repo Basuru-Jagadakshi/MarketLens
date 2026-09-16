@@ -57,7 +57,7 @@ func main() {
 
 		v1.DELETE("/jobs/:id", jobCtrl.DeleteJobHandler)
 		v1.GET("/jobs", jobCtrl.GetActiveJobsHandler)
-		v1.GET("/industries", jobCtrl.GetAllIndustriesHandler)
+		// v1.GET("/industries", jobCtrl.GetAllIndustriesHandler)
 		v1.GET("/experiences", jobCtrl.GetAllExperiencesHandler)
 		v1.GET("/provinces", jobCtrl.GetAllProvincesHandler)
 		v1.GET("/job-types", jobCtrl.GetAllJobTypesHandler)

@@ -10,6 +10,9 @@ services:
     ports:
       - "5432:5432"
     volumes:
+      - ./engineering/backend/sql/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+      - ./engineering/backend/sql/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql
+      - ./engineering/backend/sql/seed_mock_data.sql:/docker-entrypoint-initdb.d/03-seed_mock_data.sql
       - pgdata:/var/lib/postgresql/data
     networks:
       - app-network
@@ -17,7 +20,8 @@ services:
       test: ["CMD-SHELL", "pg_isready -U app_user -d market_lens_database"]
       interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 10
+      start_period: 60s
 
   # BACKEND SERVICE 
   backend:

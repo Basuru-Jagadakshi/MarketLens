@@ -1829,20 +1829,20 @@ func (ctrl *JobController) GetActiveJobsHandler(c *gin.Context) {
 	})
 }
 
-func (ctrl *JobController) GetAllIndustriesHandler(c *gin.Context) {
-	industries, err := ctrl.repo.GetAllIndustries()
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error":   "Failed to retrieve industries",
-			"details": err.Error(),
-		})
-		return
-	}
-	c.JSON(http.StatusOK, gin.H{
-		"count":      len(industries),
-		"industries": industries,
-	})
-}
+// func (ctrl *JobController) GetAllIndustriesHandler(c *gin.Context) {
+// 	industries, err := ctrl.repo.GetAllIndustries()
+// 	if err != nil {
+// 		c.JSON(http.StatusInternalServerError, gin.H{
+// 			"error":   "Failed to retrieve industries",
+// 			"details": err.Error(),
+// 		})
+// 		return
+// 	}
+// 	c.JSON(http.StatusOK, gin.H{
+// 		"count":      len(industries),
+// 		"industries": industries,
+// 	})
+// }
 
 func (ctrl *JobController) GetAllExperiencesHandler(c *gin.Context) {
 	experiences, err := ctrl.repo.GetAllExperiences()

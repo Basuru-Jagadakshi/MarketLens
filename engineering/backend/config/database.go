@@ -10,10 +10,7 @@ import (
 	"gorm.io/gorm"
 )
 
-
-
-
-var DB *gorm.DB 
+var DB *gorm.DB
 
 func ConnectDatabase() {
 
@@ -26,10 +23,25 @@ func ConnectDatabase() {
 		os.Getenv("DB_PORT"),
 	)
 
-	database, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
-	if err != nil {
-		log.Printf("Failed to connect with the database: %v", err)
-		return
+	const maxAttempts = 10
+	const retryDelay = 3 * time.Second
+
+	var database *gorm.DB
+	var err error
+
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		database, err = gorm.Open(postgres.Open(dsn), &gorm.Config{})
+		if err == nil {
+			break
+		}
+
+		log.Printf("Failed to connect to database (attempt %d/%d): %v", attempt, maxAttempts, err)
+
+		if attempt == maxAttempts {
+			log.Fatalf("Could not connect to database after %d attempts: %v", maxAttempts, err)
+		}
+
+		time.Sleep(retryDelay)
 	}
 
 	sqlDB, err := database.DB()
@@ -37,11 +49,21 @@ func ConnectDatabase() {
 		log.Fatalf("Failed to get underlying sql.DB for pool configuration: %v", err)
 	}
 
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		if err = sqlDB.Ping(); err == nil {
+			break
+		}
+		log.Printf("Database ping failed (attempt %d/%d): %v", attempt, maxAttempts, err)
+		if attempt == maxAttempts {
+			log.Fatalf("Database did not become pingable after %d attempts: %v", maxAttempts, err)
+		}
+		time.Sleep(retryDelay)
+	}
+
 	sqlDB.SetMaxOpenConns(30)
 	sqlDB.SetMaxIdleConns(10)
 	sqlDB.SetConnMaxLifetime(30 * time.Minute)
 	sqlDB.SetConnMaxIdleTime(5 * time.Minute)
-
 
 	fmt.Println("Database connected successfully!")
 	DB = database

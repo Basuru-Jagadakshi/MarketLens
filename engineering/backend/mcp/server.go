@@ -152,8 +152,8 @@ type idAndDateRangeInput struct {
 }
 
 func registerLookupTools(server *mcp.Server, repo *repositories.JobRepository) {
-	registerNoArgTool(server, "get_industries", "List all industries (top-level lookup table).",
-		func() (any, error) { return repo.GetAllIndustries() })
+	// registerNoArgTool(server, "get_industries", "List all industries (top-level lookup table).",
+	// 	func() (any, error) { return repo.GetAllIndustries() })
 
 	registerNoArgTool(server, "get_experiences", "List all experience levels.",
 		func() (any, error) { return repo.GetAllExperiences() })

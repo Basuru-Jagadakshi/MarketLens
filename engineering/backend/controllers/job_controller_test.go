@@ -2,2088 +2,1781 @@ package controllers_test
 
 import (
 	"bytes"
+	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/stretchr/testify/assert"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 
 	"marketlens-go-backend/controllers"
 	"marketlens-go-backend/models"
 	"marketlens-go-backend/repositories"
 )
 
-func TestMain(m *testing.M) {
-	gin.SetMode(gin.TestMode)
-	os.Exit(m.Run())
-}
+func setupTestDB(t *testing.T) *gorm.DB {
+	t.Helper()
 
-func setupControllerTestEnv(t *testing.T) (*gorm.DB, *gin.Engine) {
-	db, err := gorm.Open(sqlite.Open("file:"+t.Name()+"?mode=memory&cache=private"), &gorm.Config{})
+	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared&_foreign_keys=on", t.Name())
+	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{
+		Logger: logger.Default.LogMode(logger.Silent),
+	})
 	if err != nil {
-		t.Fatalf("Failed to open test database environment: %v", err)
+		t.Fatalf("failed to open in-memory sqlite db: %v", err)
+	}
+
+	sqlDB, err := db.DB()
+	if err != nil {
+		t.Fatalf("failed to get generic sql.DB: %v", err)
+	}
+	sqlDB.SetMaxOpenConns(1)
+
+	if err := db.AutoMigrate(
+		&models.EducationLevel{}, &models.Formality{}, &models.Gender{},
+		&models.EmploymentSector{}, &models.VocationalEducation{}, &models.Experience{},
+		&models.MajorGroup{}, &models.SubMajorGroup{}, &models.MinorGroup{}, &models.UnitGroup{}, &models.OccupationGroup{},
+		&models.IndustrySector{}, &models.IndustryDivision{}, &models.IndustryGroup{}, &models.IndustryClass{}, &models.IndustrySubclass{},
+	); err != nil {
+		t.Fatalf("failed to migrate schema: %v", err)
 	}
 
 	t.Cleanup(func() {
-		sqlDB, _ := db.DB()
 		sqlDB.Close()
 	})
 
-	_ = db.AutoMigrate(
-		&models.JobPost{}, &models.JobMetaData{}, &models.JobType{}, &models.Skill{}, &models.GeoData{},
-		&models.MajorGroup{}, &models.SubMajorGroup{}, &models.MinorGroup{}, &models.UnitGroup{}, &models.OccupationGroup{},
-		&models.IndustrySector{}, &models.IndustryDivision{}, &models.IndustryGroup{}, &models.IndustryClass{}, &models.IndustrySubclass{},
-	)
-
-	db.Create(&models.GeoData{Province: "Western", Latitude: 6.92, Longitude: 79.86})
-
-	repo := repositories.NewJobRepository(db)
-	ctrl := controllers.NewJobController(repo)
-
-	r := gin.Default()
-	r.DELETE("/api/v1/jobs/:id", ctrl.DeleteJobHandler)
-	r.GET("/api/v1/major-groups", ctrl.GetAllMajorGroupsHandler)
-	r.GET("/api/v1/major-groups/:id/sub-major-groups", ctrl.GetSubMajorGroupsByMajorGroupHandler)
-	r.GET("/api/v1/sub-major-groups/:id/minor-groups", ctrl.GetMinorGroupsBySubMajorGroupHandler)
-	r.GET("/api/v1/minor-groups/:id/unit-groups", ctrl.GetUnitGroupsByMinorGroupHandler)
-	r.GET("/api/v1/unit-groups/:id/occupation-groups", ctrl.GetOccupationGroupsByUnitGroupHandler)
-	r.GET("/api/v1/industry-sectors", ctrl.GetAllIndustrySectorsHandler)
-	r.GET("/api/v1/industry-sectors/:id/industry-divisions", ctrl.GetIndustryDivisionsByIndustrySectorHandler)
-	r.GET("/api/v1/industry-divisions/:id/industry-groups", ctrl.GetIndustryGroupsByIndustryDivisionHandler)
-	r.GET("/api/v1/industry-groups/:id/industry-classes", ctrl.GetIndustryClassesByIndustryGroupHandler)
-	r.GET("/api/v1/industry-classes/:id/industry-subclasses", ctrl.GetIndustrySubclassesByIndustryClassHandler)
-
-	return db, r
+	return db
 }
 
-func TestCreateJobHandler_InvalidJSON(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
+// setupRouter wires only the education-level routes needed for these tests.
+func setupRouter(ctrl *controllers.JobController) *gin.Engine {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.POST("/education-levels", ctrl.CreateEducationLevelHandler)
+	r.GET("/education-levels", ctrl.GetAllEducationLevelsHandler)
+	r.GET("/education-levels/:id", ctrl.GetEducationLevelByIDHandler)
+	r.PUT("/education-levels/:id", ctrl.UpdateEducationLevelHandler)
+	r.DELETE("/education-levels/:id", ctrl.DeleteEducationLevelHandler)
+	r.POST("/formalities", ctrl.CreateFormalityHandler)
+	r.GET("/formalities", ctrl.GetAllFormalitiesHandler)
+	r.GET("/formalities/:id", ctrl.GetFormalityByIDHandler)
+	r.PUT("/formalities/:id", ctrl.UpdateFormalityHandler)
+	r.DELETE("/formalities/:id", ctrl.DeleteFormalityHandler)
 
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("POST", "/api/v1/jobs", bytes.NewBufferString("{invalid-json-structure}"))
+	r.POST("/genders", ctrl.CreateGenderHandler)
+	r.GET("/genders", ctrl.GetAllGendersHandler)
+	r.GET("/genders/:id", ctrl.GetGenderByIDHandler)
+	r.PUT("/genders/:id", ctrl.UpdateGenderHandler)
+	r.DELETE("/genders/:id", ctrl.DeleteGenderHandler)
+
+	r.POST("/employment-sectors", ctrl.CreateEmploymentSectorHandler)
+	r.GET("/employment-sectors", ctrl.GetAllEmploymentSectorsHandler)
+	r.GET("/employment-sectors/:id", ctrl.GetEmploymentSectorByIDHandler)
+	r.PUT("/employment-sectors/:id", ctrl.UpdateEmploymentSectorHandler)
+	r.DELETE("/employment-sectors/:id", ctrl.DeleteEmploymentSectorHandler)
+
+	r.POST("/vocational-educations", ctrl.CreateVocationalEducationHandler)
+	r.GET("/vocational-educations", ctrl.GetAllVocationalEducationsHandler)
+	r.GET("/vocational-educations/:id", ctrl.GetVocationalEducationByIDHandler)
+	r.PUT("/vocational-educations/:id", ctrl.UpdateVocationalEducationHandler)
+	r.DELETE("/vocational-educations/:id", ctrl.DeleteVocationalEducationHandler)
+
+	r.POST("/experiences", ctrl.CreateExperienceHandler)
+	r.GET("/experiences/:id", ctrl.GetExperienceByIDHandler)
+	r.PUT("/experiences/:id", ctrl.UpdateExperienceHandler)
+	r.DELETE("/experiences/:id", ctrl.DeleteExperienceHandler)
+
+	r.POST("/major-groups", ctrl.CreateMajorGroupHandler)
+	r.GET("/major-groups", ctrl.GetAllMajorGroupsHandler)
+	r.GET("/major-groups/:id", ctrl.GetMajorGroupByIDHandler)
+	r.PUT("/major-groups/:id", ctrl.UpdateMajorGroupHandler)
+	r.DELETE("/major-groups/:id", ctrl.DeleteMajorGroupHandler)
+
+	r.POST("/sub-major-groups", ctrl.CreateSubMajorGroupHandler)
+	r.GET("/sub-major-groups", ctrl.GetAllSubMajorGroupsHandler)
+	r.GET("/sub-major-groups/:id", ctrl.GetSubMajorGroupByIDHandler)
+	r.PUT("/sub-major-groups/:id", ctrl.UpdateSubMajorGroupHandler)
+	r.DELETE("/sub-major-groups/:id", ctrl.DeleteSubMajorGroupHandler)
+
+	r.POST("/minor-groups", ctrl.CreateMinorGroupHandler)
+	r.GET("/minor-groups", ctrl.GetAllMinorGroupsHandler)
+	r.GET("/minor-groups/:id", ctrl.GetMinorGroupByIDHandler)
+	r.PUT("/minor-groups/:id", ctrl.UpdateMinorGroupHandler)
+	r.DELETE("/minor-groups/:id", ctrl.DeleteMinorGroupHandler)
+
+	r.POST("/unit-groups", ctrl.CreateUnitGroupHandler)
+	r.GET("/unit-groups", ctrl.GetAllUnitGroupsHandler)
+	r.GET("/unit-groups/:id", ctrl.GetUnitGroupByIDHandler)
+	r.PUT("/unit-groups/:id", ctrl.UpdateUnitGroupHandler)
+	r.DELETE("/unit-groups/:id", ctrl.DeleteUnitGroupHandler)
+
+	r.POST("/occupation-groups", ctrl.CreateOccupationGroupHandler)
+	r.GET("/occupation-groups", ctrl.GetAllOccupationGroupsHandler)
+	r.GET("/occupation-groups/:id", ctrl.GetOccupationGroupByIDHandler)
+	r.PUT("/occupation-groups/:id", ctrl.UpdateOccupationGroupHandler)
+	r.DELETE("/occupation-groups/:id", ctrl.DeleteOccupationGroupHandler)
+
+	r.POST("/industry-sectors", ctrl.CreateIndustrySectorHandler)
+	r.GET("/industry-sectors", ctrl.GetAllIndustrySectorsHandler)
+	r.GET("/industry-sectors/:id", ctrl.GetIndustrySectorByIDHandler)
+	r.PUT("/industry-sectors/:id", ctrl.UpdateIndustrySectorHandler)
+	r.DELETE("/industry-sectors/:id", ctrl.DeleteIndustrySectorHandler)
+
+	r.POST("/industry-divisions", ctrl.CreateIndustryDivisionHandler)
+	r.GET("/industry-divisions", ctrl.GetAllIndustryDivisionsHandler)
+	r.GET("/industry-divisions/:id", ctrl.GetIndustryDivisionByIDHandler)
+	r.PUT("/industry-divisions/:id", ctrl.UpdateIndustryDivisionHandler)
+	r.DELETE("/industry-divisions/:id", ctrl.DeleteIndustryDivisionHandler)
+
+	r.POST("/industry-groups", ctrl.CreateIndustryGroupHandler)
+	r.GET("/industry-groups", ctrl.GetAllIndustryGroupsHandler)
+	r.GET("/industry-groups/:id", ctrl.GetIndustryGroupByIDHandler)
+	r.PUT("/industry-groups/:id", ctrl.UpdateIndustryGroupHandler)
+	r.DELETE("/industry-groups/:id", ctrl.DeleteIndustryGroupHandler)
+
+	r.POST("/industry-classes", ctrl.CreateIndustryClassHandler)
+	r.GET("/industry-classes", ctrl.GetAllIndustryClassesHandler)
+	r.GET("/industry-classes/:id", ctrl.GetIndustryClassByIDHandler)
+	r.PUT("/industry-classes/:id", ctrl.UpdateIndustryClassHandler)
+	r.DELETE("/industry-classes/:id", ctrl.DeleteIndustryClassHandler)
+
+	r.POST("/industry-subclasses", ctrl.CreateIndustrySubclassHandler)
+	r.GET("/industry-subclasses", ctrl.GetAllIndustrySubclassesHandler)
+	r.GET("/industry-subclasses/:id", ctrl.GetIndustrySubclassByIDHandler)
+	r.PUT("/industry-subclasses/:id", ctrl.UpdateIndustrySubclassHandler)
+	r.DELETE("/industry-subclasses/:id", ctrl.DeleteIndustrySubclassHandler)
+
+	return r
+}
+
+func doRequest(t *testing.T, router *gin.Engine, method, path string, body interface{}) *httptest.ResponseRecorder {
+	t.Helper()
+
+	var reqBody *bytes.Reader
+	if body != nil {
+		b, err := json.Marshal(body)
+		if err != nil {
+			t.Fatalf("failed to marshal request body: %v", err)
+		}
+		reqBody = bytes.NewReader(b)
+	} else {
+		reqBody = bytes.NewReader(nil)
+	}
+
+	req := httptest.NewRequest(method, path, reqBody)
 	req.Header.Set("Content-Type", "application/json")
-
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "Invalid request payload")
-}
-
-func TestUpdateJobHandler_InvalidIDFormat(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
-
 	w := httptest.NewRecorder()
-
-	req, _ := http.NewRequest("PUT", "/api/v1/jobs/abc", bytes.NewBufferString("{}"))
-	req.Header.Set("Content-Type", "application/json")
-
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "Invalid job ID format parameter")
+	router.ServeHTTP(w, req)
+	return w
 }
 
-func TestUpdateJobHandler_InvalidJSONPayload(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
+// ---------- CreateEducationLevelHandler ----------
 
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("PUT", "/api/v1/jobs/1", bytes.NewBufferString("{broken-json-syntax}"))
-	req.Header.Set("Content-Type", "application/json")
+func TestCreateEducationLevelHandler(t *testing.T) {
+	t.Run("valid payload returns 201 with created item", func(t *testing.T) {
+		db := setupTestDB(t)
+		router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
 
-	r.ServeHTTP(w, req)
+		w := doRequest(t, router, http.MethodPost, "/education-levels", map[string]string{
+			"level": "Bachelor's Degree",
+		})
 
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "Invalid request payload configuration")
+		if w.Code != http.StatusCreated {
+			t.Fatalf("expected status %d, got %d: %s", http.StatusCreated, w.Code, w.Body.String())
+		}
+
+		var got models.EducationLevel
+		if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
+			t.Fatalf("failed to unmarshal response: %v", err)
+		}
+		if got.ID == 0 {
+			t.Fatalf("expected ID to be populated in response, got 0")
+		}
+		if got.Level != "Bachelor's Degree" {
+			t.Fatalf("expected Level %q, got %q", "Bachelor's Degree", got.Level)
+		}
+	})
+
+	t.Run("malformed JSON body returns 400", func(t *testing.T) {
+		db := setupTestDB(t)
+		router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
+
+		req := httptest.NewRequest(http.MethodPost, "/education-levels", bytes.NewReader([]byte("{not valid json")))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		if w.Code != http.StatusBadRequest {
+			t.Fatalf("expected status %d, got %d: %s", http.StatusBadRequest, w.Code, w.Body.String())
+		}
+	})
 }
 
-func TestDeleteJobHandler_InvalidIDFormat(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
+// ---------- GetAllEducationLevelsHandler ----------
 
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("DELETE", "/api/v1/jobs/xyz", nil)
+func TestGetAllEducationLevelsHandler(t *testing.T) {
+	t.Run("empty table returns 200 with count 0", func(t *testing.T) {
+		db := setupTestDB(t)
+		router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
 
-	r.ServeHTTP(w, req)
+		w := doRequest(t, router, http.MethodGet, "/education-levels", nil)
 
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "Invalid job ID format parameter")
+		if w.Code != http.StatusOK {
+			t.Fatalf("expected status %d, got %d: %s", http.StatusOK, w.Code, w.Body.String())
+		}
+
+		var body map[string]interface{}
+		if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
+			t.Fatalf("failed to unmarshal response: %v", err)
+		}
+		if int(body["count"].(float64)) != 0 {
+			t.Fatalf("expected count 0, got %v", body["count"])
+		}
+	})
+
+	t.Run("seeded rows are returned with correct count", func(t *testing.T) {
+		db := setupTestDB(t)
+		db.Create(&models.EducationLevel{Level: "Diploma"})
+		db.Create(&models.EducationLevel{Level: "Master's Degree"})
+		router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
+
+		w := doRequest(t, router, http.MethodGet, "/education-levels", nil)
+
+		if w.Code != http.StatusOK {
+			t.Fatalf("expected status %d, got %d: %s", http.StatusOK, w.Code, w.Body.String())
+		}
+
+		var body map[string]interface{}
+		if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
+			t.Fatalf("failed to unmarshal response: %v", err)
+		}
+		if int(body["count"].(float64)) != 2 {
+			t.Fatalf("expected count 2, got %v", body["count"])
+		}
+	})
 }
 
-func TestDeleteJobHandler_NotFound(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
+// ---------- GetEducationLevelByIDHandler ----------
 
-	w := httptest.NewRecorder()
+func TestGetEducationLevelByIDHandler(t *testing.T) {
+	t.Run("existing id returns 200 with the item", func(t *testing.T) {
+		db := setupTestDB(t)
+		seeded := models.EducationLevel{Level: "PhD"}
+		db.Create(&seeded)
+		router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
 
-	req, _ := http.NewRequest("DELETE", "/api/v1/jobs/999", nil)
+		w := doRequest(t, router, http.MethodGet, fmt.Sprintf("/education-levels/%d", seeded.ID), nil)
 
-	r.ServeHTTP(w, req)
+		if w.Code != http.StatusOK {
+			t.Fatalf("expected status %d, got %d: %s", http.StatusOK, w.Code, w.Body.String())
+		}
 
-	assert.Equal(t, http.StatusInternalServerError, w.Code)
-	assert.Contains(t, w.Body.String(), "Failed to execute deletion on targeted job profile")
+		var got models.EducationLevel
+		if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
+			t.Fatalf("failed to unmarshal response: %v", err)
+		}
+		if got.Level != "PhD" {
+			t.Fatalf("expected Level %q, got %q", "PhD", got.Level)
+		}
+	})
+
+	t.Run("non-numeric id returns 400", func(t *testing.T) {
+		db := setupTestDB(t)
+		router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
+
+		w := doRequest(t, router, http.MethodGet, "/education-levels/abc", nil)
+
+		if w.Code != http.StatusBadRequest {
+			t.Fatalf("expected status %d, got %d: %s", http.StatusBadRequest, w.Code, w.Body.String())
+		}
+	})
+
+	t.Run("non-existent id returns 404", func(t *testing.T) {
+		db := setupTestDB(t)
+		router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
+
+		w := doRequest(t, router, http.MethodGet, "/education-levels/999999", nil)
+
+		if w.Code != http.StatusNotFound {
+			t.Fatalf("expected status %d, got %d: %s", http.StatusNotFound, w.Code, w.Body.String())
+		}
+	})
 }
 
+// ---------- UpdateEducationLevelHandler ----------
 
-func TestGetAllMajorGroupsHandler_NoDatesReturnsCurrentOnly(t *testing.T) {
-	db, r := setupControllerTestEnv(t)
-	db.Create(&models.MajorGroup{Name: "Managers", Code: "1"})
+func TestUpdateEducationLevelHandler(t *testing.T) {
+	t.Run("valid update returns 200 with updated item", func(t *testing.T) {
+		db := setupTestDB(t)
+		seeded := models.EducationLevel{Level: "Diploma"}
+		db.Create(&seeded)
+		router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
 
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/major-groups", nil)
-	r.ServeHTTP(w, req)
+		w := doRequest(t, router, http.MethodPut, fmt.Sprintf("/education-levels/%d", seeded.ID), map[string]string{
+			"level": "Advanced Diploma",
+		})
 
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), "Managers")
+		if w.Code != http.StatusOK {
+			t.Fatalf("expected status %d, got %d: %s", http.StatusOK, w.Code, w.Body.String())
+		}
+
+		var got models.EducationLevel
+		if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
+			t.Fatalf("failed to unmarshal response: %v", err)
+		}
+		if got.Level != "Advanced Diploma" {
+			t.Fatalf("expected Level %q, got %q", "Advanced Diploma", got.Level)
+		}
+	})
+
+	t.Run("non-numeric id returns 400", func(t *testing.T) {
+		db := setupTestDB(t)
+		router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
+
+		w := doRequest(t, router, http.MethodPut, "/education-levels/abc", map[string]string{"level": "X"})
+
+		if w.Code != http.StatusBadRequest {
+			t.Fatalf("expected status %d, got %d: %s", http.StatusBadRequest, w.Code, w.Body.String())
+		}
+	})
+
+	t.Run("malformed JSON body returns 400", func(t *testing.T) {
+		db := setupTestDB(t)
+		seeded := models.EducationLevel{Level: "Diploma"}
+		db.Create(&seeded)
+		router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
+
+		req := httptest.NewRequest(http.MethodPut, fmt.Sprintf("/education-levels/%d", seeded.ID), bytes.NewReader([]byte("{bad json")))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		if w.Code != http.StatusBadRequest {
+			t.Fatalf("expected status %d, got %d: %s", http.StatusBadRequest, w.Code, w.Body.String())
+		}
+	})
+
+	// NOTE: this documents the handler's CURRENT behavior, not necessarily
+	// the desired behavior. UpdateEducationLevelHandler returns 500 for a
+	// non-existent id (unlike GetEducationLevelByIDHandler, which maps
+	// gorm.ErrRecordNotFound to 404). If you'd rather it return 404, the
+	// handler needs an errors.Is(err, gorm.ErrRecordNotFound) check same as
+	// the GET handler has — flag this to your team.
+	t.Run("non-existent id currently returns 500 (not 404)", func(t *testing.T) {
+		db := setupTestDB(t)
+		router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
+
+		w := doRequest(t, router, http.MethodPut, "/education-levels/999999", map[string]string{
+			"level": "Should Not Apply",
+		})
+
+		if w.Code != http.StatusInternalServerError {
+			t.Fatalf("expected current status %d, got %d: %s", http.StatusInternalServerError, w.Code, w.Body.String())
+		}
+	})
 }
 
-func TestGetAllMajorGroupsHandler_ValidDateRangeReturnsResults(t *testing.T) {
-	db, r := setupControllerTestEnv(t)
-	db.Create(&models.MajorGroup{Name: "Professionals", Code: "2"})
+// ---------- DeleteEducationLevelHandler ----------
 
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/major-groups?from-date=2020-01-01&to-date=2030-01-01", nil)
-	r.ServeHTTP(w, req)
+func TestDeleteEducationLevelHandler(t *testing.T) {
+	t.Run("existing id returns 200 and row is actually removed", func(t *testing.T) {
+		db := setupTestDB(t)
+		seeded := models.EducationLevel{Level: "Diploma"}
+		db.Create(&seeded)
+		router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
 
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), "Professionals")
+		w := doRequest(t, router, http.MethodDelete, fmt.Sprintf("/education-levels/%d", seeded.ID), nil)
+
+		if w.Code != http.StatusOK {
+			t.Fatalf("expected status %d, got %d: %s", http.StatusOK, w.Code, w.Body.String())
+		}
+
+		var count int64
+		db.Model(&models.EducationLevel{}).Where("id = ?", seeded.ID).Count(&count)
+		if count != 0 {
+			t.Fatalf("expected row to be deleted, but %d rows still match id %d", count, seeded.ID)
+		}
+	})
+
+	t.Run("non-numeric id returns 400", func(t *testing.T) {
+		db := setupTestDB(t)
+		router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
+
+		w := doRequest(t, router, http.MethodDelete, "/education-levels/abc", nil)
+
+		if w.Code != http.StatusBadRequest {
+			t.Fatalf("expected status %d, got %d: %s", http.StatusBadRequest, w.Code, w.Body.String())
+		}
+	})
 }
 
-func TestGetAllMajorGroupsHandler_InvalidFromDateFormat(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
+// ---------- CreateFormalityHandler ----------
 
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/major-groups?from-date=01-01-2020&to-date=2030-01-01", nil)
-	r.ServeHTTP(w, req)
+func TestCreateFormalityHandler(t *testing.T) {
+	t.Run("valid payload returns 201 with created item", func(t *testing.T) {
+		db := setupTestDB(t)
+		router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
 
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "invalid from-date format")
+		w := doRequest(t, router, http.MethodPost, "/formalities", map[string]string{
+			"formality_type": "Formal",
+		})
+
+		if w.Code != http.StatusCreated {
+			t.Fatalf("expected status %d, got %d: %s", http.StatusCreated, w.Code, w.Body.String())
+		}
+
+		var got models.Formality
+		if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
+			t.Fatalf("failed to unmarshal response: %v", err)
+		}
+		if got.ID == 0 {
+			t.Fatalf("expected ID to be populated in response, got 0")
+		}
+		if got.FormalityType != "Formal" {
+			t.Fatalf("expected FormalityType %q, got %q", "Formal", got.FormalityType)
+		}
+	})
+
+	t.Run("malformed JSON body returns 400", func(t *testing.T) {
+		db := setupTestDB(t)
+		router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
+
+		req := httptest.NewRequest(http.MethodPost, "/formalities", bytes.NewReader([]byte("{not valid json")))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		if w.Code != http.StatusBadRequest {
+			t.Fatalf("expected status %d, got %d: %s", http.StatusBadRequest, w.Code, w.Body.String())
+		}
+	})
 }
 
-func TestGetAllMajorGroupsHandler_InvalidToDateFormat(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
+// ---------- GetAllFormalitiesHandler ----------
 
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/major-groups?from-date=2020-01-01&to-date=not-a-date", nil)
-	r.ServeHTTP(w, req)
+func TestGetAllFormalitiesHandler(t *testing.T) {
+	t.Run("empty table returns 200 with count 0", func(t *testing.T) {
+		db := setupTestDB(t)
+		router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
 
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "invalid to-date format")
+		w := doRequest(t, router, http.MethodGet, "/formalities", nil)
+
+		if w.Code != http.StatusOK {
+			t.Fatalf("expected status %d, got %d: %s", http.StatusOK, w.Code, w.Body.String())
+		}
+
+		var body map[string]interface{}
+		if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
+			t.Fatalf("failed to unmarshal response: %v", err)
+		}
+		if int(body["count"].(float64)) != 0 {
+			t.Fatalf("expected count 0, got %v", body["count"])
+		}
+	})
+
+	t.Run("seeded rows are returned with correct count", func(t *testing.T) {
+		db := setupTestDB(t)
+		db.Create(&models.Formality{FormalityType: "Formal"})
+		db.Create(&models.Formality{FormalityType: "Informal"})
+		router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
+
+		w := doRequest(t, router, http.MethodGet, "/formalities", nil)
+
+		if w.Code != http.StatusOK {
+			t.Fatalf("expected status %d, got %d: %s", http.StatusOK, w.Code, w.Body.String())
+		}
+
+		var body map[string]interface{}
+		if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
+			t.Fatalf("failed to unmarshal response: %v", err)
+		}
+		if int(body["count"].(float64)) != 2 {
+			t.Fatalf("expected count 2, got %v", body["count"])
+		}
+	})
 }
 
-func TestGetAllMajorGroupsHandler_ToDateBeforeFromDate(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
+// ---------- GetFormalityByIDHandler ----------
 
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/major-groups?from-date=2030-01-01&to-date=2020-01-01", nil)
-	r.ServeHTTP(w, req)
+func TestGetFormalityByIDHandler(t *testing.T) {
+	t.Run("existing id returns 200 with the item", func(t *testing.T) {
+		db := setupTestDB(t)
+		seeded := models.Formality{FormalityType: "Formal"}
+		db.Create(&seeded)
+		router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
 
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "to-date must not be before from-date")
+		w := doRequest(t, router, http.MethodGet, fmt.Sprintf("/formalities/%d", seeded.ID), nil)
+
+		if w.Code != http.StatusOK {
+			t.Fatalf("expected status %d, got %d: %s", http.StatusOK, w.Code, w.Body.String())
+		}
+
+		var got models.Formality
+		if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
+			t.Fatalf("failed to unmarshal response: %v", err)
+		}
+		if got.FormalityType != "Formal" {
+			t.Fatalf("expected FormalityType %q, got %q", "Formal", got.FormalityType)
+		}
+	})
+
+	t.Run("non-numeric id returns 400", func(t *testing.T) {
+		db := setupTestDB(t)
+		router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
+
+		w := doRequest(t, router, http.MethodGet, "/formalities/abc", nil)
+
+		if w.Code != http.StatusBadRequest {
+			t.Fatalf("expected status %d, got %d: %s", http.StatusBadRequest, w.Code, w.Body.String())
+		}
+	})
+
+	t.Run("non-existent id returns 404", func(t *testing.T) {
+		db := setupTestDB(t)
+		router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
+
+		w := doRequest(t, router, http.MethodGet, "/formalities/999999", nil)
+
+		if w.Code != http.StatusNotFound {
+			t.Fatalf("expected status %d, got %d: %s", http.StatusNotFound, w.Code, w.Body.String())
+		}
+	})
 }
 
-func TestGetAllMajorGroupsHandler_OnlyFromDateProvidedFallsBackToCurrentOnly(t *testing.T) {
-	db, r := setupControllerTestEnv(t)
-	db.Create(&models.MajorGroup{Name: "Solo From Date", Code: "3"})
+// ---------- UpdateFormalityHandler ----------
 
-	w := httptest.NewRecorder()
-	// Only from-date supplied - per the handler's `if fromDateStr != "" && toDateStr != ""`
-	// check, this should NOT trigger the date-bounded path; it falls back to
-	// the plain current-only call, same as if neither were supplied.
-	req, _ := http.NewRequest("GET", "/api/v1/major-groups?from-date=2020-01-01", nil)
-	r.ServeHTTP(w, req)
+func TestUpdateFormalityHandler(t *testing.T) {
+	t.Run("valid update returns 200 with updated item", func(t *testing.T) {
+		db := setupTestDB(t)
+		seeded := models.Formality{FormalityType: "Formal"}
+		db.Create(&seeded)
+		router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
 
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), "Solo From Date")
+		w := doRequest(t, router, http.MethodPut, fmt.Sprintf("/formalities/%d", seeded.ID), map[string]string{
+			"formality_type": "Semi-Formal",
+		})
+
+		if w.Code != http.StatusOK {
+			t.Fatalf("expected status %d, got %d: %s", http.StatusOK, w.Code, w.Body.String())
+		}
+
+		var got models.Formality
+		if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
+			t.Fatalf("failed to unmarshal response: %v", err)
+		}
+		if got.FormalityType != "Semi-Formal" {
+			t.Fatalf("expected FormalityType %q, got %q", "Semi-Formal", got.FormalityType)
+		}
+	})
+
+	t.Run("non-numeric id returns 400", func(t *testing.T) {
+		db := setupTestDB(t)
+		router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
+
+		w := doRequest(t, router, http.MethodPut, "/formalities/abc", map[string]string{"formality_type": "X"})
+
+		if w.Code != http.StatusBadRequest {
+			t.Fatalf("expected status %d, got %d: %s", http.StatusBadRequest, w.Code, w.Body.String())
+		}
+	})
+
+	t.Run("malformed JSON body returns 400", func(t *testing.T) {
+		db := setupTestDB(t)
+		seeded := models.Formality{FormalityType: "Formal"}
+		db.Create(&seeded)
+		router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
+
+		req := httptest.NewRequest(http.MethodPut, fmt.Sprintf("/formalities/%d", seeded.ID), bytes.NewReader([]byte("{bad json")))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		if w.Code != http.StatusBadRequest {
+			t.Fatalf("expected status %d, got %d: %s", http.StatusBadRequest, w.Code, w.Body.String())
+		}
+	})
+
+	// Same note as UpdateEducationLevelHandler: no gorm.ErrRecordNotFound
+	// check in this handler, so a non-existent id currently falls through
+	// to 500 rather than 404.
+	t.Run("non-existent id currently returns 500 (not 404)", func(t *testing.T) {
+		db := setupTestDB(t)
+		router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
+
+		w := doRequest(t, router, http.MethodPut, "/formalities/999999", map[string]string{
+			"formality_type": "Should Not Apply",
+		})
+
+		if w.Code != http.StatusInternalServerError {
+			t.Fatalf("expected current status %d, got %d: %s", http.StatusInternalServerError, w.Code, w.Body.String())
+		}
+	})
 }
 
+// ---------- DeleteFormalityHandler ----------
 
-func TestGetSubMajorGroupsByMajorGroupHandler_InvalidIDFormat(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
+func TestDeleteFormalityHandler(t *testing.T) {
+	t.Run("existing id returns 200 and row is actually removed", func(t *testing.T) {
+		db := setupTestDB(t)
+		seeded := models.Formality{FormalityType: "Formal"}
+		db.Create(&seeded)
+		router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
 
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/major-groups/abc/sub-major-groups", nil)
-	r.ServeHTTP(w, req)
+		w := doRequest(t, router, http.MethodDelete, fmt.Sprintf("/formalities/%d", seeded.ID), nil)
 
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "Invalid major group id parameter")
+		if w.Code != http.StatusOK {
+			t.Fatalf("expected status %d, got %d: %s", http.StatusOK, w.Code, w.Body.String())
+		}
+
+		var count int64
+		db.Model(&models.Formality{}).Where("id = ?", seeded.ID).Count(&count)
+		if count != 0 {
+			t.Fatalf("expected row to be deleted, but %d rows still match id %d", count, seeded.ID)
+		}
+	})
+
+	t.Run("non-numeric id returns 400", func(t *testing.T) {
+		db := setupTestDB(t)
+		router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
+
+		w := doRequest(t, router, http.MethodDelete, "/formalities/abc", nil)
+
+		if w.Code != http.StatusBadRequest {
+			t.Fatalf("expected status %d, got %d: %s", http.StatusBadRequest, w.Code, w.Body.String())
+		}
+	})
 }
 
-func TestGetSubMajorGroupsByMajorGroupHandler_NoDatesReturnsCurrentOnly(t *testing.T) {
-	db, r := setupControllerTestEnv(t)
-	mg := models.MajorGroup{Name: "MG", Code: "1"}
-	db.Create(&mg)
-	db.Create(&models.SubMajorGroup{MajorGroupID: mg.ID, Name: "Child SMG", Code: "11"})
+// ================= Gender =================
 
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/major-groups/1/sub-major-groups", nil)
-	r.ServeHTTP(w, req)
+func TestCreateGenderHandler(t *testing.T) {
+	t.Run("valid payload returns 201", func(t *testing.T) {
+		db := setupTestDB(t)
+		router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
 
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), "Child SMG")
+		w := doRequest(t, router, http.MethodPost, "/genders", map[string]string{"gender_type": "Male"})
+		if w.Code != http.StatusCreated {
+			t.Fatalf("expected status %d, got %d: %s", http.StatusCreated, w.Code, w.Body.String())
+		}
+		var got models.Gender
+		json.Unmarshal(w.Body.Bytes(), &got)
+		if got.GenderType != "Male" {
+			t.Fatalf("expected GenderType %q, got %q", "Male", got.GenderType)
+		}
+	})
+
+	t.Run("malformed JSON returns 400", func(t *testing.T) {
+		db := setupTestDB(t)
+		router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
+
+		req := httptest.NewRequest(http.MethodPost, "/genders", bytes.NewReader([]byte("{bad")))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+		if w.Code != http.StatusBadRequest {
+			t.Fatalf("expected status %d, got %d: %s", http.StatusBadRequest, w.Code, w.Body.String())
+		}
+	})
 }
 
-func TestGetSubMajorGroupsByMajorGroupHandler_ValidDateRange(t *testing.T) {
-	db, r := setupControllerTestEnv(t)
-	mg := models.MajorGroup{Name: "MG", Code: "1"}
-	db.Create(&mg)
-	db.Create(&models.SubMajorGroup{MajorGroupID: mg.ID, Name: "Ranged SMG", Code: "11"})
+func TestGetAllGendersHandler(t *testing.T) {
+	db := setupTestDB(t)
+	db.Create(&models.Gender{GenderType: "Male"})
+	db.Create(&models.Gender{GenderType: "Female"})
+	router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
 
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/major-groups/1/sub-major-groups?from-date=2020-01-01&to-date=2030-01-01", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), "Ranged SMG")
+	w := doRequest(t, router, http.MethodGet, "/genders", nil)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, w.Code, w.Body.String())
+	}
+	var body map[string]interface{}
+	json.Unmarshal(w.Body.Bytes(), &body)
+	if int(body["count"].(float64)) != 2 {
+		t.Fatalf("expected count 2, got %v", body["count"])
+	}
 }
 
-func TestGetSubMajorGroupsByMajorGroupHandler_ToDateBeforeFromDate(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
+func TestGetGenderByIDHandler(t *testing.T) {
+	t.Run("existing id returns 200", func(t *testing.T) {
+		db := setupTestDB(t)
+		seeded := models.Gender{GenderType: "Male"}
+		db.Create(&seeded)
+		router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
 
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/major-groups/1/sub-major-groups?from-date=2030-01-01&to-date=2020-01-01", nil)
-	r.ServeHTTP(w, req)
+		w := doRequest(t, router, http.MethodGet, fmt.Sprintf("/genders/%d", seeded.ID), nil)
+		if w.Code != http.StatusOK {
+			t.Fatalf("expected status %d, got %d: %s", http.StatusOK, w.Code, w.Body.String())
+		}
+	})
 
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "to-date must not be before from-date")
+	t.Run("non-numeric id returns 400", func(t *testing.T) {
+		db := setupTestDB(t)
+		router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
+
+		w := doRequest(t, router, http.MethodGet, "/genders/abc", nil)
+		if w.Code != http.StatusBadRequest {
+			t.Fatalf("expected status %d, got %d: %s", http.StatusBadRequest, w.Code, w.Body.String())
+		}
+	})
+
+	t.Run("non-existent id returns 404", func(t *testing.T) {
+		db := setupTestDB(t)
+		router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
+
+		w := doRequest(t, router, http.MethodGet, "/genders/999999", nil)
+		if w.Code != http.StatusNotFound {
+			t.Fatalf("expected status %d, got %d: %s", http.StatusNotFound, w.Code, w.Body.String())
+		}
+	})
 }
 
+func TestUpdateGenderHandler(t *testing.T) {
+	db := setupTestDB(t)
+	seeded := models.Gender{GenderType: "Male"}
+	db.Create(&seeded)
+	router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
 
-func TestGetAllIndustrySectorsHandler_NoDatesReturnsCurrentOnly(t *testing.T) {
-	db, r := setupControllerTestEnv(t)
-	db.Create(&models.IndustrySector{Name: "Manufacturing", Code: "C"})
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/industry-sectors", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), "Manufacturing")
+	w := doRequest(t, router, http.MethodPut, fmt.Sprintf("/genders/%d", seeded.ID), map[string]string{"gender_type": "Female"})
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, w.Code, w.Body.String())
+	}
 }
 
-func TestGetAllIndustrySectorsHandler_InvalidFromDateFormat(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
+func TestDeleteGenderHandler(t *testing.T) {
+	db := setupTestDB(t)
+	seeded := models.Gender{GenderType: "Male"}
+	db.Create(&seeded)
+	router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
 
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/industry-sectors?from-date=bad&to-date=2030-01-01", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "invalid from-date format")
+	w := doRequest(t, router, http.MethodDelete, fmt.Sprintf("/genders/%d", seeded.ID), nil)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, w.Code, w.Body.String())
+	}
 }
 
+// ================= EmploymentSector =================
 
-func TestGetIndustryDivisionsByIndustrySectorHandler_InvalidIDFormat(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
+func TestCreateEmploymentSectorHandler(t *testing.T) {
+	db := setupTestDB(t)
+	router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
 
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/industry-sectors/abc/industry-divisions", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "Invalid industry sector id parameter")
+	w := doRequest(t, router, http.MethodPost, "/employment-sectors", map[string]string{"sector": "Private"})
+	if w.Code != http.StatusCreated {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusCreated, w.Code, w.Body.String())
+	}
 }
 
-func TestGetIndustryDivisionsByIndustrySectorHandler_NoDatesReturnsCurrentOnly(t *testing.T) {
-	db, r := setupControllerTestEnv(t)
-	sector := models.IndustrySector{Name: "Sector", Code: "1"}
+func TestGetAllEmploymentSectorsHandler(t *testing.T) {
+	db := setupTestDB(t)
+	db.Create(&models.EmploymentSector{Sector: "Private"})
+	router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
+
+	w := doRequest(t, router, http.MethodGet, "/employment-sectors", nil)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, w.Code, w.Body.String())
+	}
+}
+
+func TestGetEmploymentSectorByIDHandler(t *testing.T) {
+	t.Run("non-existent id returns 404", func(t *testing.T) {
+		db := setupTestDB(t)
+		router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
+
+		w := doRequest(t, router, http.MethodGet, "/employment-sectors/999999", nil)
+		if w.Code != http.StatusNotFound {
+			t.Fatalf("expected status %d, got %d: %s", http.StatusNotFound, w.Code, w.Body.String())
+		}
+	})
+}
+
+func TestUpdateEmploymentSectorHandler(t *testing.T) {
+	db := setupTestDB(t)
+	seeded := models.EmploymentSector{Sector: "Private"}
+	db.Create(&seeded)
+	router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
+
+	w := doRequest(t, router, http.MethodPut, fmt.Sprintf("/employment-sectors/%d", seeded.ID), map[string]string{"sector": "Government"})
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, w.Code, w.Body.String())
+	}
+}
+
+func TestDeleteEmploymentSectorHandler(t *testing.T) {
+	db := setupTestDB(t)
+	seeded := models.EmploymentSector{Sector: "Private"}
+	db.Create(&seeded)
+	router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
+
+	w := doRequest(t, router, http.MethodDelete, fmt.Sprintf("/employment-sectors/%d", seeded.ID), nil)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, w.Code, w.Body.String())
+	}
+}
+
+// ================= VocationalEducation =================
+
+func TestCreateVocationalEducationHandler(t *testing.T) {
+	db := setupTestDB(t)
+	router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
+
+	w := doRequest(t, router, http.MethodPost, "/vocational-educations", map[string]string{"level": "NVQ 3"})
+	if w.Code != http.StatusCreated {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusCreated, w.Code, w.Body.String())
+	}
+}
+
+func TestGetAllVocationalEducationsHandler(t *testing.T) {
+	db := setupTestDB(t)
+	db.Create(&models.VocationalEducation{Level: "NVQ 3"})
+	router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
+
+	w := doRequest(t, router, http.MethodGet, "/vocational-educations", nil)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, w.Code, w.Body.String())
+	}
+}
+
+func TestGetVocationalEducationByIDHandler(t *testing.T) {
+	t.Run("non-existent id returns 404", func(t *testing.T) {
+		db := setupTestDB(t)
+		router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
+
+		w := doRequest(t, router, http.MethodGet, "/vocational-educations/999999", nil)
+		if w.Code != http.StatusNotFound {
+			t.Fatalf("expected status %d, got %d: %s", http.StatusNotFound, w.Code, w.Body.String())
+		}
+	})
+}
+
+func TestUpdateVocationalEducationHandler(t *testing.T) {
+	db := setupTestDB(t)
+	seeded := models.VocationalEducation{Level: "NVQ 3"}
+	db.Create(&seeded)
+	router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
+
+	w := doRequest(t, router, http.MethodPut, fmt.Sprintf("/vocational-educations/%d", seeded.ID), map[string]string{"level": "NVQ 5"})
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, w.Code, w.Body.String())
+	}
+}
+
+func TestDeleteVocationalEducationHandler(t *testing.T) {
+	db := setupTestDB(t)
+	seeded := models.VocationalEducation{Level: "NVQ 3"}
+	db.Create(&seeded)
+	router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
+
+	w := doRequest(t, router, http.MethodDelete, fmt.Sprintf("/vocational-educations/%d", seeded.ID), nil)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, w.Code, w.Body.String())
+	}
+}
+
+// ================= Experience =================
+// NOTE: no GetAllExperiencesHandler was provided, so no "get all" test here.
+
+func TestCreateExperienceHandler(t *testing.T) {
+	db := setupTestDB(t)
+	router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
+
+	w := doRequest(t, router, http.MethodPost, "/experiences", map[string]string{"name": "Entry Level"})
+	if w.Code != http.StatusCreated {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusCreated, w.Code, w.Body.String())
+	}
+}
+
+func TestGetExperienceByIDHandler(t *testing.T) {
+	t.Run("existing id returns 200", func(t *testing.T) {
+		db := setupTestDB(t)
+		seeded := models.Experience{Name: "Entry Level"}
+		db.Create(&seeded)
+		router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
+
+		w := doRequest(t, router, http.MethodGet, fmt.Sprintf("/experiences/%d", seeded.ID), nil)
+		if w.Code != http.StatusOK {
+			t.Fatalf("expected status %d, got %d: %s", http.StatusOK, w.Code, w.Body.String())
+		}
+	})
+
+	t.Run("non-existent id returns 404", func(t *testing.T) {
+		db := setupTestDB(t)
+		router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
+
+		w := doRequest(t, router, http.MethodGet, "/experiences/999999", nil)
+		if w.Code != http.StatusNotFound {
+			t.Fatalf("expected status %d, got %d: %s", http.StatusNotFound, w.Code, w.Body.String())
+		}
+	})
+}
+
+func TestUpdateExperienceHandler(t *testing.T) {
+	db := setupTestDB(t)
+	seeded := models.Experience{Name: "Entry Level"}
+	db.Create(&seeded)
+	router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
+
+	w := doRequest(t, router, http.MethodPut, fmt.Sprintf("/experiences/%d", seeded.ID), map[string]string{"name": "Senior"})
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, w.Code, w.Body.String())
+	}
+}
+
+func TestDeleteExperienceHandler(t *testing.T) {
+	db := setupTestDB(t)
+	seeded := models.Experience{Name: "Entry Level"}
+	db.Create(&seeded)
+	router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
+
+	w := doRequest(t, router, http.MethodDelete, fmt.Sprintf("/experiences/%d", seeded.ID), nil)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, w.Code, w.Body.String())
+	}
+}
+
+// ================= MajorGroup (has from-date/to-date filtering) =================
+
+func TestCreateMajorGroupHandler(t *testing.T) {
+	db := setupTestDB(t)
+	router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
+
+	w := doRequest(t, router, http.MethodPost, "/major-groups", map[string]string{"name": "Managers", "code": "1"})
+	if w.Code != http.StatusCreated {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusCreated, w.Code, w.Body.String())
+	}
+}
+
+func TestGetAllMajorGroupsHandler(t *testing.T) {
+	t.Run("no date params returns all rows", func(t *testing.T) {
+		db := setupTestDB(t)
+		db.Create(&models.MajorGroup{Name: "Managers", Code: "1"})
+		router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
+
+		w := doRequest(t, router, http.MethodGet, "/major-groups", nil)
+		if w.Code != http.StatusOK {
+			t.Fatalf("expected status %d, got %d: %s", http.StatusOK, w.Code, w.Body.String())
+		}
+		var body map[string]interface{}
+		json.Unmarshal(w.Body.Bytes(), &body)
+		if int(body["count"].(float64)) != 1 {
+			t.Fatalf("expected count 1, got %v", body["count"])
+		}
+	})
+
+	t.Run("valid from-date/to-date returns filtered rows", func(t *testing.T) {
+		db := setupTestDB(t)
+		db.Create(&models.MajorGroup{Name: "Managers", Code: "1"})
+		router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
+
+		today := time.Now().Format("2006-01-02")
+		w := doRequest(t, router, http.MethodGet, fmt.Sprintf("/major-groups?from-date=%s&to-date=%s", today, today), nil)
+		if w.Code != http.StatusOK {
+			t.Fatalf("expected status %d, got %d: %s", http.StatusOK, w.Code, w.Body.String())
+		}
+	})
+
+	t.Run("invalid from-date format returns 400", func(t *testing.T) {
+		db := setupTestDB(t)
+		router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
+
+		w := doRequest(t, router, http.MethodGet, "/major-groups?from-date=not-a-date&to-date=2024-01-01", nil)
+		if w.Code != http.StatusBadRequest {
+			t.Fatalf("expected status %d, got %d: %s", http.StatusBadRequest, w.Code, w.Body.String())
+		}
+	})
+
+	t.Run("invalid to-date format returns 400", func(t *testing.T) {
+		db := setupTestDB(t)
+		router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
+
+		w := doRequest(t, router, http.MethodGet, "/major-groups?from-date=2024-01-01&to-date=not-a-date", nil)
+		if w.Code != http.StatusBadRequest {
+			t.Fatalf("expected status %d, got %d: %s", http.StatusBadRequest, w.Code, w.Body.String())
+		}
+	})
+
+	t.Run("to-date before from-date returns 400", func(t *testing.T) {
+		db := setupTestDB(t)
+		router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
+
+		w := doRequest(t, router, http.MethodGet, "/major-groups?from-date=2024-06-01&to-date=2024-01-01", nil)
+		if w.Code != http.StatusBadRequest {
+			t.Fatalf("expected status %d, got %d: %s", http.StatusBadRequest, w.Code, w.Body.String())
+		}
+	})
+}
+
+func TestGetMajorGroupByIDHandler(t *testing.T) {
+	t.Run("non-existent id returns 404", func(t *testing.T) {
+		db := setupTestDB(t)
+		router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
+
+		w := doRequest(t, router, http.MethodGet, "/major-groups/999999", nil)
+		if w.Code != http.StatusNotFound {
+			t.Fatalf("expected status %d, got %d: %s", http.StatusNotFound, w.Code, w.Body.String())
+		}
+	})
+}
+
+func TestUpdateMajorGroupHandler(t *testing.T) {
+	db := setupTestDB(t)
+	seeded := models.MajorGroup{Name: "Managers", Code: "1"}
+	db.Create(&seeded)
+	router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
+
+	w := doRequest(t, router, http.MethodPut, fmt.Sprintf("/major-groups/%d", seeded.ID), map[string]string{"name": "Senior Managers"})
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, w.Code, w.Body.String())
+	}
+}
+
+func TestDeleteMajorGroupHandler(t *testing.T) {
+	db := setupTestDB(t)
+	seeded := models.MajorGroup{Name: "Managers", Code: "1"}
+	db.Create(&seeded)
+	router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
+
+	w := doRequest(t, router, http.MethodDelete, fmt.Sprintf("/major-groups/%d", seeded.ID), nil)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, w.Code, w.Body.String())
+	}
+}
+
+// ================= SubMajorGroup =================
+
+func TestCreateSubMajorGroupHandler(t *testing.T) {
+	db := setupTestDB(t)
+	parent := models.MajorGroup{Name: "Managers", Code: "1"}
+	db.Create(&parent)
+	router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
+
+	w := doRequest(t, router, http.MethodPost, "/sub-major-groups", map[string]interface{}{
+		"major_group_id": parent.ID, "name": "Chief Executives", "code": "11",
+	})
+	if w.Code != http.StatusCreated {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusCreated, w.Code, w.Body.String())
+	}
+}
+
+func TestGetAllSubMajorGroupsHandler(t *testing.T) {
+	db := setupTestDB(t)
+	parent := models.MajorGroup{Name: "Managers", Code: "1"}
+	db.Create(&parent)
+	db.Create(&models.SubMajorGroup{MajorGroupID: parent.ID, Name: "Chief Executives", Code: "11"})
+	router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
+
+	w := doRequest(t, router, http.MethodGet, "/sub-major-groups", nil)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, w.Code, w.Body.String())
+	}
+}
+
+func TestGetSubMajorGroupByIDHandler(t *testing.T) {
+	t.Run("non-existent id returns 404", func(t *testing.T) {
+		db := setupTestDB(t)
+		router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
+
+		w := doRequest(t, router, http.MethodGet, "/sub-major-groups/999999", nil)
+		if w.Code != http.StatusNotFound {
+			t.Fatalf("expected status %d, got %d: %s", http.StatusNotFound, w.Code, w.Body.String())
+		}
+	})
+}
+
+func TestUpdateSubMajorGroupHandler(t *testing.T) {
+	db := setupTestDB(t)
+	parent := models.MajorGroup{Name: "Managers", Code: "1"}
+	db.Create(&parent)
+	seeded := models.SubMajorGroup{MajorGroupID: parent.ID, Name: "Chief Executives", Code: "11"}
+	db.Create(&seeded)
+	router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
+
+	w := doRequest(t, router, http.MethodPut, fmt.Sprintf("/sub-major-groups/%d", seeded.ID), map[string]string{"name": "Senior Executives"})
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, w.Code, w.Body.String())
+	}
+}
+
+func TestDeleteSubMajorGroupHandler(t *testing.T) {
+	db := setupTestDB(t)
+	parent := models.MajorGroup{Name: "Managers", Code: "1"}
+	db.Create(&parent)
+	seeded := models.SubMajorGroup{MajorGroupID: parent.ID, Name: "Chief Executives", Code: "11"}
+	db.Create(&seeded)
+	router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
+
+	w := doRequest(t, router, http.MethodDelete, fmt.Sprintf("/sub-major-groups/%d", seeded.ID), nil)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, w.Code, w.Body.String())
+	}
+}
+
+// ================= MinorGroup =================
+
+func seedMinorGroupParent(t *testing.T, db *gorm.DB) uint {
+	t.Helper()
+	major := models.MajorGroup{Name: "Managers", Code: "1"}
+	db.Create(&major)
+	sub := models.SubMajorGroup{MajorGroupID: major.ID, Name: "Chief Executives", Code: "11"}
+	db.Create(&sub)
+	return sub.ID
+}
+
+func TestCreateMinorGroupHandler(t *testing.T) {
+	db := setupTestDB(t)
+	subID := seedMinorGroupParent(t, db)
+	router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
+
+	w := doRequest(t, router, http.MethodPost, "/minor-groups", map[string]interface{}{
+		"sub_major_group_id": subID, "name": "Legislators", "code": "111",
+	})
+	if w.Code != http.StatusCreated {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusCreated, w.Code, w.Body.String())
+	}
+}
+
+func TestGetAllMinorGroupsHandler(t *testing.T) {
+	db := setupTestDB(t)
+	subID := seedMinorGroupParent(t, db)
+	db.Create(&models.MinorGroup{SubMajorGroupID: subID, Name: "Legislators", Code: "111"})
+	router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
+
+	w := doRequest(t, router, http.MethodGet, "/minor-groups", nil)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, w.Code, w.Body.String())
+	}
+}
+
+func TestGetMinorGroupByIDHandler(t *testing.T) {
+	t.Run("non-existent id returns 404", func(t *testing.T) {
+		db := setupTestDB(t)
+		router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
+
+		w := doRequest(t, router, http.MethodGet, "/minor-groups/999999", nil)
+		if w.Code != http.StatusNotFound {
+			t.Fatalf("expected status %d, got %d: %s", http.StatusNotFound, w.Code, w.Body.String())
+		}
+	})
+}
+
+func TestUpdateMinorGroupHandler(t *testing.T) {
+	db := setupTestDB(t)
+	subID := seedMinorGroupParent(t, db)
+	seeded := models.MinorGroup{SubMajorGroupID: subID, Name: "Legislators", Code: "111"}
+	db.Create(&seeded)
+	router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
+
+	w := doRequest(t, router, http.MethodPut, fmt.Sprintf("/minor-groups/%d", seeded.ID), map[string]string{"name": "Senior Legislators"})
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, w.Code, w.Body.String())
+	}
+}
+
+func TestDeleteMinorGroupHandler(t *testing.T) {
+	db := setupTestDB(t)
+	subID := seedMinorGroupParent(t, db)
+	seeded := models.MinorGroup{SubMajorGroupID: subID, Name: "Legislators", Code: "111"}
+	db.Create(&seeded)
+	router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
+
+	w := doRequest(t, router, http.MethodDelete, fmt.Sprintf("/minor-groups/%d", seeded.ID), nil)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, w.Code, w.Body.String())
+	}
+}
+
+// ================= UnitGroup =================
+
+func seedUnitGroupParent(t *testing.T, db *gorm.DB) uint {
+	t.Helper()
+	minorID := seedMinorGroupParent(t, db)
+	minor := models.MinorGroup{SubMajorGroupID: minorID, Name: "Legislators", Code: "111"}
+	db.Create(&minor)
+	return minor.ID
+}
+
+func TestCreateUnitGroupHandler(t *testing.T) {
+	db := setupTestDB(t)
+	minorID := seedUnitGroupParent(t, db)
+	router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
+
+	w := doRequest(t, router, http.MethodPost, "/unit-groups", map[string]interface{}{
+		"minor_group_id": minorID, "name": "Senior Officials", "code": "1111",
+	})
+	if w.Code != http.StatusCreated {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusCreated, w.Code, w.Body.String())
+	}
+}
+
+func TestGetAllUnitGroupsHandler(t *testing.T) {
+	db := setupTestDB(t)
+	minorID := seedUnitGroupParent(t, db)
+	db.Create(&models.UnitGroup{MinorGroupID: minorID, Name: "Senior Officials", Code: "1111"})
+	router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
+
+	w := doRequest(t, router, http.MethodGet, "/unit-groups", nil)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, w.Code, w.Body.String())
+	}
+}
+
+func TestGetUnitGroupByIDHandler(t *testing.T) {
+	t.Run("non-existent id returns 404", func(t *testing.T) {
+		db := setupTestDB(t)
+		router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
+
+		w := doRequest(t, router, http.MethodGet, "/unit-groups/999999", nil)
+		if w.Code != http.StatusNotFound {
+			t.Fatalf("expected status %d, got %d: %s", http.StatusNotFound, w.Code, w.Body.String())
+		}
+	})
+}
+
+func TestUpdateUnitGroupHandler(t *testing.T) {
+	db := setupTestDB(t)
+	minorID := seedUnitGroupParent(t, db)
+	seeded := models.UnitGroup{MinorGroupID: minorID, Name: "Senior Officials", Code: "1111"}
+	db.Create(&seeded)
+	router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
+
+	w := doRequest(t, router, http.MethodPut, fmt.Sprintf("/unit-groups/%d", seeded.ID), map[string]string{"name": "Senior Govt Officials"})
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, w.Code, w.Body.String())
+	}
+}
+
+func TestDeleteUnitGroupHandler(t *testing.T) {
+	db := setupTestDB(t)
+	minorID := seedUnitGroupParent(t, db)
+	seeded := models.UnitGroup{MinorGroupID: minorID, Name: "Senior Officials", Code: "1111"}
+	db.Create(&seeded)
+	router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
+
+	w := doRequest(t, router, http.MethodDelete, fmt.Sprintf("/unit-groups/%d", seeded.ID), nil)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, w.Code, w.Body.String())
+	}
+}
+
+// ================= OccupationGroup (has limit/offset/total pagination) =================
+
+func seedOccupationGroupParent(t *testing.T, db *gorm.DB) uint {
+	t.Helper()
+	unitID := seedUnitGroupParent(t, db)
+	unit := models.UnitGroup{MinorGroupID: unitID, Name: "Senior Officials", Code: "1111"}
+	db.Create(&unit)
+	return unit.ID
+}
+
+func TestCreateOccupationGroupHandler(t *testing.T) {
+	db := setupTestDB(t)
+	unitID := seedOccupationGroupParent(t, db)
+	router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
+
+	w := doRequest(t, router, http.MethodPost, "/occupation-groups", map[string]interface{}{
+		"unit_group_id": unitID, "name": "Legislator", "code": "11111",
+	})
+	if w.Code != http.StatusCreated {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusCreated, w.Code, w.Body.String())
+	}
+}
+
+func TestGetAllOccupationGroupsHandler(t *testing.T) {
+	t.Run("default limit is 20, total reflects all rows", func(t *testing.T) {
+		db := setupTestDB(t)
+		unitID := seedOccupationGroupParent(t, db)
+		for i := 0; i < 5; i++ {
+			db.Create(&models.OccupationGroup{UnitGroupID: unitID, Name: "Group", Code: "X"})
+		}
+		router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
+
+		w := doRequest(t, router, http.MethodGet, "/occupation-groups", nil)
+		if w.Code != http.StatusOK {
+			t.Fatalf("expected status %d, got %d: %s", http.StatusOK, w.Code, w.Body.String())
+		}
+		var body map[string]interface{}
+		json.Unmarshal(w.Body.Bytes(), &body)
+		if int(body["limit"].(float64)) != 20 {
+			t.Fatalf("expected default limit 20, got %v", body["limit"])
+		}
+		if int(body["total"].(float64)) != 5 {
+			t.Fatalf("expected total 5, got %v", body["total"])
+		}
+	})
+
+	t.Run("limit query param is respected and capped at 100", func(t *testing.T) {
+		db := setupTestDB(t)
+		unitID := seedOccupationGroupParent(t, db)
+		db.Create(&models.OccupationGroup{UnitGroupID: unitID, Name: "Group", Code: "X"})
+		router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
+
+		w := doRequest(t, router, http.MethodGet, "/occupation-groups?limit=500", nil)
+		if w.Code != http.StatusOK {
+			t.Fatalf("expected status %d, got %d: %s", http.StatusOK, w.Code, w.Body.String())
+		}
+		var body map[string]interface{}
+		json.Unmarshal(w.Body.Bytes(), &body)
+		if int(body["limit"].(float64)) != 100 {
+			t.Fatalf("expected limit capped at 100, got %v", body["limit"])
+		}
+	})
+
+	t.Run("offset query param is applied", func(t *testing.T) {
+		db := setupTestDB(t)
+		unitID := seedOccupationGroupParent(t, db)
+		for i := 0; i < 3; i++ {
+			db.Create(&models.OccupationGroup{UnitGroupID: unitID, Name: "Group", Code: "X"})
+		}
+		router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
+
+		w := doRequest(t, router, http.MethodGet, "/occupation-groups?offset=2", nil)
+		if w.Code != http.StatusOK {
+			t.Fatalf("expected status %d, got %d: %s", http.StatusOK, w.Code, w.Body.String())
+		}
+		var body map[string]interface{}
+		json.Unmarshal(w.Body.Bytes(), &body)
+		if int(body["count"].(float64)) != 1 {
+			t.Fatalf("expected 1 item after offset=2 of 3, got %v", body["count"])
+		}
+	})
+}
+
+func TestGetOccupationGroupByIDHandler(t *testing.T) {
+	t.Run("non-existent id returns 404", func(t *testing.T) {
+		db := setupTestDB(t)
+		router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
+
+		w := doRequest(t, router, http.MethodGet, "/occupation-groups/999999", nil)
+		if w.Code != http.StatusNotFound {
+			t.Fatalf("expected status %d, got %d: %s", http.StatusNotFound, w.Code, w.Body.String())
+		}
+	})
+}
+
+func TestUpdateOccupationGroupHandler(t *testing.T) {
+	db := setupTestDB(t)
+	unitID := seedOccupationGroupParent(t, db)
+	seeded := models.OccupationGroup{UnitGroupID: unitID, Name: "Legislator", Code: "11111"}
+	db.Create(&seeded)
+	router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
+
+	w := doRequest(t, router, http.MethodPut, fmt.Sprintf("/occupation-groups/%d", seeded.ID), map[string]string{"name": "Senior Legislator"})
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, w.Code, w.Body.String())
+	}
+}
+
+func TestDeleteOccupationGroupHandler(t *testing.T) {
+	db := setupTestDB(t)
+	unitID := seedOccupationGroupParent(t, db)
+	seeded := models.OccupationGroup{UnitGroupID: unitID, Name: "Legislator", Code: "11111"}
+	db.Create(&seeded)
+	router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
+
+	w := doRequest(t, router, http.MethodDelete, fmt.Sprintf("/occupation-groups/%d", seeded.ID), nil)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, w.Code, w.Body.String())
+	}
+}
+
+// ================= IndustrySector (has from-date/to-date filtering) =================
+
+func TestCreateIndustrySectorHandler(t *testing.T) {
+	db := setupTestDB(t)
+	router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
+
+	w := doRequest(t, router, http.MethodPost, "/industry-sectors", map[string]string{"name": "Agriculture", "code": "A"})
+	if w.Code != http.StatusCreated {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusCreated, w.Code, w.Body.String())
+	}
+}
+
+func TestGetAllIndustrySectorsHandler(t *testing.T) {
+	t.Run("no date params returns all rows", func(t *testing.T) {
+		db := setupTestDB(t)
+		db.Create(&models.IndustrySector{Name: "Agriculture", Code: "A"})
+		router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
+
+		w := doRequest(t, router, http.MethodGet, "/industry-sectors", nil)
+		if w.Code != http.StatusOK {
+			t.Fatalf("expected status %d, got %d: %s", http.StatusOK, w.Code, w.Body.String())
+		}
+	})
+
+	t.Run("invalid from-date format returns 400", func(t *testing.T) {
+		db := setupTestDB(t)
+		router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
+
+		w := doRequest(t, router, http.MethodGet, "/industry-sectors?from-date=bad&to-date=2024-01-01", nil)
+		if w.Code != http.StatusBadRequest {
+			t.Fatalf("expected status %d, got %d: %s", http.StatusBadRequest, w.Code, w.Body.String())
+		}
+	})
+
+	t.Run("to-date before from-date returns 400", func(t *testing.T) {
+		db := setupTestDB(t)
+		router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
+
+		w := doRequest(t, router, http.MethodGet, "/industry-sectors?from-date=2024-06-01&to-date=2024-01-01", nil)
+		if w.Code != http.StatusBadRequest {
+			t.Fatalf("expected status %d, got %d: %s", http.StatusBadRequest, w.Code, w.Body.String())
+		}
+	})
+}
+
+func TestGetIndustrySectorByIDHandler(t *testing.T) {
+	t.Run("non-existent id returns 404", func(t *testing.T) {
+		db := setupTestDB(t)
+		router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
+
+		w := doRequest(t, router, http.MethodGet, "/industry-sectors/999999", nil)
+		if w.Code != http.StatusNotFound {
+			t.Fatalf("expected status %d, got %d: %s", http.StatusNotFound, w.Code, w.Body.String())
+		}
+	})
+}
+
+func TestUpdateIndustrySectorHandler(t *testing.T) {
+	db := setupTestDB(t)
+	seeded := models.IndustrySector{Name: "Agriculture", Code: "A"}
+	db.Create(&seeded)
+	router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
+
+	w := doRequest(t, router, http.MethodPut, fmt.Sprintf("/industry-sectors/%d", seeded.ID), map[string]string{"name": "Agri & Fisheries"})
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, w.Code, w.Body.String())
+	}
+}
+
+func TestDeleteIndustrySectorHandler(t *testing.T) {
+	db := setupTestDB(t)
+	seeded := models.IndustrySector{Name: "Agriculture", Code: "A"}
+	db.Create(&seeded)
+	router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
+
+	w := doRequest(t, router, http.MethodDelete, fmt.Sprintf("/industry-sectors/%d", seeded.ID), nil)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, w.Code, w.Body.String())
+	}
+}
+
+// ================= IndustryDivision =================
+
+func TestCreateIndustryDivisionHandler(t *testing.T) {
+	db := setupTestDB(t)
+	sector := models.IndustrySector{Name: "Agriculture", Code: "A"}
 	db.Create(&sector)
-	db.Create(&models.IndustryDivision{IndustrySectorID: sector.ID, Name: "Child Division", Code: "11"})
+	router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
 
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/industry-sectors/1/industry-divisions", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), "Child Division")
+	w := doRequest(t, router, http.MethodPost, "/industry-divisions", map[string]interface{}{
+		"industry_sector_id": sector.ID, "name": "Crop Farming", "code": "01",
+	})
+	if w.Code != http.StatusCreated {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusCreated, w.Code, w.Body.String())
+	}
 }
 
-func TestGetTotalVacancyCountHandler_MissingFromDate(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/vacancy-total?to-date=2026-08-01", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "from-date query parameter is required")
-}
-
-func TestGetTotalVacancyCountHandler_MissingToDate(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/vacancy-total?from-date=2026-05-01", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "to-date query parameter is required")
-}
-
-func TestGetTotalVacancyCountHandler_InvalidFromDateFormat(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/vacancy-total?from-date=01-05-2026&to-date=2026-08-01", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "invalid from-date format")
-}
-
-func TestGetTotalVacancyCountHandler_InvalidToDateFormat(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/vacancy-total?from-date=2026-05-01&to-date=not-a-date", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "invalid to-date format")
-}
-
-func TestGetTotalVacancyCountHandler_ToDateBeforeFromDate(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/vacancy-total?from-date=2026-08-01&to-date=2026-05-01", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "to-date must not be before from-date")
-}
-
-func TestGetTotalVacancyCountHandler_ValidRangeReturnsSum(t *testing.T) {
-	db, r := setupControllerTestEnv(t)
-
-	jobType := models.JobType{Type: "Full Time"}
-	db.Create(&jobType)
-
-	postedAt := time.Now().AddDate(0, 0, -5)
-	job1 := models.JobPost{JobTypeID: jobType.ID, JobRole: "Role 1", NoOfVacancies: 3}
-	db.Create(&job1)
-	db.Create(&models.JobMetaData{JobPostID: job1.ID, PostedAt: postedAt})
-
-	job2 := models.JobPost{JobTypeID: jobType.ID, JobRole: "Role 2", NoOfVacancies: 7}
-	db.Create(&job2)
-	db.Create(&models.JobMetaData{JobPostID: job2.ID, PostedAt: postedAt})
-
-	fromDate := time.Now().AddDate(0, 0, -30).Format("2006-01-02")
-	toDate := time.Now().Format("2006-01-02")
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/vacancy-total?from-date="+fromDate+"&to-date="+toDate, nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), `"total_vacancies":10`)
-}
-
-func TestGetTotalVacancyCountHandler_NoMatchingJobsReturnsZero(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/vacancy-total?from-date=2020-01-01&to-date=2020-12-31", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), `"total_vacancies":0`)
-}
-
-
-func TestGetOccupationJobCountByDateRangeHandler_MissingFromDate(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/occupations/by-date-range?to-date=2026-08-01", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "from-date query parameter is required")
-}
-
-func TestGetOccupationJobCountByDateRangeHandler_MissingToDate(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/occupations/by-date-range?from-date=2026-05-01", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "to-date query parameter is required")
-}
-
-func TestGetOccupationJobCountByDateRangeHandler_InvalidFromDateFormat(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/occupations/by-date-range?from-date=01-05-2026&to-date=2026-08-01", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "invalid from-date format")
-}
-
-func TestGetOccupationJobCountByDateRangeHandler_InvalidToDateFormat(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/occupations/by-date-range?from-date=2026-05-01&to-date=not-a-date", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "invalid to-date format")
-}
-
-func TestGetOccupationJobCountByDateRangeHandler_ToDateBeforeFromDate(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/occupations/by-date-range?from-date=2026-08-01&to-date=2026-05-01", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "to-date must not be before from-date")
-}
-
-func TestGetOccupationJobCountByDateRangeHandler_ValidRangeReturnsGroupedResults(t *testing.T) {
-	db, r := setupControllerTestEnv(t)
-
-	mg := models.MajorGroup{Name: "Professionals", Code: "2"}
-	db.Create(&mg)
-	smg := models.SubMajorGroup{MajorGroupID: mg.ID, Name: "SMG", Code: "21"}
-	db.Create(&smg)
-	ming := models.MinorGroup{SubMajorGroupID: smg.ID, Name: "MinG", Code: "211"}
-	db.Create(&ming)
-	ug := models.UnitGroup{MinorGroupID: ming.ID, Name: "UG", Code: "2111"}
-	db.Create(&ug)
-	og := models.OccupationGroup{UnitGroupID: ug.ID, Name: "OG", Code: "21111"}
-	db.Create(&og)
-
-	jobType := models.JobType{Type: "Full Time"}
-	db.Create(&jobType)
-
-	postedAt := time.Now().AddDate(0, 0, -5)
-	job := models.JobPost{JobTypeID: jobType.ID, JobRole: "Software Engineer", NoOfVacancies: 5}
-	db.Create(&job)
-	db.Create(&models.JobMetaData{JobPostID: job.ID, OccupationGroupID: og.ID, PostedAt: postedAt})
-
-	fromDate := time.Now().AddDate(0, 0, -30).Format("2006-01-02")
-	toDate := time.Now().Format("2006-01-02")
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/occupations/by-date-range?from-date="+fromDate+"&to-date="+toDate, nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), "Professionals")
-	assert.Contains(t, w.Body.String(), `"open_job_count":5`)
-}
-
-func TestGetOccupationJobCountByDateRangeHandler_NoMajorGroupsReturnsEmptyResults(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/occupations/by-date-range?from-date=2026-05-01&to-date=2026-08-01", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), `"count":0`)
-}
-
-// ---------------------------------------------------------------------------
-// GetIndustryJobCountByDateRangeHandler - both dates REQUIRED, no fallback
-// ---------------------------------------------------------------------------
-
-func TestGetIndustryJobCountByDateRangeHandler_MissingFromDate(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/industries/by-date-range?to-date=2026-08-01", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "from-date query parameter is required")
-}
-
-func TestGetIndustryJobCountByDateRangeHandler_MissingToDate(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/industries/by-date-range?from-date=2026-05-01", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "to-date query parameter is required")
-}
-
-func TestGetIndustryJobCountByDateRangeHandler_InvalidFromDateFormat(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/industries/by-date-range?from-date=01-05-2026&to-date=2026-08-01", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "invalid from-date format")
-}
-
-func TestGetIndustryJobCountByDateRangeHandler_InvalidToDateFormat(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/industries/by-date-range?from-date=2026-05-01&to-date=not-a-date", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "invalid to-date format")
-}
-
-func TestGetIndustryJobCountByDateRangeHandler_ToDateBeforeFromDate(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/industries/by-date-range?from-date=2026-08-01&to-date=2026-05-01", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "to-date must not be before from-date")
-}
-
-func TestGetIndustryJobCountByDateRangeHandler_ValidRangeReturnsGroupedResults(t *testing.T) {
-	db, r := setupControllerTestEnv(t)
-
-	sector := models.IndustrySector{Name: "Manufacturing", Code: "C"}
+func TestGetAllIndustryDivisionsHandler(t *testing.T) {
+	db := setupTestDB(t)
+	sector := models.IndustrySector{Name: "Agriculture", Code: "A"}
 	db.Create(&sector)
-	division := models.IndustryDivision{IndustrySectorID: sector.ID, Name: "Division", Code: "C1"}
+	db.Create(&models.IndustryDivision{IndustrySectorID: sector.ID, Name: "Crop Farming", Code: "01"})
+	router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
+
+	w := doRequest(t, router, http.MethodGet, "/industry-divisions", nil)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, w.Code, w.Body.String())
+	}
+}
+
+func TestGetIndustryDivisionByIDHandler(t *testing.T) {
+	t.Run("non-existent id returns 404", func(t *testing.T) {
+		db := setupTestDB(t)
+		router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
+
+		w := doRequest(t, router, http.MethodGet, "/industry-divisions/999999", nil)
+		if w.Code != http.StatusNotFound {
+			t.Fatalf("expected status %d, got %d: %s", http.StatusNotFound, w.Code, w.Body.String())
+		}
+	})
+}
+
+func TestUpdateIndustryDivisionHandler(t *testing.T) {
+	db := setupTestDB(t)
+	sector := models.IndustrySector{Name: "Agriculture", Code: "A"}
+	db.Create(&sector)
+	seeded := models.IndustryDivision{IndustrySectorID: sector.ID, Name: "Crop Farming", Code: "01"}
+	db.Create(&seeded)
+	router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
+
+	w := doRequest(t, router, http.MethodPut, fmt.Sprintf("/industry-divisions/%d", seeded.ID), map[string]string{"name": "Arable Farming"})
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, w.Code, w.Body.String())
+	}
+}
+
+func TestDeleteIndustryDivisionHandler(t *testing.T) {
+	db := setupTestDB(t)
+	sector := models.IndustrySector{Name: "Agriculture", Code: "A"}
+	db.Create(&sector)
+	seeded := models.IndustryDivision{IndustrySectorID: sector.ID, Name: "Crop Farming", Code: "01"}
+	db.Create(&seeded)
+	router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
+
+	w := doRequest(t, router, http.MethodDelete, fmt.Sprintf("/industry-divisions/%d", seeded.ID), nil)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, w.Code, w.Body.String())
+	}
+}
+
+// ================= IndustryGroup =================
+
+func seedIndustryGroupParent(t *testing.T, db *gorm.DB) uint {
+	t.Helper()
+	sector := models.IndustrySector{Name: "Agriculture", Code: "A"}
+	db.Create(&sector)
+	division := models.IndustryDivision{IndustrySectorID: sector.ID, Name: "Crop Farming", Code: "01"}
 	db.Create(&division)
-	group := models.IndustryGroup{IndustryDivisionID: division.ID, Name: "Group", Code: "C11"}
+	return division.ID
+}
+
+func TestCreateIndustryGroupHandler(t *testing.T) {
+	db := setupTestDB(t)
+	divisionID := seedIndustryGroupParent(t, db)
+	router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
+
+	w := doRequest(t, router, http.MethodPost, "/industry-groups", map[string]interface{}{
+		"industry_division_id": divisionID, "name": "Cereal Growing", "code": "011",
+	})
+	if w.Code != http.StatusCreated {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusCreated, w.Code, w.Body.String())
+	}
+}
+
+func TestGetAllIndustryGroupsHandler(t *testing.T) {
+	db := setupTestDB(t)
+	divisionID := seedIndustryGroupParent(t, db)
+	db.Create(&models.IndustryGroup{IndustryDivisionID: divisionID, Name: "Cereal Growing", Code: "011"})
+	router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
+
+	w := doRequest(t, router, http.MethodGet, "/industry-groups", nil)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, w.Code, w.Body.String())
+	}
+}
+
+func TestGetIndustryGroupByIDHandler(t *testing.T) {
+	t.Run("non-existent id returns 404", func(t *testing.T) {
+		db := setupTestDB(t)
+		router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
+
+		w := doRequest(t, router, http.MethodGet, "/industry-groups/999999", nil)
+		if w.Code != http.StatusNotFound {
+			t.Fatalf("expected status %d, got %d: %s", http.StatusNotFound, w.Code, w.Body.String())
+		}
+	})
+}
+
+func TestUpdateIndustryGroupHandler(t *testing.T) {
+	db := setupTestDB(t)
+	divisionID := seedIndustryGroupParent(t, db)
+	seeded := models.IndustryGroup{IndustryDivisionID: divisionID, Name: "Cereal Growing", Code: "011"}
+	db.Create(&seeded)
+	router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
+
+	w := doRequest(t, router, http.MethodPut, fmt.Sprintf("/industry-groups/%d", seeded.ID), map[string]string{"name": "Grain Growing"})
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, w.Code, w.Body.String())
+	}
+}
+
+func TestDeleteIndustryGroupHandler(t *testing.T) {
+	db := setupTestDB(t)
+	divisionID := seedIndustryGroupParent(t, db)
+	seeded := models.IndustryGroup{IndustryDivisionID: divisionID, Name: "Cereal Growing", Code: "011"}
+	db.Create(&seeded)
+	router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
+
+	w := doRequest(t, router, http.MethodDelete, fmt.Sprintf("/industry-groups/%d", seeded.ID), nil)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, w.Code, w.Body.String())
+	}
+}
+
+// ================= IndustryClass =================
+
+func seedIndustryClassParent(t *testing.T, db *gorm.DB) uint {
+	t.Helper()
+	divisionID := seedIndustryGroupParent(t, db)
+	group := models.IndustryGroup{IndustryDivisionID: divisionID, Name: "Cereal Growing", Code: "011"}
 	db.Create(&group)
-	class := models.IndustryClass{IndustryGroupID: group.ID, Name: "Class", Code: "C111"}
+	return group.ID
+}
+
+func TestCreateIndustryClassHandler(t *testing.T) {
+	db := setupTestDB(t)
+	groupID := seedIndustryClassParent(t, db)
+	router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
+
+	w := doRequest(t, router, http.MethodPost, "/industry-classes", map[string]interface{}{
+		"industry_group_id": groupID, "name": "Rice Growing", "code": "0111",
+	})
+	if w.Code != http.StatusCreated {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusCreated, w.Code, w.Body.String())
+	}
+}
+
+func TestGetAllIndustryClassesHandler(t *testing.T) {
+	db := setupTestDB(t)
+	groupID := seedIndustryClassParent(t, db)
+	db.Create(&models.IndustryClass{IndustryGroupID: groupID, Name: "Rice Growing", Code: "0111"})
+	router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
+
+	w := doRequest(t, router, http.MethodGet, "/industry-classes", nil)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, w.Code, w.Body.String())
+	}
+}
+
+func TestGetIndustryClassByIDHandler(t *testing.T) {
+	t.Run("non-existent id returns 404", func(t *testing.T) {
+		db := setupTestDB(t)
+		router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
+
+		w := doRequest(t, router, http.MethodGet, "/industry-classes/999999", nil)
+		if w.Code != http.StatusNotFound {
+			t.Fatalf("expected status %d, got %d: %s", http.StatusNotFound, w.Code, w.Body.String())
+		}
+	})
+}
+
+func TestUpdateIndustryClassHandler(t *testing.T) {
+	db := setupTestDB(t)
+	groupID := seedIndustryClassParent(t, db)
+	seeded := models.IndustryClass{IndustryGroupID: groupID, Name: "Rice Growing", Code: "0111"}
+	db.Create(&seeded)
+	router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
+
+	w := doRequest(t, router, http.MethodPut, fmt.Sprintf("/industry-classes/%d", seeded.ID), map[string]string{"name": "Paddy Growing"})
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, w.Code, w.Body.String())
+	}
+}
+
+func TestDeleteIndustryClassHandler(t *testing.T) {
+	db := setupTestDB(t)
+	groupID := seedIndustryClassParent(t, db)
+	seeded := models.IndustryClass{IndustryGroupID: groupID, Name: "Rice Growing", Code: "0111"}
+	db.Create(&seeded)
+	router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
+
+	w := doRequest(t, router, http.MethodDelete, fmt.Sprintf("/industry-classes/%d", seeded.ID), nil)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, w.Code, w.Body.String())
+	}
+}
+
+// ================= IndustrySubclass (has limit/offset/total pagination) =================
+
+func seedIndustrySubclassParent(t *testing.T, db *gorm.DB) uint {
+	t.Helper()
+	groupID := seedIndustryClassParent(t, db)
+	class := models.IndustryClass{IndustryGroupID: groupID, Name: "Rice Growing", Code: "0111"}
 	db.Create(&class)
-	subclass := models.IndustrySubclass{IndustryClassID: class.ID, Name: "Subclass", Code: "C1111"}
-	db.Create(&subclass)
-
-	jobType := models.JobType{Type: "Full Time"}
-	db.Create(&jobType)
-
-	postedAt := time.Now().AddDate(0, 0, -5)
-	job := models.JobPost{JobTypeID: jobType.ID, JobRole: "Factory Worker", NoOfVacancies: 8}
-	db.Create(&job)
-	db.Create(&models.JobMetaData{JobPostID: job.ID, IndustrySubclassID: subclass.ID, PostedAt: postedAt})
-
-	fromDate := time.Now().AddDate(0, 0, -30).Format("2006-01-02")
-	toDate := time.Now().Format("2006-01-02")
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/industries/by-date-range?from-date="+fromDate+"&to-date="+toDate, nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), "Manufacturing")
-	assert.Contains(t, w.Body.String(), `"open_job_count":8`)
-}
-
-func TestGetIndustryJobCountByDateRangeHandler_NoIndustrySectorsReturnsEmptyResults(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/industries/by-date-range?from-date=2026-05-01&to-date=2026-08-01", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), `"count":0`)
-}
-
-
-func TestGetEmploymentSectorByLevelHandler_InvalidStandard(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/not-a-real-standard/major-group/1/employment-sector?from-date=2026-05-01&to-date=2026-08-01", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "invalid standard")
-}
-
-func TestGetEmploymentSectorByLevelHandler_InvalidLevelForOccupation(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/occupation/not-a-real-level/1/employment-sector?from-date=2026-05-01&to-date=2026-08-01", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "invalid level for standard 'occupation'")
-}
-
-func TestGetEmploymentSectorByLevelHandler_InvalidIDFormat(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/occupation/major-group/abc/employment-sector?from-date=2026-05-01&to-date=2026-08-01", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "invalid id parameter")
-}
-
-func TestGetEmploymentSectorByLevelHandler_MissingFromDate(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/occupation/major-group/1/employment-sector?to-date=2026-08-01", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "from-date query parameter is required")
-}
-
-func TestGetEmploymentSectorByLevelHandler_MissingToDate(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/occupation/major-group/1/employment-sector?from-date=2026-05-01", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "to-date query parameter is required")
-}
-
-func TestGetEmploymentSectorByLevelHandler_InvalidFromDateFormat(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/occupation/major-group/1/employment-sector?from-date=01-05-2026&to-date=2026-08-01", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "invalid from-date format")
-}
-
-func TestGetEmploymentSectorByLevelHandler_ToDateBeforeFromDate(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/occupation/major-group/1/employment-sector?from-date=2026-08-01&to-date=2026-05-01", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "to-date must not be before from-date")
-}
-
-func TestGetEmploymentSectorByLevelHandler_ValidRequestReturnsBreakdown(t *testing.T) {
-	db, r := setupControllerTestEnv(t)
-
-	mg := models.MajorGroup{Name: "MG", Code: "1"}
-	db.Create(&mg)
-	smg := models.SubMajorGroup{MajorGroupID: mg.ID, Name: "SMG", Code: "11"}
-	db.Create(&smg)
-	ming := models.MinorGroup{SubMajorGroupID: smg.ID, Name: "MinG", Code: "111"}
-	db.Create(&ming)
-	ug := models.UnitGroup{MinorGroupID: ming.ID, Name: "UG", Code: "1111"}
-	db.Create(&ug)
-	og := models.OccupationGroup{UnitGroupID: ug.ID, Name: "OG", Code: "11111"}
-	db.Create(&og)
-
-	sector := models.EmploymentSector{Sector: "Private"}
-	db.Create(&sector)
-
-	jobType := models.JobType{Type: "Full Time"}
-	db.Create(&jobType)
-
-	postedAt := time.Now().AddDate(0, 0, -5)
-	job := models.JobPost{JobTypeID: jobType.ID, JobRole: "Role", NoOfVacancies: 6}
-	db.Create(&job)
-	db.Create(&models.JobMetaData{JobPostID: job.ID, OccupationGroupID: og.ID, EmploymentSectorID: sector.ID, PostedAt: postedAt})
-
-	fromDate := time.Now().AddDate(0, 0, -30).Format("2006-01-02")
-	toDate := time.Now().Format("2006-01-02")
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/occupation/major-group/1/employment-sector?from-date="+fromDate+"&to-date="+toDate, nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), "Private")
-	assert.Contains(t, w.Body.String(), `"open_job_count":6`)
-}
-
-func TestGetEmploymentSectorByLevelHandler_WorksForIndustryStandard(t *testing.T) {
-	db, r := setupControllerTestEnv(t)
-
-	sector := models.IndustrySector{Name: "Sector", Code: "1"}
-	db.Create(&sector)
-	division := models.IndustryDivision{IndustrySectorID: sector.ID, Name: "Division", Code: "11"}
-	db.Create(&division)
-	group := models.IndustryGroup{IndustryDivisionID: division.ID, Name: "Group", Code: "111"}
-	db.Create(&group)
-	class := models.IndustryClass{IndustryGroupID: group.ID, Name: "Class", Code: "1111"}
-	db.Create(&class)
-	subclass := models.IndustrySubclass{IndustryClassID: class.ID, Name: "Subclass", Code: "11111"}
-	db.Create(&subclass)
-
-	empSector := models.EmploymentSector{Sector: "Government"}
-	db.Create(&empSector)
-
-	jobType := models.JobType{Type: "Full Time"}
-	db.Create(&jobType)
-
-	postedAt := time.Now().AddDate(0, 0, -5)
-	job := models.JobPost{JobTypeID: jobType.ID, JobRole: "Role", NoOfVacancies: 4}
-	db.Create(&job)
-	db.Create(&models.JobMetaData{JobPostID: job.ID, IndustrySubclassID: subclass.ID, EmploymentSectorID: empSector.ID, PostedAt: postedAt})
-
-	fromDate := time.Now().AddDate(0, 0, -30).Format("2006-01-02")
-	toDate := time.Now().Format("2006-01-02")
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/industry/industry-sector/1/employment-sector?from-date="+fromDate+"&to-date="+toDate, nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), "Government")
-	assert.Contains(t, w.Body.String(), `"open_job_count":4`)
-}
-
-
-func TestGetExperienceByLevelHandler_InvalidStandard(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/not-a-real-standard/major-group/1/experience?from-date=2026-05-01&to-date=2026-08-01", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "invalid standard")
-}
-
-func TestGetExperienceByLevelHandler_InvalidLevelForOccupation(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/occupation/not-a-real-level/1/experience?from-date=2026-05-01&to-date=2026-08-01", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "invalid level for standard 'occupation'")
-}
-
-func TestGetExperienceByLevelHandler_InvalidIDFormat(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/occupation/major-group/abc/experience?from-date=2026-05-01&to-date=2026-08-01", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "invalid id parameter")
-}
-
-func TestGetExperienceByLevelHandler_MissingFromDate(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/occupation/major-group/1/experience?to-date=2026-08-01", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "from-date query parameter is required")
-}
-
-func TestGetExperienceByLevelHandler_MissingToDate(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/occupation/major-group/1/experience?from-date=2026-05-01", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "to-date query parameter is required")
-}
-
-func TestGetExperienceByLevelHandler_InvalidFromDateFormat(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/occupation/major-group/1/experience?from-date=01-05-2026&to-date=2026-08-01", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "invalid from-date format")
-}
-
-func TestGetExperienceByLevelHandler_ToDateBeforeFromDate(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/occupation/major-group/1/experience?from-date=2026-08-01&to-date=2026-05-01", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "to-date must not be before from-date")
-}
-
-func TestGetExperienceByLevelHandler_ValidRequestReturnsBreakdown(t *testing.T) {
-	db, r := setupControllerTestEnv(t)
-
-	mg := models.MajorGroup{Name: "MG", Code: "1"}
-	db.Create(&mg)
-	smg := models.SubMajorGroup{MajorGroupID: mg.ID, Name: "SMG", Code: "11"}
-	db.Create(&smg)
-	ming := models.MinorGroup{SubMajorGroupID: smg.ID, Name: "MinG", Code: "111"}
-	db.Create(&ming)
-	ug := models.UnitGroup{MinorGroupID: ming.ID, Name: "UG", Code: "1111"}
-	db.Create(&ug)
-	og := models.OccupationGroup{UnitGroupID: ug.ID, Name: "OG", Code: "11111"}
-	db.Create(&og)
-
-	exp := models.Experience{Name: "Entry Level"}
-	db.Create(&exp)
-
-	jobType := models.JobType{Type: "Full Time"}
-	db.Create(&jobType)
-
-	postedAt := time.Now().AddDate(0, 0, -5)
-	job := models.JobPost{JobTypeID: jobType.ID, JobRole: "Role", NoOfVacancies: 6}
-	db.Create(&job)
-	db.Create(&models.JobMetaData{JobPostID: job.ID, OccupationGroupID: og.ID, ExperienceID: exp.ID, PostedAt: postedAt})
-
-	fromDate := time.Now().AddDate(0, 0, -30).Format("2006-01-02")
-	toDate := time.Now().Format("2006-01-02")
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/occupation/major-group/1/experience?from-date="+fromDate+"&to-date="+toDate, nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), "Entry Level")
-	assert.Contains(t, w.Body.String(), `"open_job_count":6`)
-}
-
-func TestGetExperienceByLevelHandler_WorksForIndustryStandard(t *testing.T) {
-	db, r := setupControllerTestEnv(t)
-
-	sector := models.IndustrySector{Name: "Sector", Code: "1"}
-	db.Create(&sector)
-	division := models.IndustryDivision{IndustrySectorID: sector.ID, Name: "Division", Code: "11"}
-	db.Create(&division)
-	group := models.IndustryGroup{IndustryDivisionID: division.ID, Name: "Group", Code: "111"}
-	db.Create(&group)
-	class := models.IndustryClass{IndustryGroupID: group.ID, Name: "Class", Code: "1111"}
-	db.Create(&class)
-	subclass := models.IndustrySubclass{IndustryClassID: class.ID, Name: "Subclass", Code: "11111"}
-	db.Create(&subclass)
-
-	exp := models.Experience{Name: "Senior"}
-	db.Create(&exp)
-
-	jobType := models.JobType{Type: "Full Time"}
-	db.Create(&jobType)
-
-	postedAt := time.Now().AddDate(0, 0, -5)
-	job := models.JobPost{JobTypeID: jobType.ID, JobRole: "Role", NoOfVacancies: 4}
-	db.Create(&job)
-	db.Create(&models.JobMetaData{JobPostID: job.ID, IndustrySubclassID: subclass.ID, ExperienceID: exp.ID, PostedAt: postedAt})
-
-	fromDate := time.Now().AddDate(0, 0, -30).Format("2006-01-02")
-	toDate := time.Now().Format("2006-01-02")
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/industry/industry-sector/1/experience?from-date="+fromDate+"&to-date="+toDate, nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), "Senior")
-	assert.Contains(t, w.Body.String(), `"open_job_count":4`)
-}
-
-// ---------------------------------------------------------------------------
-// GetProvinceByLevelHandler - standard/level/id path params +
-// required from-date/to-date
-// ---------------------------------------------------------------------------
-
-func TestGetProvinceByLevelHandler_InvalidStandard(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/not-a-real-standard/major-group/1/province?from-date=2026-05-01&to-date=2026-08-01", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "invalid standard")
-}
-
-func TestGetProvinceByLevelHandler_InvalidLevelForOccupation(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/occupation/not-a-real-level/1/province?from-date=2026-05-01&to-date=2026-08-01", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "invalid level for standard 'occupation'")
-}
-
-func TestGetProvinceByLevelHandler_InvalidIDFormat(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/occupation/major-group/abc/province?from-date=2026-05-01&to-date=2026-08-01", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "invalid id parameter")
-}
-
-func TestGetProvinceByLevelHandler_MissingFromDate(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/occupation/major-group/1/province?to-date=2026-08-01", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "from-date query parameter is required")
-}
-
-func TestGetProvinceByLevelHandler_MissingToDate(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/occupation/major-group/1/province?from-date=2026-05-01", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "to-date query parameter is required")
-}
-
-func TestGetProvinceByLevelHandler_InvalidFromDateFormat(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/occupation/major-group/1/province?from-date=01-05-2026&to-date=2026-08-01", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "invalid from-date format")
-}
-
-func TestGetProvinceByLevelHandler_ToDateBeforeFromDate(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/occupation/major-group/1/province?from-date=2026-08-01&to-date=2026-05-01", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "to-date must not be before from-date")
-}
-
-func TestGetProvinceByLevelHandler_ValidRequestReturnsBreakdown(t *testing.T) {
-	db, r := setupControllerTestEnv(t)
-
-	mg := models.MajorGroup{Name: "MG", Code: "1"}
-	db.Create(&mg)
-	smg := models.SubMajorGroup{MajorGroupID: mg.ID, Name: "SMG", Code: "11"}
-	db.Create(&smg)
-	ming := models.MinorGroup{SubMajorGroupID: smg.ID, Name: "MinG", Code: "111"}
-	db.Create(&ming)
-	ug := models.UnitGroup{MinorGroupID: ming.ID, Name: "UG", Code: "1111"}
-	db.Create(&ug)
-	og := models.OccupationGroup{UnitGroupID: ug.ID, Name: "OG", Code: "11111"}
-	db.Create(&og)
-
-	// Note: setupControllerTestEnv already seeds a "Western" GeoData row -
-	// reuse it here rather than creating a duplicate.
-	var western models.GeoData
-	db.Where("province = ?", "Western").First(&western)
-
-	jobType := models.JobType{Type: "Full Time"}
-	db.Create(&jobType)
-
-	postedAt := time.Now().AddDate(0, 0, -5)
-	job := models.JobPost{JobTypeID: jobType.ID, JobRole: "Role", NoOfVacancies: 5}
-	db.Create(&job)
-	db.Create(&models.JobMetaData{JobPostID: job.ID, OccupationGroupID: og.ID, GeoDataID: western.ID, PostedAt: postedAt})
-
-	fromDate := time.Now().AddDate(0, 0, -30).Format("2006-01-02")
-	toDate := time.Now().Format("2006-01-02")
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/occupation/major-group/1/province?from-date="+fromDate+"&to-date="+toDate, nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), "Western")
-	assert.Contains(t, w.Body.String(), `"open_job_count":5`)
-}
-
-func TestGetProvinceByLevelHandler_WorksForIndustryStandard(t *testing.T) {
-	db, r := setupControllerTestEnv(t)
-
-	sector := models.IndustrySector{Name: "Sector", Code: "1"}
-	db.Create(&sector)
-	division := models.IndustryDivision{IndustrySectorID: sector.ID, Name: "Division", Code: "11"}
-	db.Create(&division)
-	group := models.IndustryGroup{IndustryDivisionID: division.ID, Name: "Group", Code: "111"}
-	db.Create(&group)
-	class := models.IndustryClass{IndustryGroupID: group.ID, Name: "Class", Code: "1111"}
-	db.Create(&class)
-	subclass := models.IndustrySubclass{IndustryClassID: class.ID, Name: "Subclass", Code: "11111"}
-	db.Create(&subclass)
-
-	var central models.GeoData
-	db.Where("province = ?", "Central").First(&central)
-
-	jobType := models.JobType{Type: "Full Time"}
-	db.Create(&jobType)
-
-	postedAt := time.Now().AddDate(0, 0, -5)
-	job := models.JobPost{JobTypeID: jobType.ID, JobRole: "Role", NoOfVacancies: 3}
-	db.Create(&job)
-	db.Create(&models.JobMetaData{JobPostID: job.ID, IndustrySubclassID: subclass.ID, GeoDataID: central.ID, PostedAt: postedAt})
-
-	fromDate := time.Now().AddDate(0, 0, -30).Format("2006-01-02")
-	toDate := time.Now().Format("2006-01-02")
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/industry/industry-sector/1/province?from-date="+fromDate+"&to-date="+toDate, nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), "Central")
-	assert.Contains(t, w.Body.String(), `"open_job_count":3`)
-}
-
-
-func TestGetEducationLevelByLevelHandler_InvalidStandard(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/not-a-real-standard/major-group/1/education?from-date=2026-05-01&to-date=2026-08-01", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "invalid standard")
-}
-
-func TestGetEducationLevelByLevelHandler_InvalidLevelForOccupation(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/occupation/not-a-real-level/1/education?from-date=2026-05-01&to-date=2026-08-01", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "invalid level for standard 'occupation'")
-}
-
-func TestGetEducationLevelByLevelHandler_InvalidIDFormat(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/occupation/major-group/abc/education?from-date=2026-05-01&to-date=2026-08-01", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "invalid id parameter")
-}
-
-func TestGetEducationLevelByLevelHandler_MissingFromDate(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/occupation/major-group/1/education?to-date=2026-08-01", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "from-date query parameter is required")
-}
-
-func TestGetEducationLevelByLevelHandler_MissingToDate(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/occupation/major-group/1/education?from-date=2026-05-01", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "to-date query parameter is required")
-}
-
-func TestGetEducationLevelByLevelHandler_InvalidFromDateFormat(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/occupation/major-group/1/education?from-date=01-05-2026&to-date=2026-08-01", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "invalid from-date format")
-}
-
-func TestGetEducationLevelByLevelHandler_ToDateBeforeFromDate(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/occupation/major-group/1/education?from-date=2026-08-01&to-date=2026-05-01", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "to-date must not be before from-date")
-}
-
-func TestGetEducationLevelByLevelHandler_ValidRequestReturnsBreakdown(t *testing.T) {
-	db, r := setupControllerTestEnv(t)
-
-	mg := models.MajorGroup{Name: "MG", Code: "1"}
-	db.Create(&mg)
-	smg := models.SubMajorGroup{MajorGroupID: mg.ID, Name: "SMG", Code: "11"}
-	db.Create(&smg)
-	ming := models.MinorGroup{SubMajorGroupID: smg.ID, Name: "MinG", Code: "111"}
-	db.Create(&ming)
-	ug := models.UnitGroup{MinorGroupID: ming.ID, Name: "UG", Code: "1111"}
-	db.Create(&ug)
-	og := models.OccupationGroup{UnitGroupID: ug.ID, Name: "OG", Code: "11111"}
-	db.Create(&og)
-
-	edu := models.EducationLevel{Level: "Degree"}
-	db.Create(&edu)
-
-	jobType := models.JobType{Type: "Full Time"}
-	db.Create(&jobType)
-
-	postedAt := time.Now().AddDate(0, 0, -5)
-	job := models.JobPost{JobTypeID: jobType.ID, JobRole: "Role", NoOfVacancies: 6}
-	db.Create(&job)
-	db.Create(&models.JobMetaData{JobPostID: job.ID, OccupationGroupID: og.ID, EducationLevelID: edu.ID, PostedAt: postedAt})
-
-	fromDate := time.Now().AddDate(0, 0, -30).Format("2006-01-02")
-	toDate := time.Now().Format("2006-01-02")
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/occupation/major-group/1/education?from-date="+fromDate+"&to-date="+toDate, nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), "Degree")
-	assert.Contains(t, w.Body.String(), `"open_job_count":6`)
-}
-
-func TestGetEducationLevelByLevelHandler_WorksForIndustryStandard(t *testing.T) {
-	db, r := setupControllerTestEnv(t)
-
-	sector := models.IndustrySector{Name: "Sector", Code: "1"}
-	db.Create(&sector)
-	division := models.IndustryDivision{IndustrySectorID: sector.ID, Name: "Division", Code: "11"}
-	db.Create(&division)
-	group := models.IndustryGroup{IndustryDivisionID: division.ID, Name: "Group", Code: "111"}
-	db.Create(&group)
-	class := models.IndustryClass{IndustryGroupID: group.ID, Name: "Class", Code: "1111"}
-	db.Create(&class)
-	subclass := models.IndustrySubclass{IndustryClassID: class.ID, Name: "Subclass", Code: "11111"}
-	db.Create(&subclass)
-
-	edu := models.EducationLevel{Level: "A/L"}
-	db.Create(&edu)
-
-	jobType := models.JobType{Type: "Full Time"}
-	db.Create(&jobType)
-
-	postedAt := time.Now().AddDate(0, 0, -5)
-	job := models.JobPost{JobTypeID: jobType.ID, JobRole: "Role", NoOfVacancies: 2}
-	db.Create(&job)
-	db.Create(&models.JobMetaData{JobPostID: job.ID, IndustrySubclassID: subclass.ID, EducationLevelID: edu.ID, PostedAt: postedAt})
-
-	fromDate := time.Now().AddDate(0, 0, -30).Format("2006-01-02")
-	toDate := time.Now().Format("2006-01-02")
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/industry/industry-sector/1/education?from-date="+fromDate+"&to-date="+toDate, nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), "A/L")
-	assert.Contains(t, w.Body.String(), `"open_job_count":2`)
-}
-
-func TestGetFormalityByLevelHandler_InvalidStandard(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/not-a-real-standard/major-group/1/formality?from-date=2026-05-01&to-date=2026-08-01", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "invalid standard")
-}
-
-func TestGetFormalityByLevelHandler_InvalidLevelForOccupation(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/occupation/not-a-real-level/1/formality?from-date=2026-05-01&to-date=2026-08-01", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "invalid level for standard 'occupation'")
-}
-
-func TestGetFormalityByLevelHandler_InvalidIDFormat(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/occupation/major-group/abc/formality?from-date=2026-05-01&to-date=2026-08-01", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "invalid id parameter")
-}
-
-func TestGetFormalityByLevelHandler_MissingFromDate(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/occupation/major-group/1/formality?to-date=2026-08-01", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "from-date query parameter is required")
-}
-
-func TestGetFormalityByLevelHandler_MissingToDate(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/occupation/major-group/1/formality?from-date=2026-05-01", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "to-date query parameter is required")
-}
-
-func TestGetFormalityByLevelHandler_InvalidFromDateFormat(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/occupation/major-group/1/formality?from-date=01-05-2026&to-date=2026-08-01", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "invalid from-date format")
-}
-
-func TestGetFormalityByLevelHandler_ToDateBeforeFromDate(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/occupation/major-group/1/formality?from-date=2026-08-01&to-date=2026-05-01", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "to-date must not be before from-date")
-}
-
-func TestGetFormalityByLevelHandler_ValidRequestReturnsBreakdown(t *testing.T) {
-	db, r := setupControllerTestEnv(t)
-
-	mg := models.MajorGroup{Name: "MG", Code: "1"}
-	db.Create(&mg)
-	smg := models.SubMajorGroup{MajorGroupID: mg.ID, Name: "SMG", Code: "11"}
-	db.Create(&smg)
-	ming := models.MinorGroup{SubMajorGroupID: smg.ID, Name: "MinG", Code: "111"}
-	db.Create(&ming)
-	ug := models.UnitGroup{MinorGroupID: ming.ID, Name: "UG", Code: "1111"}
-	db.Create(&ug)
-	og := models.OccupationGroup{UnitGroupID: ug.ID, Name: "OG", Code: "11111"}
-	db.Create(&og)
-
-	formality := models.Formality{FormalityType: "Formal"}
-	db.Create(&formality)
-
-	jobType := models.JobType{Type: "Full Time"}
-	db.Create(&jobType)
-
-	postedAt := time.Now().AddDate(0, 0, -5)
-	job := models.JobPost{JobTypeID: jobType.ID, JobRole: "Role", NoOfVacancies: 6}
-	db.Create(&job)
-	db.Create(&models.JobMetaData{JobPostID: job.ID, OccupationGroupID: og.ID, FormalityID: formality.ID, PostedAt: postedAt})
-
-	fromDate := time.Now().AddDate(0, 0, -30).Format("2006-01-02")
-	toDate := time.Now().Format("2006-01-02")
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/occupation/major-group/1/formality?from-date="+fromDate+"&to-date="+toDate, nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), "Formal")
-	assert.Contains(t, w.Body.String(), `"open_job_count":6`)
-}
-
-func TestGetFormalityByLevelHandler_WorksForIndustryStandard(t *testing.T) {
-	db, r := setupControllerTestEnv(t)
-
-	sector := models.IndustrySector{Name: "Sector", Code: "1"}
-	db.Create(&sector)
-	division := models.IndustryDivision{IndustrySectorID: sector.ID, Name: "Division", Code: "11"}
-	db.Create(&division)
-	group := models.IndustryGroup{IndustryDivisionID: division.ID, Name: "Group", Code: "111"}
-	db.Create(&group)
-	class := models.IndustryClass{IndustryGroupID: group.ID, Name: "Class", Code: "1111"}
-	db.Create(&class)
-	subclass := models.IndustrySubclass{IndustryClassID: class.ID, Name: "Subclass", Code: "11111"}
-	db.Create(&subclass)
-
-	formality := models.Formality{FormalityType: "Informal"}
-	db.Create(&formality)
-
-	jobType := models.JobType{Type: "Full Time"}
-	db.Create(&jobType)
-
-	postedAt := time.Now().AddDate(0, 0, -5)
-	job := models.JobPost{JobTypeID: jobType.ID, JobRole: "Role", NoOfVacancies: 2}
-	db.Create(&job)
-	db.Create(&models.JobMetaData{JobPostID: job.ID, IndustrySubclassID: subclass.ID, FormalityID: formality.ID, PostedAt: postedAt})
-
-	fromDate := time.Now().AddDate(0, 0, -30).Format("2006-01-02")
-	toDate := time.Now().Format("2006-01-02")
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/industry/industry-sector/1/formality?from-date="+fromDate+"&to-date="+toDate, nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), "Informal")
-	assert.Contains(t, w.Body.String(), `"open_job_count":2`)
-}
-
-// ---------------------------------------------------------------------------
-// GetGenderByLevelHandler - standard/level/id path params +
-// required from-date/to-date
-// ---------------------------------------------------------------------------
-
-func TestGetGenderByLevelHandler_InvalidStandard(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/not-a-real-standard/major-group/1/gender?from-date=2026-05-01&to-date=2026-08-01", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "invalid standard")
-}
-
-func TestGetGenderByLevelHandler_InvalidLevelForOccupation(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/occupation/not-a-real-level/1/gender?from-date=2026-05-01&to-date=2026-08-01", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "invalid level for standard 'occupation'")
-}
-
-func TestGetGenderByLevelHandler_InvalidIDFormat(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/occupation/major-group/abc/gender?from-date=2026-05-01&to-date=2026-08-01", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "invalid id parameter")
-}
-
-func TestGetGenderByLevelHandler_MissingFromDate(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/occupation/major-group/1/gender?to-date=2026-08-01", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "from-date query parameter is required")
-}
-
-func TestGetGenderByLevelHandler_MissingToDate(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/occupation/major-group/1/gender?from-date=2026-05-01", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "to-date query parameter is required")
-}
-
-func TestGetGenderByLevelHandler_InvalidFromDateFormat(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/occupation/major-group/1/gender?from-date=01-05-2026&to-date=2026-08-01", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "invalid from-date format")
-}
-
-func TestGetGenderByLevelHandler_ToDateBeforeFromDate(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/occupation/major-group/1/gender?from-date=2026-08-01&to-date=2026-05-01", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "to-date must not be before from-date")
-}
-
-func TestGetGenderByLevelHandler_ValidRequestReturnsBreakdown(t *testing.T) {
-	db, r := setupControllerTestEnv(t)
-
-	mg := models.MajorGroup{Name: "MG", Code: "1"}
-	db.Create(&mg)
-	smg := models.SubMajorGroup{MajorGroupID: mg.ID, Name: "SMG", Code: "11"}
-	db.Create(&smg)
-	ming := models.MinorGroup{SubMajorGroupID: smg.ID, Name: "MinG", Code: "111"}
-	db.Create(&ming)
-	ug := models.UnitGroup{MinorGroupID: ming.ID, Name: "UG", Code: "1111"}
-	db.Create(&ug)
-	og := models.OccupationGroup{UnitGroupID: ug.ID, Name: "OG", Code: "11111"}
-	db.Create(&og)
-
-	gender := models.Gender{GenderType: "Male"}
-	db.Create(&gender)
-
-	jobType := models.JobType{Type: "Full Time"}
-	db.Create(&jobType)
-
-	postedAt := time.Now().AddDate(0, 0, -5)
-	job := models.JobPost{JobTypeID: jobType.ID, JobRole: "Role", NoOfVacancies: 6}
-	db.Create(&job)
-	db.Create(&models.JobMetaData{JobPostID: job.ID, OccupationGroupID: og.ID, GenderID: gender.ID, PostedAt: postedAt})
-
-	fromDate := time.Now().AddDate(0, 0, -30).Format("2006-01-02")
-	toDate := time.Now().Format("2006-01-02")
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/occupation/major-group/1/gender?from-date="+fromDate+"&to-date="+toDate, nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), "Male")
-	assert.Contains(t, w.Body.String(), `"open_job_count":6`)
-}
-
-func TestGetGenderByLevelHandler_WorksForIndustryStandard(t *testing.T) {
-	db, r := setupControllerTestEnv(t)
-
-	sector := models.IndustrySector{Name: "Sector", Code: "1"}
-	db.Create(&sector)
-	division := models.IndustryDivision{IndustrySectorID: sector.ID, Name: "Division", Code: "11"}
-	db.Create(&division)
-	group := models.IndustryGroup{IndustryDivisionID: division.ID, Name: "Group", Code: "111"}
-	db.Create(&group)
-	class := models.IndustryClass{IndustryGroupID: group.ID, Name: "Class", Code: "1111"}
-	db.Create(&class)
-	subclass := models.IndustrySubclass{IndustryClassID: class.ID, Name: "Subclass", Code: "11111"}
-	db.Create(&subclass)
-
-	gender := models.Gender{GenderType: "Female"}
-	db.Create(&gender)
-
-	jobType := models.JobType{Type: "Full Time"}
-	db.Create(&jobType)
-
-	postedAt := time.Now().AddDate(0, 0, -5)
-	job := models.JobPost{JobTypeID: jobType.ID, JobRole: "Role", NoOfVacancies: 2}
-	db.Create(&job)
-	db.Create(&models.JobMetaData{JobPostID: job.ID, IndustrySubclassID: subclass.ID, GenderID: gender.ID, PostedAt: postedAt})
-
-	fromDate := time.Now().AddDate(0, 0, -30).Format("2006-01-02")
-	toDate := time.Now().Format("2006-01-02")
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/industry/industry-sector/1/gender?from-date="+fromDate+"&to-date="+toDate, nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), "Female")
-	assert.Contains(t, w.Body.String(), `"open_job_count":2`)
-}
-
-func TestGetVocationalEducationByLevelHandler_InvalidStandard(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/not-a-real-standard/major-group/1/vocational-education?from-date=2026-05-01&to-date=2026-08-01", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "invalid standard")
-}
-
-func TestGetVocationalEducationByLevelHandler_InvalidLevelForOccupation(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/occupation/not-a-real-level/1/vocational-education?from-date=2026-05-01&to-date=2026-08-01", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "invalid level for standard 'occupation'")
-}
-
-func TestGetVocationalEducationByLevelHandler_InvalidIDFormat(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/occupation/major-group/abc/vocational-education?from-date=2026-05-01&to-date=2026-08-01", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "invalid id parameter")
-}
-
-func TestGetVocationalEducationByLevelHandler_MissingFromDate(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/occupation/major-group/1/vocational-education?to-date=2026-08-01", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "from-date query parameter is required")
-}
-
-func TestGetVocationalEducationByLevelHandler_MissingToDate(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/occupation/major-group/1/vocational-education?from-date=2026-05-01", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "to-date query parameter is required")
-}
-
-func TestGetVocationalEducationByLevelHandler_InvalidFromDateFormat(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/occupation/major-group/1/vocational-education?from-date=01-05-2026&to-date=2026-08-01", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "invalid from-date format")
-}
-
-func TestGetVocationalEducationByLevelHandler_ToDateBeforeFromDate(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/occupation/major-group/1/vocational-education?from-date=2026-08-01&to-date=2026-05-01", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "to-date must not be before from-date")
-}
-
-func TestGetVocationalEducationByLevelHandler_ValidRequestReturnsBreakdown(t *testing.T) {
-	db, r := setupControllerTestEnv(t)
-
-	mg := models.MajorGroup{Name: "MG", Code: "1"}
-	db.Create(&mg)
-	smg := models.SubMajorGroup{MajorGroupID: mg.ID, Name: "SMG", Code: "11"}
-	db.Create(&smg)
-	ming := models.MinorGroup{SubMajorGroupID: smg.ID, Name: "MinG", Code: "111"}
-	db.Create(&ming)
-	ug := models.UnitGroup{MinorGroupID: ming.ID, Name: "UG", Code: "1111"}
-	db.Create(&ug)
-	og := models.OccupationGroup{UnitGroupID: ug.ID, Name: "OG", Code: "11111"}
-	db.Create(&og)
-
-	nvq := models.VocationalEducation{Level: "NVQ 4"}
-	db.Create(&nvq)
-
-	jobType := models.JobType{Type: "Full Time"}
-	db.Create(&jobType)
-
-	postedAt := time.Now().AddDate(0, 0, -5)
-	job := models.JobPost{JobTypeID: jobType.ID, JobRole: "Role", NoOfVacancies: 6}
-	db.Create(&job)
-	db.Create(&models.JobMetaData{JobPostID: job.ID, OccupationGroupID: og.ID, VocationalEducationID: nvq.ID, PostedAt: postedAt})
-
-	fromDate := time.Now().AddDate(0, 0, -30).Format("2006-01-02")
-	toDate := time.Now().Format("2006-01-02")
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/occupation/major-group/1/vocational-education?from-date="+fromDate+"&to-date="+toDate, nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), "NVQ 4")
-	assert.Contains(t, w.Body.String(), `"open_job_count":6`)
-}
-
-func TestGetVocationalEducationByLevelHandler_WorksForIndustryStandard(t *testing.T) {
-	db, r := setupControllerTestEnv(t)
-
-	sector := models.IndustrySector{Name: "Sector", Code: "1"}
-	db.Create(&sector)
-	division := models.IndustryDivision{IndustrySectorID: sector.ID, Name: "Division", Code: "11"}
-	db.Create(&division)
-	group := models.IndustryGroup{IndustryDivisionID: division.ID, Name: "Group", Code: "111"}
-	db.Create(&group)
-	class := models.IndustryClass{IndustryGroupID: group.ID, Name: "Class", Code: "1111"}
-	db.Create(&class)
-	subclass := models.IndustrySubclass{IndustryClassID: class.ID, Name: "Subclass", Code: "11111"}
-	db.Create(&subclass)
-
-	nvq := models.VocationalEducation{Level: "NVQ 5"}
-	db.Create(&nvq)
-
-	jobType := models.JobType{Type: "Full Time"}
-	db.Create(&jobType)
-
-	postedAt := time.Now().AddDate(0, 0, -5)
-	job := models.JobPost{JobTypeID: jobType.ID, JobRole: "Role", NoOfVacancies: 2}
-	db.Create(&job)
-	db.Create(&models.JobMetaData{JobPostID: job.ID, IndustrySubclassID: subclass.ID, VocationalEducationID: nvq.ID, PostedAt: postedAt})
-
-	fromDate := time.Now().AddDate(0, 0, -30).Format("2006-01-02")
-	toDate := time.Now().Format("2006-01-02")
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/industry/industry-sector/1/vocational-education?from-date="+fromDate+"&to-date="+toDate, nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), "NVQ 5")
-	assert.Contains(t, w.Body.String(), `"open_job_count":2`)
-}
-
-
-func TestGetRemoteOnSiteByLevelHandler_InvalidStandard(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/not-a-real-standard/major-group/1/remote-onsite?from-date=2026-05-01&to-date=2026-08-01", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "invalid standard")
-}
-
-func TestGetRemoteOnSiteByLevelHandler_InvalidLevelForOccupation(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/occupation/not-a-real-level/1/remote-onsite?from-date=2026-05-01&to-date=2026-08-01", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "invalid level for standard 'occupation'")
-}
-
-func TestGetRemoteOnSiteByLevelHandler_InvalidIDFormat(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/occupation/major-group/abc/remote-onsite?from-date=2026-05-01&to-date=2026-08-01", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "invalid id parameter")
-}
-
-func TestGetRemoteOnSiteByLevelHandler_MissingFromDate(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/occupation/major-group/1/remote-onsite?to-date=2026-08-01", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "from-date query parameter is required")
-}
-
-func TestGetRemoteOnSiteByLevelHandler_MissingToDate(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/occupation/major-group/1/remote-onsite?from-date=2026-05-01", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "to-date query parameter is required")
-}
-
-func TestGetRemoteOnSiteByLevelHandler_InvalidFromDateFormat(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/occupation/major-group/1/remote-onsite?from-date=01-05-2026&to-date=2026-08-01", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "invalid from-date format")
-}
-
-func TestGetRemoteOnSiteByLevelHandler_ToDateBeforeFromDate(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/occupation/major-group/1/remote-onsite?from-date=2026-08-01&to-date=2026-05-01", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "to-date must not be before from-date")
-}
-
-func TestGetRemoteOnSiteByLevelHandler_ValidRequestReturnsSplitCounts(t *testing.T) {
-	db, r := setupControllerTestEnv(t)
-
-	mg := models.MajorGroup{Name: "MG", Code: "1"}
-	db.Create(&mg)
-	smg := models.SubMajorGroup{MajorGroupID: mg.ID, Name: "SMG", Code: "11"}
-	db.Create(&smg)
-	ming := models.MinorGroup{SubMajorGroupID: smg.ID, Name: "MinG", Code: "111"}
-	db.Create(&ming)
-	ug := models.UnitGroup{MinorGroupID: ming.ID, Name: "UG", Code: "1111"}
-	db.Create(&ug)
-	og := models.OccupationGroup{UnitGroupID: ug.ID, Name: "OG", Code: "11111"}
-	db.Create(&og)
-
-	jobType := models.JobType{Type: "Full Time"}
-	db.Create(&jobType)
-
-	postedAt := time.Now().AddDate(0, 0, -5)
-
-	remoteJob := models.JobPost{JobTypeID: jobType.ID, JobRole: "Remote Role", NoOfVacancies: 4, IsRemote: true}
-	db.Create(&remoteJob)
-	db.Create(&models.JobMetaData{JobPostID: remoteJob.ID, OccupationGroupID: og.ID, PostedAt: postedAt})
-
-	onSiteJob := models.JobPost{JobTypeID: jobType.ID, JobRole: "On-Site Role", NoOfVacancies: 2, IsRemote: false}
-	db.Create(&onSiteJob)
-	db.Create(&models.JobMetaData{JobPostID: onSiteJob.ID, OccupationGroupID: og.ID, PostedAt: postedAt})
-
-	fromDate := time.Now().AddDate(0, 0, -30).Format("2006-01-02")
-	toDate := time.Now().Format("2006-01-02")
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/occupation/major-group/1/remote-onsite?from-date="+fromDate+"&to-date="+toDate, nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), `"remote_count":4`)
-	assert.Contains(t, w.Body.String(), `"on_site_count":2`)
-}
-
-func TestGetRemoteOnSiteByLevelHandler_NoMatchingJobsReturnsZeroForBoth(t *testing.T) {
-	db, r := setupControllerTestEnv(t)
-
-	mg := models.MajorGroup{Name: "MG", Code: "1"}
-	db.Create(&mg)
-
-	fromDate := time.Now().AddDate(0, 0, -30).Format("2006-01-02")
-	toDate := time.Now().Format("2006-01-02")
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/occupation/major-group/1/remote-onsite?from-date="+fromDate+"&to-date="+toDate, nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), `"remote_count":0`)
-	assert.Contains(t, w.Body.String(), `"on_site_count":0`)
-}
-
-func TestGetRemoteOnSiteByLevelHandler_WorksForIndustryStandard(t *testing.T) {
-	db, r := setupControllerTestEnv(t)
-
-	sector := models.IndustrySector{Name: "Sector", Code: "1"}
-	db.Create(&sector)
-	division := models.IndustryDivision{IndustrySectorID: sector.ID, Name: "Division", Code: "11"}
-	db.Create(&division)
-	group := models.IndustryGroup{IndustryDivisionID: division.ID, Name: "Group", Code: "111"}
-	db.Create(&group)
-	class := models.IndustryClass{IndustryGroupID: group.ID, Name: "Class", Code: "1111"}
-	db.Create(&class)
-	subclass := models.IndustrySubclass{IndustryClassID: class.ID, Name: "Subclass", Code: "11111"}
-	db.Create(&subclass)
-
-	jobType := models.JobType{Type: "Full Time"}
-	db.Create(&jobType)
-
-	postedAt := time.Now().AddDate(0, 0, -5)
-	job := models.JobPost{JobTypeID: jobType.ID, JobRole: "Role", NoOfVacancies: 3, IsRemote: true}
-	db.Create(&job)
-	db.Create(&models.JobMetaData{JobPostID: job.ID, IndustrySubclassID: subclass.ID, PostedAt: postedAt})
-
-	fromDate := time.Now().AddDate(0, 0, -30).Format("2006-01-02")
-	toDate := time.Now().Format("2006-01-02")
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/industry/industry-sector/1/remote-onsite?from-date="+fromDate+"&to-date="+toDate, nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), `"remote_count":3`)
-	assert.Contains(t, w.Body.String(), `"on_site_count":0`)
-}
-
-// ---------------------------------------------------------------------------
-// GetTop15SkillsByOccupationLevelHandler - occupation-only, level/id path
-// params + required from-date/to-date
-// ---------------------------------------------------------------------------
-
-func TestGetTop15SkillsByOccupationLevelHandler_InvalidLevel(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/occupation/not-a-real-level/1/top-15-skills?from-date=2026-05-01&to-date=2026-08-01", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "invalid level for occupation")
-}
-
-func TestGetTop15SkillsByOccupationLevelHandler_InvalidIDFormat(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/occupation/major-group/abc/top-15-skills?from-date=2026-05-01&to-date=2026-08-01", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "invalid id parameter")
-}
-
-func TestGetTop15SkillsByOccupationLevelHandler_MissingFromDate(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/occupation/major-group/1/top-15-skills?to-date=2026-08-01", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "from-date query parameter is required")
-}
-
-func TestGetTop15SkillsByOccupationLevelHandler_MissingToDate(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/occupation/major-group/1/top-15-skills?from-date=2026-05-01", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "to-date query parameter is required")
-}
-
-func TestGetTop15SkillsByOccupationLevelHandler_InvalidFromDateFormat(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/occupation/major-group/1/top-15-skills?from-date=01-05-2026&to-date=2026-08-01", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "invalid from-date format")
-}
-
-func TestGetTop15SkillsByOccupationLevelHandler_ToDateBeforeFromDate(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/occupation/major-group/1/top-15-skills?from-date=2026-08-01&to-date=2026-05-01", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "to-date must not be before from-date")
-}
-
-func TestGetTop15SkillsByOccupationLevelHandler_ValidRequestReturnsSkills(t *testing.T) {
-	db, r := setupControllerTestEnv(t)
-
-	mg := models.MajorGroup{Name: "MG", Code: "1"}
-	db.Create(&mg)
-	smg := models.SubMajorGroup{MajorGroupID: mg.ID, Name: "SMG", Code: "11"}
-	db.Create(&smg)
-	ming := models.MinorGroup{SubMajorGroupID: smg.ID, Name: "MinG", Code: "111"}
-	db.Create(&ming)
-	ug := models.UnitGroup{MinorGroupID: ming.ID, Name: "UG", Code: "1111"}
-	db.Create(&ug)
-	og := models.OccupationGroup{UnitGroupID: ug.ID, Name: "OG", Code: "11111"}
-	db.Create(&og)
-
-	skill := models.Skill{Skill: "Go"}
-	db.Create(&skill)
-
-	jobType := models.JobType{Type: "Full Time"}
-	db.Create(&jobType)
-
-	postedAt := time.Now().AddDate(0, 0, -5)
-	job := models.JobPost{JobTypeID: jobType.ID, JobRole: "Role", NoOfVacancies: 5}
-	db.Create(&job)
-	db.Create(&models.JobMetaData{JobPostID: job.ID, OccupationGroupID: og.ID, PostedAt: postedAt})
-	db.Create(&models.JobPostSkill{JobPostID: job.ID, SkillID: skill.ID})
-
-	fromDate := time.Now().AddDate(0, 0, -30).Format("2006-01-02")
-	toDate := time.Now().Format("2006-01-02")
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/occupation/major-group/1/top-15-skills?from-date="+fromDate+"&to-date="+toDate, nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), "Go")
-	assert.Contains(t, w.Body.String(), `"open_job_count":5`)
-}
-
-func TestGetTop15SkillsByOccupationLevelHandler_NoMatchingSkillsReturnsEmptyResults(t *testing.T) {
-	db, r := setupControllerTestEnv(t)
-
-	mg := models.MajorGroup{Name: "MG", Code: "1"}
-	db.Create(&mg)
-
-	fromDate := time.Now().AddDate(0, 0, -30).Format("2006-01-02")
-	toDate := time.Now().Format("2006-01-02")
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/occupation/major-group/1/top-15-skills?from-date="+fromDate+"&to-date="+toDate, nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), `"count":0`)
-}
-
-// ---------------------------------------------------------------------------
-// GetTopHiringEmployersByOccupationLevelHandler - occupation-only, level/id
-// path params + required from-date/to-date
-// ---------------------------------------------------------------------------
-
-func TestGetTopHiringEmployersByOccupationLevelHandler_InvalidLevel(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/occupation/not-a-real-level/1/top-hiring-employers?from-date=2026-05-01&to-date=2026-08-01", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "invalid level for occupation")
-}
-
-func TestGetTopHiringEmployersByOccupationLevelHandler_InvalidIDFormat(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/occupation/major-group/abc/top-hiring-employers?from-date=2026-05-01&to-date=2026-08-01", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "invalid id parameter")
-}
-
-func TestGetTopHiringEmployersByOccupationLevelHandler_MissingFromDate(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/occupation/major-group/1/top-hiring-employers?to-date=2026-08-01", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "from-date query parameter is required")
-}
-
-func TestGetTopHiringEmployersByOccupationLevelHandler_MissingToDate(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/occupation/major-group/1/top-hiring-employers?from-date=2026-05-01", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "to-date query parameter is required")
-}
-
-func TestGetTopHiringEmployersByOccupationLevelHandler_InvalidFromDateFormat(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/occupation/major-group/1/top-hiring-employers?from-date=01-05-2026&to-date=2026-08-01", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "invalid from-date format")
-}
-
-func TestGetTopHiringEmployersByOccupationLevelHandler_ToDateBeforeFromDate(t *testing.T) {
-	_, r := setupControllerTestEnv(t)
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/occupation/major-group/1/top-hiring-employers?from-date=2026-08-01&to-date=2026-05-01", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "to-date must not be before from-date")
-}
-
-func TestGetTopHiringEmployersByOccupationLevelHandler_ValidRequestReturnsEmployers(t *testing.T) {
-	db, r := setupControllerTestEnv(t)
-
-	mg := models.MajorGroup{Name: "MG", Code: "1"}
-	db.Create(&mg)
-	smg := models.SubMajorGroup{MajorGroupID: mg.ID, Name: "SMG", Code: "11"}
-	db.Create(&smg)
-	ming := models.MinorGroup{SubMajorGroupID: smg.ID, Name: "MinG", Code: "111"}
-	db.Create(&ming)
-	ug := models.UnitGroup{MinorGroupID: ming.ID, Name: "UG", Code: "1111"}
-	db.Create(&ug)
-	og := models.OccupationGroup{UnitGroupID: ug.ID, Name: "OG", Code: "11111"}
-	db.Create(&og)
-
-	emp := models.Employer{Name: "Acme Corp"}
-	db.Create(&emp)
-
-	jobType := models.JobType{Type: "Full Time"}
-	db.Create(&jobType)
-
-	postedAt := time.Now().AddDate(0, 0, -5)
-	job := models.JobPost{EmployerID: emp.ID, JobTypeID: jobType.ID, JobRole: "Role", NoOfVacancies: 9}
-	db.Create(&job)
-	db.Create(&models.JobMetaData{JobPostID: job.ID, OccupationGroupID: og.ID, PostedAt: postedAt})
-
-	fromDate := time.Now().AddDate(0, 0, -30).Format("2006-01-02")
-	toDate := time.Now().Format("2006-01-02")
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/occupation/major-group/1/top-hiring-employers?from-date="+fromDate+"&to-date="+toDate, nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), "Acme Corp")
-	assert.Contains(t, w.Body.String(), `"open_job_count":9`)
-}
-
-func TestGetTopHiringEmployersByOccupationLevelHandler_NoMatchingJobsReturnsEmptyResults(t *testing.T) {
-	db, r := setupControllerTestEnv(t)
-
-	mg := models.MajorGroup{Name: "MG", Code: "1"}
-	db.Create(&mg)
-
-	fromDate := time.Now().AddDate(0, 0, -30).Format("2006-01-02")
-	toDate := time.Now().Format("2006-01-02")
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/occupation/major-group/1/top-hiring-employers?from-date="+fromDate+"&to-date="+toDate, nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), `"count":0`)
+	return class.ID
+}
+
+func TestCreateIndustrySubclassHandler(t *testing.T) {
+	db := setupTestDB(t)
+	classID := seedIndustrySubclassParent(t, db)
+	router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
+
+	w := doRequest(t, router, http.MethodPost, "/industry-subclasses", map[string]interface{}{
+		"industry_class_id": classID, "name": "Rice Milling", "code": "01111",
+	})
+	if w.Code != http.StatusCreated {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusCreated, w.Code, w.Body.String())
+	}
+}
+
+func TestGetAllIndustrySubclassesHandler(t *testing.T) {
+	t.Run("default limit is 20, total reflects all rows", func(t *testing.T) {
+		db := setupTestDB(t)
+		classID := seedIndustrySubclassParent(t, db)
+		for i := 0; i < 5; i++ {
+			db.Create(&models.IndustrySubclass{IndustryClassID: classID, Name: "Subclass", Code: "X"})
+		}
+		router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
+
+		w := doRequest(t, router, http.MethodGet, "/industry-subclasses", nil)
+		if w.Code != http.StatusOK {
+			t.Fatalf("expected status %d, got %d: %s", http.StatusOK, w.Code, w.Body.String())
+		}
+		var body map[string]interface{}
+		json.Unmarshal(w.Body.Bytes(), &body)
+		if int(body["limit"].(float64)) != 20 {
+			t.Fatalf("expected default limit 20, got %v", body["limit"])
+		}
+		if int(body["total"].(float64)) != 5 {
+			t.Fatalf("expected total 5, got %v", body["total"])
+		}
+	})
+
+	t.Run("limit query param is respected and capped at 100", func(t *testing.T) {
+		db := setupTestDB(t)
+		classID := seedIndustrySubclassParent(t, db)
+		db.Create(&models.IndustrySubclass{IndustryClassID: classID, Name: "Subclass", Code: "X"})
+		router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
+
+		w := doRequest(t, router, http.MethodGet, "/industry-subclasses?limit=500", nil)
+		if w.Code != http.StatusOK {
+			t.Fatalf("expected status %d, got %d: %s", http.StatusOK, w.Code, w.Body.String())
+		}
+		var body map[string]interface{}
+		json.Unmarshal(w.Body.Bytes(), &body)
+		if int(body["limit"].(float64)) != 100 {
+			t.Fatalf("expected limit capped at 100, got %v", body["limit"])
+		}
+	})
+}
+
+func TestGetIndustrySubclassByIDHandler(t *testing.T) {
+	t.Run("non-existent id returns 404", func(t *testing.T) {
+		db := setupTestDB(t)
+		router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
+
+		w := doRequest(t, router, http.MethodGet, "/industry-subclasses/999999", nil)
+		if w.Code != http.StatusNotFound {
+			t.Fatalf("expected status %d, got %d: %s", http.StatusNotFound, w.Code, w.Body.String())
+		}
+	})
+}
+
+func TestUpdateIndustrySubclassHandler(t *testing.T) {
+	db := setupTestDB(t)
+	classID := seedIndustrySubclassParent(t, db)
+	seeded := models.IndustrySubclass{IndustryClassID: classID, Name: "Rice Milling", Code: "01111"}
+	db.Create(&seeded)
+	router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
+
+	w := doRequest(t, router, http.MethodPut, fmt.Sprintf("/industry-subclasses/%d", seeded.ID), map[string]string{"name": "Paddy Milling"})
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, w.Code, w.Body.String())
+	}
+}
+
+func TestDeleteIndustrySubclassHandler(t *testing.T) {
+	db := setupTestDB(t)
+	classID := seedIndustrySubclassParent(t, db)
+	seeded := models.IndustrySubclass{IndustryClassID: classID, Name: "Rice Milling", Code: "01111"}
+	db.Create(&seeded)
+	router := setupRouter(controllers.NewJobController(repositories.NewJobRepository(db)))
+
+	w := doRequest(t, router, http.MethodDelete, fmt.Sprintf("/industry-subclasses/%d", seeded.ID), nil)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, w.Code, w.Body.String())
+	}
 }
