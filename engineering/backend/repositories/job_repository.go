@@ -1272,13 +1272,13 @@ func (r *JobRepository) withFullPreloads() *gorm.DB {
 		Preload("MetaData.CrawlerRun")
 }
 
-func (r *JobRepository) GetAllIndustries() ([]models.Industry, error) {
-	var industries []models.Industry
-	if err := r.db.Find(&industries).Error; err != nil {
-		return nil, err
-	}
-	return industries, nil
-}
+// func (r *JobRepository) GetAllIndustries() ([]models.Industry, error) {
+// 	var industries []models.Industry
+// 	if err := r.db.Find(&industries).Error; err != nil {
+// 		return nil, err
+// 	}
+// 	return industries, nil
+// }
 
 func (r *JobRepository) GetAllExperiences() ([]models.Experience, error) {
 	var experiences []models.Experience

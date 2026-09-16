@@ -59,23 +59,23 @@ type EducationLevel struct {
 
 func (EducationLevel) TableName() string { return "education_level" }
 
-type Industry struct {
-	ID        uint      `json:"id"         gorm:"primaryKey"`
-	Name      string    `json:"name"       gorm:"size:255;not null"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
-}
+// type Industry struct {
+// 	ID        uint      `json:"id"         gorm:"primaryKey"`
+// 	Name      string    `json:"name"       gorm:"size:255;not null"`
+// 	CreatedAt time.Time `json:"created_at"`
+// 	UpdatedAt time.Time `json:"updated_at"`
+// }
 
-func (Industry) TableName() string { return "industry" }
+// func (Industry) TableName() string { return "industry" }
 
-type Occupation struct {
-	ID        uint      `json:"id"         gorm:"primaryKey"`
-	Name      string    `json:"name"       gorm:"size:255;not null"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
-}
+// type Occupation struct {
+// 	ID        uint      `json:"id"         gorm:"primaryKey"`
+// 	Name      string    `json:"name"       gorm:"size:255;not null"`
+// 	CreatedAt time.Time `json:"created_at"`
+// 	UpdatedAt time.Time `json:"updated_at"`
+// }
 
-func (Occupation) TableName() string { return "occupation" }
+// func (Occupation) TableName() string { return "occupation" }
 
 // Source model like ikman jobs, rooster
 type Source struct {
@@ -327,10 +327,10 @@ type JobMetaData struct {
 	CrawlerRun       *CrawlerRun     `json:"-"                  gorm:"foreignKey:CrawlerRunID"`
 	GeoDataID        *uint           `json:"geo_data_id"`
 	GeoData          *GeoData        `json:"geo_data"           gorm:"foreignKey:GeoDataID"`
-	IndustryID       *uint           `json:"industry_id"`
-	Industry         *Industry       `json:"industry"           gorm:"foreignKey:IndustryID"`
-	OccupationID     *uint           `json:"occupation_id"`
-	Occupation       *Occupation     `json:"occupation"         gorm:"foreignKey:OccupationID"`
+	// IndustryID       *uint           `json:"industry_id"`
+	// Industry         *Industry       `json:"industry"           gorm:"foreignKey:IndustryID"`
+	// OccupationID     *uint           `json:"occupation_id"`
+	// Occupation       *Occupation     `json:"occupation"         gorm:"foreignKey:OccupationID"`
 	SourceID         *uint           `json:"source_id"`
 	Source           *Source         `json:"source"             gorm:"foreignKey:SourceID"`
 	ExperienceID     *uint           `json:"experience_id"`

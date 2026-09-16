@@ -2,2750 +2,1963 @@ package repositories_test
 
 import (
 	"errors"
-	"marketlens-go-backend/models"
-	"marketlens-go-backend/repositories"
+	"fmt"
 	"testing"
-	"time"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
+
+	"marketlens-go-backend/models"
+	"marketlens-go-backend/repositories"
 )
 
-func setupTestDB(t *testing.T) (*gorm.DB, *repositories.JobRepository) {
+// ---------- Test DB setup ----------
 
-	db, err := gorm.Open(sqlite.Open("file:"+t.Name()+"?mode=memory&cache=private"), &gorm.Config{
-		NowFunc: func() time.Time {
-			return time.Now().UTC()
-		},
+// SetupTestDB opens a fresh, isolated in-memory SQLite database for a single
+// test, runs AutoMigrate against it (in dependency order), and registers
+// cleanup so the connection is closed when the test finishes.
+func SetupTestDB(t *testing.T) *gorm.DB {
+	t.Helper()
+
+	// A unique DSN per test avoids two tests sharing the same in-memory
+	// database when run in parallel.
+	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared&_foreign_keys=on", t.Name())
+
+	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{
+		Logger: logger.Default.LogMode(logger.Silent),
 	})
 	if err != nil {
-		t.Fatalf("Failed to initialize temporary in-memory database workspace: %v", err)
+		t.Fatalf("failed to open in-memory sqlite db: %v", err)
+	}
+
+	// Pin to a single connection — SQLite's in-memory DB only persists as
+	// long as at least one connection stays open, and GORM pools connections
+	// by default.
+	sqlDB, err := db.DB()
+	if err != nil {
+		t.Fatalf("failed to get generic sql.DB: %v", err)
+	}
+	sqlDB.SetMaxOpenConns(1)
+
+	if err := migrateAll(db); err != nil {
+		t.Fatalf("failed to migrate schema: %v", err)
 	}
 
 	t.Cleanup(func() {
-		sqlDB, _ := db.DB()
 		sqlDB.Close()
 	})
 
-	err = db.AutoMigrate(
-		&models.JobPost{},
-		&models.JobMetaData{},
+	return db
+}
+
+// migrateAll runs AutoMigrate in dependency order: parent/lookup tables
+// first, then tables that hold a foreign key into them.
+func migrateAll(db *gorm.DB) error {
+	return db.AutoMigrate(
+		// --- Lookup / reference tables (no FK dependencies) ---
+		&models.Employer{},
 		&models.JobType{},
 		&models.Skill{},
+		&models.AiVersion{},
+		&models.EducationLevel{},
+		&models.Source{},
+		&models.Experience{},
 		&models.GeoData{},
-		&models.Employer{},
-		&models.JobPostSkill{},
+		&models.Formality{},
+		&models.Gender{},
+		&models.VocationalEducation{},
+		&models.EmploymentSector{},
+		&models.CrawlerRun{},
+
+		// --- Occupation classification hierarchy (parent before child) ---
 		&models.MajorGroup{},
 		&models.SubMajorGroup{},
 		&models.MinorGroup{},
 		&models.UnitGroup{},
 		&models.OccupationGroup{},
+
+		// --- Industry classification hierarchy (parent before child) ---
 		&models.IndustrySector{},
 		&models.IndustryDivision{},
 		&models.IndustryGroup{},
 		&models.IndustryClass{},
 		&models.IndustrySubclass{},
-		&models.EducationLevel{},
-		&models.Gender{},
-		&models.Formality{},
-		&models.EmploymentSector{},
-		&models.Experience{},
-		&models.VocationalEducation{},
+
+		// --- Core job tables (depend on everything above) ---
+		&models.JobPost{},
+		&models.JobMetaData{},
+		&models.LshIndex{},
 	)
-	if err != nil {
-		t.Fatalf("Schema generation auto-migration failed: %v", err)
-	}
+}
 
-	db.Create(&models.GeoData{Province: "Western", Latitude: 6.9271, Longitude: 79.8612})
-	db.Create(&models.GeoData{Province: "Central", Latitude: 7.2906, Longitude: 80.6337})
+// ---------- CreateEducationLevel ----------
 
+func TestJobRepository_CreateEducationLevel(t *testing.T) {
+	db := SetupTestDB(t)
 	repo := repositories.NewJobRepository(db)
-	return db, repo
-}
 
-// ---------------------------------------------------------------------------
-// GetAllMajorGroupsForDateRange - existence/deletion boundary tests.
-// Same pattern applies to every other ...ForDateRange sibling
-// (GetAllIndustrySectorsForDateRange, GetSubMajorGroupsByMajorGroupForDateRange,
-// etc.) - only the model/table differs.
-// ---------------------------------------------------------------------------
+	item := &models.EducationLevel{Level: "Bachelor's Degree"}
 
-func TestGetAllMajorGroupsForDateRange_ExcludesEntityCreatedAfterRange(t *testing.T) {
-	db, repo := setupTestDB(t)
+	if err := repo.CreateEducationLevel(item); err != nil {
+		t.Fatalf("CreateEducationLevel returned error: %v", err)
+	}
 
-	// Created "today" - well after the range being queried.
-	db.Create(&models.MajorGroup{Name: "Brand New Category", Code: "99"})
+	if item.ID == 0 {
+		t.Fatalf("expected ID to be populated after create, got 0")
+	}
 
-	fromDate := time.Now().AddDate(0, 0, -30)
-	toDate := time.Now().AddDate(0, 0, -1) // range ends yesterday
-
-	results, err := repo.GetAllMajorGroupsForDateRange(fromDate, toDate)
-	require.NoError(t, err)
-
-	for _, r := range results {
-		assert.NotEqual(t, "Brand New Category", r.Name,
-			"a major group created after the range's end date should not appear in a historical report")
+	// Confirm it actually landed in the DB, not just in the in-memory struct
+	var fromDB models.EducationLevel
+	if err := db.First(&fromDB, item.ID).Error; err != nil {
+		t.Fatalf("expected to find created row in DB, got error: %v", err)
+	}
+	if fromDB.Level != "Bachelor's Degree" {
+		t.Fatalf("expected Level %q, got %q", "Bachelor's Degree", fromDB.Level)
 	}
 }
 
-func TestGetAllMajorGroupsForDateRange_IncludesEntityDeletedDuringRange(t *testing.T) {
-	db, repo := setupTestDB(t)
+// ---------- GetAllEducationLevels ----------
 
-	mg := models.MajorGroup{Name: "Retiring Category", Code: "50"}
-	db.Create(&mg)
+func TestJobRepository_GetAllEducationLevels(t *testing.T) {
+	t.Run("empty table returns empty slice, not error", func(t *testing.T) {
+		db := SetupTestDB(t)
+		repo := repositories.NewJobRepository(db)
 
-	// Soft-delete it "today".
-	db.Delete(&mg)
-
-	// Query a range that spans from well before the deletion through today -
-	// the category was genuinely active for most of this window.
-	fromDate := time.Now().AddDate(0, 0, -10)
-	toDate := time.Now()
-
-	results, err := repo.GetAllMajorGroupsForDateRange(fromDate, toDate)
-	require.NoError(t, err)
-
-	found := false
-	for _, r := range results {
-		if r.Name == "Retiring Category" {
-			found = true
+		items, err := repo.GetAllEducationLevels()
+		if err != nil {
+			t.Fatalf("expected no error on empty table, got: %v", err)
 		}
-	}
-	assert.True(t, found, "a category deleted mid-range should still appear, since it was active for part of the range")
-}
-
-func TestGetAllMajorGroupsForDateRange_ExcludesEntityDeletedBeforeRangeStarted(t *testing.T) {
-	db, repo := setupTestDB(t)
-
-	mg := models.MajorGroup{Name: "Long Gone Category", Code: "51"}
-	db.Create(&mg)
-	db.Delete(&mg) // deleted "today"
-
-	// Query a range that starts tomorrow - entirely after the deletion.
-	fromDate := time.Now().AddDate(0, 0, 1)
-	toDate := time.Now().AddDate(0, 0, 10)
-
-	results, err := repo.GetAllMajorGroupsForDateRange(fromDate, toDate)
-	require.NoError(t, err)
-
-	for _, r := range results {
-		assert.NotEqual(t, "Long Gone Category", r.Name,
-			"a category already deleted before the range started should not appear")
-	}
-}
-
-func TestGetAllMajorGroupsForDateRange_IncludesEntityDeletedOnTheSameDayAsFromDate(t *testing.T) {
-	db, repo := setupTestDB(t)
-
-	mg := models.MajorGroup{Name: "Same Day Deletion", Code: "52"}
-	db.Create(&mg)
-	db.Delete(&mg) // deleted right now, same calendar day as fromDate below
-
-	fromDate := time.Now().Truncate(24 * time.Hour) // midnight today
-	toDate := time.Now().AddDate(0, 0, 5)
-
-	results, err := repo.GetAllMajorGroupsForDateRange(fromDate, toDate)
-	require.NoError(t, err)
-
-	found := false
-	for _, r := range results {
-		if r.Name == "Same Day Deletion" {
-			found = true
+		if len(items) != 0 {
+			t.Fatalf("expected 0 items, got %d", len(items))
 		}
-	}
-	assert.True(t, found, "an entity deleted on the same day the range starts should still appear for that day")
-}
+	})
 
-func TestGetAllMajorGroups_NeverAppliesDateFiltering(t *testing.T) {
-	db, repo := setupTestDB(t)
+	t.Run("returns all seeded rows", func(t *testing.T) {
+		db := SetupTestDB(t)
+		repo := repositories.NewJobRepository(db)
 
-	// The crawler-facing method should just be "currently active", regardless
-	// of any date logic - soft-deleted rows must never appear here.
-	active := models.MajorGroup{Name: "Active Category", Code: "1"}
-	db.Create(&active)
-
-	deleted := models.MajorGroup{Name: "Deleted Category", Code: "2"}
-	db.Create(&deleted)
-	db.Delete(&deleted)
-
-	results, err := repo.GetAllMajorGroups()
-	require.NoError(t, err)
-
-	names := make([]string, 0, len(results))
-	for _, r := range results {
-		names = append(names, r.Name)
-	}
-	assert.Contains(t, names, "Active Category")
-	assert.NotContains(t, names, "Deleted Category")
-}
-
-// ---------------------------------------------------------------------------
-// GetLevelChildren - existence/deletion boundary tests at one level of the
-// occupation hierarchy (major-group -> sub-major-group). Same pattern
-// applies to every other level and to the industry branch.
-// ---------------------------------------------------------------------------
-
-func TestGetLevelChildren_ExcludesChildCreatedAfterRange(t *testing.T) {
-	db, repo := setupTestDB(t)
-
-	mg := models.MajorGroup{Name: "Parent", Code: "1"}
-	db.Create(&mg)
-
-	db.Create(&models.SubMajorGroup{MajorGroupID: mg.ID, Name: "New Child", Code: "11"})
-
-	fromDate := time.Now().AddDate(0, 0, -30)
-	toDate := time.Now().AddDate(0, 0, -1)
-
-	children, _, err := repo.GetLevelChildren("occupation", "major-group", mg.ID, fromDate, toDate)
-	require.NoError(t, err)
-
-	for _, c := range children {
-		assert.NotEqual(t, "New Child", c.Name)
-	}
-}
-
-func TestGetLevelChildren_IncludesChildDeletedDuringRange(t *testing.T) {
-	db, repo := setupTestDB(t)
-
-	mg := models.MajorGroup{Name: "Parent", Code: "1"}
-	db.Create(&mg)
-
-	child := models.SubMajorGroup{MajorGroupID: mg.ID, Name: "Retiring Child", Code: "11"}
-	db.Create(&child)
-	db.Delete(&child)
-
-	fromDate := time.Now().AddDate(0, 0, -10)
-	toDate := time.Now()
-
-	children, childLevel, err := repo.GetLevelChildren("occupation", "major-group", mg.ID, fromDate, toDate)
-	require.NoError(t, err)
-	assert.Equal(t, "sub-major-group", childLevel)
-
-	found := false
-	for _, c := range children {
-		if c.Name == "Retiring Child" {
-			found = true
+		seed := []models.EducationLevel{
+			{Level: "Diploma"},
+			{Level: "Bachelor's Degree"},
+			{Level: "Master's Degree"},
 		}
+		for i := range seed {
+			if err := db.Create(&seed[i]).Error; err != nil {
+				t.Fatalf("failed to seed row: %v", err)
+			}
+		}
+
+		items, err := repo.GetAllEducationLevels()
+		if err != nil {
+			t.Fatalf("GetAllEducationLevels returned error: %v", err)
+		}
+		if len(items) != len(seed) {
+			t.Fatalf("expected %d items, got %d", len(seed), len(items))
+		}
+	})
+}
+
+// ---------- GetEducationLevelByID ----------
+
+func TestJobRepository_GetEducationLevelByID(t *testing.T) {
+	t.Run("existing ID returns the correct row", func(t *testing.T) {
+		db := SetupTestDB(t)
+		repo := repositories.NewJobRepository(db)
+
+		seeded := models.EducationLevel{Level: "PhD"}
+		if err := db.Create(&seeded).Error; err != nil {
+			t.Fatalf("failed to seed row: %v", err)
+		}
+
+		got, err := repo.GetEducationLevelByID(seeded.ID)
+		if err != nil {
+			t.Fatalf("GetEducationLevelByID returned error: %v", err)
+		}
+		if got.ID != seeded.ID || got.Level != "PhD" {
+			t.Fatalf("expected %+v, got %+v", seeded, got)
+		}
+	})
+
+	t.Run("non-existent ID returns gorm.ErrRecordNotFound", func(t *testing.T) {
+		db := SetupTestDB(t)
+		repo := repositories.NewJobRepository(db)
+
+		_, err := repo.GetEducationLevelByID(999999)
+		if err == nil {
+			t.Fatalf("expected an error for non-existent ID, got nil")
+		}
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			t.Fatalf("expected gorm.ErrRecordNotFound, got: %v", err)
+		}
+	})
+}
+
+// ---------- UpdateEducationLevel ----------
+
+func TestJobRepository_UpdateEducationLevel(t *testing.T) {
+	t.Run("updates an existing row", func(t *testing.T) {
+		db := SetupTestDB(t)
+		repo := repositories.NewJobRepository(db)
+
+		seeded := models.EducationLevel{Level: "Diploma"}
+		if err := db.Create(&seeded).Error; err != nil {
+			t.Fatalf("failed to seed row: %v", err)
+		}
+
+		updated, err := repo.UpdateEducationLevel(seeded.ID, map[string]interface{}{
+			"level": "Advanced Diploma",
+		})
+		if err != nil {
+			t.Fatalf("UpdateEducationLevel returned error: %v", err)
+		}
+		if updated.Level != "Advanced Diploma" {
+			t.Fatalf("expected updated Level %q, got %q", "Advanced Diploma", updated.Level)
+		}
+
+		// Confirm the change actually persisted, not just returned in-memory
+		var fromDB models.EducationLevel
+		if err := db.First(&fromDB, seeded.ID).Error; err != nil {
+			t.Fatalf("failed to reload row: %v", err)
+		}
+		if fromDB.Level != "Advanced Diploma" {
+			t.Fatalf("expected persisted Level %q, got %q", "Advanced Diploma", fromDB.Level)
+		}
+	})
+
+	t.Run("non-existent ID returns error and does not panic", func(t *testing.T) {
+		db := SetupTestDB(t)
+		repo := repositories.NewJobRepository(db)
+
+		_, err := repo.UpdateEducationLevel(999999, map[string]interface{}{
+			"level": "Should Not Apply",
+		})
+		if err == nil {
+			t.Fatalf("expected an error for non-existent ID, got nil")
+		}
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			t.Fatalf("expected gorm.ErrRecordNotFound, got: %v", err)
+		}
+	})
+}
+
+// ---------- CreateFormality ----------
+
+func TestJobRepository_CreateFormality(t *testing.T) {
+	db := SetupTestDB(t)
+	repo := repositories.NewJobRepository(db)
+
+	item := &models.Formality{FormalityType: "Formal"}
+
+	if err := repo.CreateFormality(item); err != nil {
+		t.Fatalf("CreateFormality returned error: %v", err)
 	}
-	assert.True(t, found)
+
+	if item.ID == 0 {
+		t.Fatalf("expected ID to be populated after create, got 0")
+	}
+
+	var fromDB models.Formality
+	if err := db.First(&fromDB, item.ID).Error; err != nil {
+		t.Fatalf("expected to find created row in DB, got error: %v", err)
+	}
+	if fromDB.FormalityType != "Formal" {
+		t.Fatalf("expected FormalityType %q, got %q", "Formal", fromDB.FormalityType)
+	}
 }
 
-func TestGetLevelChildren_LeafLevelReturnsError(t *testing.T) {
-	_, repo := setupTestDB(t)
+// ---------- GetAllFormalities ----------
 
-	_, _, err := repo.GetLevelChildren("occupation", "occupation-group", 1, time.Now(), time.Now())
-	assert.Error(t, err, "leaf levels have no children and should return an error")
+func TestJobRepository_GetAllFormalities(t *testing.T) {
+	t.Run("empty table returns empty slice, not error", func(t *testing.T) {
+		db := SetupTestDB(t)
+		repo := repositories.NewJobRepository(db)
+
+		items, err := repo.GetAllFormalities()
+		if err != nil {
+			t.Fatalf("expected no error on empty table, got: %v", err)
+		}
+		if len(items) != 0 {
+			t.Fatalf("expected 0 items, got %d", len(items))
+		}
+	})
+
+	t.Run("returns all seeded rows", func(t *testing.T) {
+		db := SetupTestDB(t)
+		repo := repositories.NewJobRepository(db)
+
+		seed := []models.Formality{
+			{FormalityType: "Formal"},
+			{FormalityType: "Informal"},
+		}
+		for i := range seed {
+			if err := db.Create(&seed[i]).Error; err != nil {
+				t.Fatalf("failed to seed row: %v", err)
+			}
+		}
+
+		items, err := repo.GetAllFormalities()
+		if err != nil {
+			t.Fatalf("GetAllFormalities returned error: %v", err)
+		}
+		if len(items) != len(seed) {
+			t.Fatalf("expected %d items, got %d", len(seed), len(items))
+		}
+	})
 }
 
-func TestGetLevelChildren_InvalidStandardReturnsError(t *testing.T) {
-	_, repo := setupTestDB(t)
+// ---------- GetFormalityByID ----------
 
-	_, _, err := repo.GetLevelChildren("not-a-real-standard", "major-group", 1, time.Now(), time.Now())
-	assert.Error(t, err)
+func TestJobRepository_GetFormalityByID(t *testing.T) {
+	t.Run("existing ID returns the correct row", func(t *testing.T) {
+		db := SetupTestDB(t)
+		repo := repositories.NewJobRepository(db)
+
+		seeded := models.Formality{FormalityType: "Formal"}
+		if err := db.Create(&seeded).Error; err != nil {
+			t.Fatalf("failed to seed row: %v", err)
+		}
+
+		got, err := repo.GetFormalityByID(seeded.ID)
+		if err != nil {
+			t.Fatalf("GetFormalityByID returned error: %v", err)
+		}
+		if got.ID != seeded.ID || got.FormalityType != "Formal" {
+			t.Fatalf("expected %+v, got %+v", seeded, got)
+		}
+	})
+
+	t.Run("non-existent ID returns gorm.ErrRecordNotFound", func(t *testing.T) {
+		db := SetupTestDB(t)
+		repo := repositories.NewJobRepository(db)
+
+		_, err := repo.GetFormalityByID(999999)
+		if err == nil {
+			t.Fatalf("expected an error for non-existent ID, got nil")
+		}
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			t.Fatalf("expected gorm.ErrRecordNotFound, got: %v", err)
+		}
+	})
 }
 
-// ---------------------------------------------------------------------------
-// GetGenderByLevel - representative of the seven ...ByLevel breakdown
-// methods (GetFormalityByLevel, GetExperienceByLevel, etc. all share this
-// exact created_at/deleted_at boundary pattern).
-// ---------------------------------------------------------------------------
+// ---------- UpdateFormality ----------
 
-func buildMinimalOccupationHierarchy(t *testing.T, db interface {
-	Create(interface{}) *gorm_DB
-}) {
+func TestJobRepository_UpdateFormality(t *testing.T) {
+	t.Run("updates an existing row", func(t *testing.T) {
+		db := SetupTestDB(t)
+		repo := repositories.NewJobRepository(db)
+
+		seeded := models.Formality{FormalityType: "Formal"}
+		if err := db.Create(&seeded).Error; err != nil {
+			t.Fatalf("failed to seed row: %v", err)
+		}
+
+		updated, err := repo.UpdateFormality(seeded.ID, map[string]interface{}{
+			"formality_type": "Semi-Formal",
+		})
+		if err != nil {
+			t.Fatalf("UpdateFormality returned error: %v", err)
+		}
+		if updated.FormalityType != "Semi-Formal" {
+			t.Fatalf("expected updated FormalityType %q, got %q", "Semi-Formal", updated.FormalityType)
+		}
+
+		var fromDB models.Formality
+		if err := db.First(&fromDB, seeded.ID).Error; err != nil {
+			t.Fatalf("failed to reload row: %v", err)
+		}
+		if fromDB.FormalityType != "Semi-Formal" {
+			t.Fatalf("expected persisted FormalityType %q, got %q", "Semi-Formal", fromDB.FormalityType)
+		}
+	})
+
+	t.Run("non-existent ID returns error and does not panic", func(t *testing.T) {
+		db := SetupTestDB(t)
+		repo := repositories.NewJobRepository(db)
+
+		_, err := repo.UpdateFormality(999999, map[string]interface{}{
+			"formality_type": "Should Not Apply",
+		})
+		if err == nil {
+			t.Fatalf("expected an error for non-existent ID, got nil")
+		}
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			t.Fatalf("expected gorm.ErrRecordNotFound, got: %v", err)
+		}
+	})
+}
+
+// ---------- DeleteFormality ----------
+
+func TestJobRepository_DeleteFormality(t *testing.T) {
+	t.Run("deletes an existing row", func(t *testing.T) {
+		db := SetupTestDB(t)
+		repo := repositories.NewJobRepository(db)
+
+		seeded := models.Formality{FormalityType: "Formal"}
+		if err := db.Create(&seeded).Error; err != nil {
+			t.Fatalf("failed to seed row: %v", err)
+		}
+
+		if err := repo.DeleteFormality(seeded.ID); err != nil {
+			t.Fatalf("DeleteFormality returned error: %v", err)
+		}
+
+		var count int64
+		db.Model(&models.Formality{}).Where("id = ?", seeded.ID).Count(&count)
+		if count != 0 {
+			t.Fatalf("expected row to be deleted, but %d rows still match id %d", count, seeded.ID)
+		}
+	})
+
+	t.Run("non-existent ID does not return an error (GORM delete is idempotent)", func(t *testing.T) {
+		db := SetupTestDB(t)
+		repo := repositories.NewJobRepository(db)
+
+		if err := repo.DeleteFormality(999999); err != nil {
+			t.Fatalf("expected no error deleting a non-existent ID, got: %v", err)
+		}
+	})
+}
+
+// ================= Gender =================
+
+func TestJobRepository_CreateGender(t *testing.T) {
+	db := SetupTestDB(t)
+	repo := repositories.NewJobRepository(db)
+
+	item := &models.Gender{GenderType: "Male"}
+	if err := repo.CreateGender(item); err != nil {
+		t.Fatalf("CreateGender returned error: %v", err)
+	}
+	if item.ID == 0 {
+		t.Fatalf("expected ID to be populated after create, got 0")
+	}
+
+	var fromDB models.Gender
+	if err := db.First(&fromDB, item.ID).Error; err != nil {
+		t.Fatalf("expected to find created row in DB, got error: %v", err)
+	}
+	if fromDB.GenderType != "Male" {
+		t.Fatalf("expected GenderType %q, got %q", "Male", fromDB.GenderType)
+	}
+}
+
+func TestJobRepository_GetAllGenders(t *testing.T) {
+	t.Run("empty table returns empty slice, not error", func(t *testing.T) {
+		db := SetupTestDB(t)
+		repo := repositories.NewJobRepository(db)
+
+		items, err := repo.GetAllGenders()
+		if err != nil {
+			t.Fatalf("expected no error on empty table, got: %v", err)
+		}
+		if len(items) != 0 {
+			t.Fatalf("expected 0 items, got %d", len(items))
+		}
+	})
+
+	t.Run("returns all seeded rows", func(t *testing.T) {
+		db := SetupTestDB(t)
+		repo := repositories.NewJobRepository(db)
+
+		seed := []models.Gender{{GenderType: "Male"}, {GenderType: "Female"}}
+		for i := range seed {
+			if err := db.Create(&seed[i]).Error; err != nil {
+				t.Fatalf("failed to seed row: %v", err)
+			}
+		}
+
+		items, err := repo.GetAllGenders()
+		if err != nil {
+			t.Fatalf("GetAllGenders returned error: %v", err)
+		}
+		if len(items) != len(seed) {
+			t.Fatalf("expected %d items, got %d", len(seed), len(items))
+		}
+	})
+}
+
+func TestJobRepository_GetGenderByID(t *testing.T) {
+	t.Run("existing ID returns the correct row", func(t *testing.T) {
+		db := SetupTestDB(t)
+		repo := repositories.NewJobRepository(db)
+
+		seeded := models.Gender{GenderType: "Male"}
+		db.Create(&seeded)
+
+		got, err := repo.GetGenderByID(seeded.ID)
+		if err != nil {
+			t.Fatalf("GetGenderByID returned error: %v", err)
+		}
+		if got.ID != seeded.ID || got.GenderType != "Male" {
+			t.Fatalf("expected %+v, got %+v", seeded, got)
+		}
+	})
+
+	t.Run("non-existent ID returns gorm.ErrRecordNotFound", func(t *testing.T) {
+		db := SetupTestDB(t)
+		repo := repositories.NewJobRepository(db)
+
+		_, err := repo.GetGenderByID(999999)
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			t.Fatalf("expected gorm.ErrRecordNotFound, got: %v", err)
+		}
+	})
+}
+
+func TestJobRepository_UpdateGender(t *testing.T) {
+	t.Run("updates an existing row", func(t *testing.T) {
+		db := SetupTestDB(t)
+		repo := repositories.NewJobRepository(db)
+
+		seeded := models.Gender{GenderType: "Male"}
+		db.Create(&seeded)
+
+		updated, err := repo.UpdateGender(seeded.ID, map[string]interface{}{"gender_type": "Female"})
+		if err != nil {
+			t.Fatalf("UpdateGender returned error: %v", err)
+		}
+		if updated.GenderType != "Female" {
+			t.Fatalf("expected GenderType %q, got %q", "Female", updated.GenderType)
+		}
+
+		var fromDB models.Gender
+		db.First(&fromDB, seeded.ID)
+		if fromDB.GenderType != "Female" {
+			t.Fatalf("expected persisted GenderType %q, got %q", "Female", fromDB.GenderType)
+		}
+	})
+
+	t.Run("non-existent ID returns error and does not panic", func(t *testing.T) {
+		db := SetupTestDB(t)
+		repo := repositories.NewJobRepository(db)
+
+		_, err := repo.UpdateGender(999999, map[string]interface{}{"gender_type": "X"})
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			t.Fatalf("expected gorm.ErrRecordNotFound, got: %v", err)
+		}
+	})
+}
+
+func TestJobRepository_DeleteGender(t *testing.T) {
+	db := SetupTestDB(t)
+	repo := repositories.NewJobRepository(db)
+
+	seeded := models.Gender{GenderType: "Male"}
+	db.Create(&seeded)
+
+	if err := repo.DeleteGender(seeded.ID); err != nil {
+		t.Fatalf("DeleteGender returned error: %v", err)
+	}
+
+	var count int64
+	db.Model(&models.Gender{}).Where("id = ?", seeded.ID).Count(&count)
+	if count != 0 {
+		t.Fatalf("expected row to be deleted, but %d rows still match id %d", count, seeded.ID)
+	}
+}
+
+// ================= EmploymentSector =================
+
+func TestJobRepository_CreateEmploymentSector(t *testing.T) {
+	db := SetupTestDB(t)
+	repo := repositories.NewJobRepository(db)
+
+	item := &models.EmploymentSector{Sector: "Private"}
+	if err := repo.CreateEmploymentSector(item); err != nil {
+		t.Fatalf("CreateEmploymentSector returned error: %v", err)
+	}
+	if item.ID == 0 {
+		t.Fatalf("expected ID to be populated after create, got 0")
+	}
+}
+
+func TestJobRepository_GetAllEmploymentSectors(t *testing.T) {
+	db := SetupTestDB(t)
+	repo := repositories.NewJobRepository(db)
+
+	db.Create(&models.EmploymentSector{Sector: "Private"})
+	db.Create(&models.EmploymentSector{Sector: "Government"})
+
+	items, err := repo.GetAllEmploymentSectors()
+	if err != nil {
+		t.Fatalf("GetAllEmploymentSectors returned error: %v", err)
+	}
+	if len(items) != 2 {
+		t.Fatalf("expected 2 items, got %d", len(items))
+	}
+}
+
+func TestJobRepository_GetEmploymentSectorByID(t *testing.T) {
+	t.Run("existing ID returns the correct row", func(t *testing.T) {
+		db := SetupTestDB(t)
+		repo := repositories.NewJobRepository(db)
+
+		seeded := models.EmploymentSector{Sector: "Private"}
+		db.Create(&seeded)
+
+		got, err := repo.GetEmploymentSectorByID(seeded.ID)
+		if err != nil {
+			t.Fatalf("GetEmploymentSectorByID returned error: %v", err)
+		}
+		if got.Sector != "Private" {
+			t.Fatalf("expected Sector %q, got %q", "Private", got.Sector)
+		}
+	})
+
+	t.Run("non-existent ID returns gorm.ErrRecordNotFound", func(t *testing.T) {
+		db := SetupTestDB(t)
+		repo := repositories.NewJobRepository(db)
+
+		_, err := repo.GetEmploymentSectorByID(999999)
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			t.Fatalf("expected gorm.ErrRecordNotFound, got: %v", err)
+		}
+	})
+}
+
+func TestJobRepository_UpdateEmploymentSector(t *testing.T) {
+	db := SetupTestDB(t)
+	repo := repositories.NewJobRepository(db)
+
+	seeded := models.EmploymentSector{Sector: "Private"}
+	db.Create(&seeded)
+
+	updated, err := repo.UpdateEmploymentSector(seeded.ID, map[string]interface{}{"sector": "Government"})
+	if err != nil {
+		t.Fatalf("UpdateEmploymentSector returned error: %v", err)
+	}
+	if updated.Sector != "Government" {
+		t.Fatalf("expected Sector %q, got %q", "Government", updated.Sector)
+	}
+}
+
+func TestJobRepository_DeleteEmploymentSector(t *testing.T) {
+	db := SetupTestDB(t)
+	repo := repositories.NewJobRepository(db)
+
+	seeded := models.EmploymentSector{Sector: "Private"}
+	db.Create(&seeded)
+
+	if err := repo.DeleteEmploymentSector(seeded.ID); err != nil {
+		t.Fatalf("DeleteEmploymentSector returned error: %v", err)
+	}
+
+	var count int64
+	db.Model(&models.EmploymentSector{}).Where("id = ?", seeded.ID).Count(&count)
+	if count != 0 {
+		t.Fatalf("expected row to be deleted, got count %d", count)
+	}
+}
+
+// ================= VocationalEducation =================
+
+func TestJobRepository_CreateVocationalEducation(t *testing.T) {
+	db := SetupTestDB(t)
+	repo := repositories.NewJobRepository(db)
+
+	item := &models.VocationalEducation{Level: "NVQ 3"}
+	if err := repo.CreateVocationalEducation(item); err != nil {
+		t.Fatalf("CreateVocationalEducation returned error: %v", err)
+	}
+	if item.ID == 0 {
+		t.Fatalf("expected ID to be populated after create, got 0")
+	}
+}
+
+func TestJobRepository_GetAllVocationalEducations(t *testing.T) {
+	db := SetupTestDB(t)
+	repo := repositories.NewJobRepository(db)
+
+	db.Create(&models.VocationalEducation{Level: "NVQ 3"})
+	db.Create(&models.VocationalEducation{Level: "NVQ 4"})
+
+	items, err := repo.GetAllVocationalEducations()
+	if err != nil {
+		t.Fatalf("GetAllVocationalEducations returned error: %v", err)
+	}
+	if len(items) != 2 {
+		t.Fatalf("expected 2 items, got %d", len(items))
+	}
+}
+
+func TestJobRepository_GetVocationalEducationByID(t *testing.T) {
+	t.Run("existing ID returns the correct row", func(t *testing.T) {
+		db := SetupTestDB(t)
+		repo := repositories.NewJobRepository(db)
+
+		seeded := models.VocationalEducation{Level: "NVQ 3"}
+		db.Create(&seeded)
+
+		got, err := repo.GetVocationalEducationByID(seeded.ID)
+		if err != nil {
+			t.Fatalf("GetVocationalEducationByID returned error: %v", err)
+		}
+		if got.Level != "NVQ 3" {
+			t.Fatalf("expected Level %q, got %q", "NVQ 3", got.Level)
+		}
+	})
+
+	t.Run("non-existent ID returns gorm.ErrRecordNotFound", func(t *testing.T) {
+		db := SetupTestDB(t)
+		repo := repositories.NewJobRepository(db)
+
+		_, err := repo.GetVocationalEducationByID(999999)
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			t.Fatalf("expected gorm.ErrRecordNotFound, got: %v", err)
+		}
+	})
+}
+
+func TestJobRepository_UpdateVocationalEducation(t *testing.T) {
+	db := SetupTestDB(t)
+	repo := repositories.NewJobRepository(db)
+
+	seeded := models.VocationalEducation{Level: "NVQ 3"}
+	db.Create(&seeded)
+
+	updated, err := repo.UpdateVocationalEducation(seeded.ID, map[string]interface{}{"level": "NVQ 5"})
+	if err != nil {
+		t.Fatalf("UpdateVocationalEducation returned error: %v", err)
+	}
+	if updated.Level != "NVQ 5" {
+		t.Fatalf("expected Level %q, got %q", "NVQ 5", updated.Level)
+	}
+}
+
+func TestJobRepository_DeleteVocationalEducation(t *testing.T) {
+	db := SetupTestDB(t)
+	repo := repositories.NewJobRepository(db)
+
+	seeded := models.VocationalEducation{Level: "NVQ 3"}
+	db.Create(&seeded)
+
+	if err := repo.DeleteVocationalEducation(seeded.ID); err != nil {
+		t.Fatalf("DeleteVocationalEducation returned error: %v", err)
+	}
+
+	var count int64
+	db.Model(&models.VocationalEducation{}).Where("id = ?", seeded.ID).Count(&count)
+	if count != 0 {
+		t.Fatalf("expected row to be deleted, got count %d", count)
+	}
+}
+
+// ================= Experience =================
+// NOTE: your pasted code has no GetAllExperiences method, so there's no
+// "get all" test here — only Create/GetByID/Update/Delete are covered.
+
+func TestJobRepository_CreateExperience(t *testing.T) {
+	db := SetupTestDB(t)
+	repo := repositories.NewJobRepository(db)
+
+	item := &models.Experience{Name: "Entry Level"}
+	if err := repo.CreateExperience(item); err != nil {
+		t.Fatalf("CreateExperience returned error: %v", err)
+	}
+	if item.ID == 0 {
+		t.Fatalf("expected ID to be populated after create, got 0")
+	}
+}
+
+func TestJobRepository_GetExperienceByID(t *testing.T) {
+	t.Run("existing ID returns the correct row", func(t *testing.T) {
+		db := SetupTestDB(t)
+		repo := repositories.NewJobRepository(db)
+
+		seeded := models.Experience{Name: "Entry Level"}
+		db.Create(&seeded)
+
+		got, err := repo.GetExperienceByID(seeded.ID)
+		if err != nil {
+			t.Fatalf("GetExperienceByID returned error: %v", err)
+		}
+		if got.Name != "Entry Level" {
+			t.Fatalf("expected Name %q, got %q", "Entry Level", got.Name)
+		}
+	})
+
+	t.Run("non-existent ID returns gorm.ErrRecordNotFound", func(t *testing.T) {
+		db := SetupTestDB(t)
+		repo := repositories.NewJobRepository(db)
+
+		_, err := repo.GetExperienceByID(999999)
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			t.Fatalf("expected gorm.ErrRecordNotFound, got: %v", err)
+		}
+	})
+}
+
+func TestJobRepository_UpdateExperience(t *testing.T) {
+	db := SetupTestDB(t)
+	repo := repositories.NewJobRepository(db)
+
+	seeded := models.Experience{Name: "Entry Level"}
+	db.Create(&seeded)
+
+	updated, err := repo.UpdateExperience(seeded.ID, map[string]interface{}{"name": "Senior Level"})
+	if err != nil {
+		t.Fatalf("UpdateExperience returned error: %v", err)
+	}
+	if updated.Name != "Senior Level" {
+		t.Fatalf("expected Name %q, got %q", "Senior Level", updated.Name)
+	}
+}
+
+func TestJobRepository_DeleteExperience(t *testing.T) {
+	db := SetupTestDB(t)
+	repo := repositories.NewJobRepository(db)
+
+	seeded := models.Experience{Name: "Entry Level"}
+	db.Create(&seeded)
+
+	if err := repo.DeleteExperience(seeded.ID); err != nil {
+		t.Fatalf("DeleteExperience returned error: %v", err)
+	}
+
+	var count int64
+	db.Model(&models.Experience{}).Where("id = ?", seeded.ID).Count(&count)
+	if count != 0 {
+		t.Fatalf("expected row to be deleted, got count %d", count)
+	}
+}
+
+// ================= MajorGroup =================
+
+func TestJobRepository_CreateMajorGroup(t *testing.T) {
+	db := SetupTestDB(t)
+	repo := repositories.NewJobRepository(db)
+
+	item := &models.MajorGroup{Name: "Managers", Code: "1"}
+	if err := repo.CreateMajorGroup(item); err != nil {
+		t.Fatalf("CreateMajorGroup returned error: %v", err)
+	}
+	if item.ID == 0 {
+		t.Fatalf("expected ID to be populated after create, got 0")
+	}
+}
+
+func TestJobRepository_GetAllMajorGroups(t *testing.T) {
+	db := SetupTestDB(t)
+	repo := repositories.NewJobRepository(db)
+
+	db.Create(&models.MajorGroup{Name: "Managers", Code: "1"})
+	db.Create(&models.MajorGroup{Name: "Professionals", Code: "2"})
+
+	items, err := repo.GetAllMajorGroups()
+	if err != nil {
+		t.Fatalf("GetAllMajorGroups returned error: %v", err)
+	}
+	if len(items) != 2 {
+		t.Fatalf("expected 2 items, got %d", len(items))
+	}
+}
+
+func TestJobRepository_GetMajorGroupByID(t *testing.T) {
+	t.Run("existing ID returns the correct row", func(t *testing.T) {
+		db := SetupTestDB(t)
+		repo := repositories.NewJobRepository(db)
+
+		seeded := models.MajorGroup{Name: "Managers", Code: "1"}
+		db.Create(&seeded)
+
+		got, err := repo.GetMajorGroupByID(seeded.ID)
+		if err != nil {
+			t.Fatalf("GetMajorGroupByID returned error: %v", err)
+		}
+		if got.Name != "Managers" {
+			t.Fatalf("expected Name %q, got %q", "Managers", got.Name)
+		}
+	})
+
+	t.Run("non-existent ID returns gorm.ErrRecordNotFound", func(t *testing.T) {
+		db := SetupTestDB(t)
+		repo := repositories.NewJobRepository(db)
+
+		_, err := repo.GetMajorGroupByID(999999)
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			t.Fatalf("expected gorm.ErrRecordNotFound, got: %v", err)
+		}
+	})
+}
+
+func TestJobRepository_UpdateMajorGroup(t *testing.T) {
+	db := SetupTestDB(t)
+	repo := repositories.NewJobRepository(db)
+
+	seeded := models.MajorGroup{Name: "Managers", Code: "1"}
+	db.Create(&seeded)
+
+	updated, err := repo.UpdateMajorGroup(seeded.ID, map[string]interface{}{"name": "Senior Managers"})
+	if err != nil {
+		t.Fatalf("UpdateMajorGroup returned error: %v", err)
+	}
+	if updated.Name != "Senior Managers" {
+		t.Fatalf("expected Name %q, got %q", "Senior Managers", updated.Name)
+	}
+}
+
+func TestJobRepository_DeleteMajorGroup(t *testing.T) {
+	db := SetupTestDB(t)
+	repo := repositories.NewJobRepository(db)
+
+	seeded := models.MajorGroup{Name: "Managers", Code: "1"}
+	db.Create(&seeded)
+
+	if err := repo.DeleteMajorGroup(seeded.ID); err != nil {
+		t.Fatalf("DeleteMajorGroup returned error: %v", err)
+	}
+
+	var count int64
+	db.Model(&models.MajorGroup{}).Where("id = ?", seeded.ID).Count(&count)
+	if count != 0 {
+		t.Fatalf("expected row to be deleted, got count %d", count)
+	}
+}
+
+// ================= SubMajorGroup (has Preload("MajorGroup")) =================
+
+func TestJobRepository_CreateSubMajorGroup(t *testing.T) {
+	db := SetupTestDB(t)
+	repo := repositories.NewJobRepository(db)
+
+	parent := models.MajorGroup{Name: "Managers", Code: "1"}
+	db.Create(&parent)
+
+	item := &models.SubMajorGroup{MajorGroupID: parent.ID, Name: "Chief Executives", Code: "11"}
+	if err := repo.CreateSubMajorGroup(item); err != nil {
+		t.Fatalf("CreateSubMajorGroup returned error: %v", err)
+	}
+	if item.ID == 0 {
+		t.Fatalf("expected ID to be populated after create, got 0")
+	}
+}
+
+func TestJobRepository_GetAllSubMajorGroups(t *testing.T) {
+	db := SetupTestDB(t)
+	repo := repositories.NewJobRepository(db)
+
+	parent := models.MajorGroup{Name: "Managers", Code: "1"}
+	db.Create(&parent)
+	db.Create(&models.SubMajorGroup{MajorGroupID: parent.ID, Name: "Chief Executives", Code: "11"})
+
+	items, err := repo.GetAllSubMajorGroups()
+	if err != nil {
+		t.Fatalf("GetAllSubMajorGroups returned error: %v", err)
+	}
+	if len(items) != 1 {
+		t.Fatalf("expected 1 item, got %d", len(items))
+	}
+	// Preload("MajorGroup") should populate the parent, not just MajorGroupID
+	if items[0].MajorGroup == nil {
+		t.Fatalf("expected MajorGroup to be preloaded, got nil")
+	}
+	if items[0].MajorGroup.Name != "Managers" {
+		t.Fatalf("expected preloaded MajorGroup.Name %q, got %q", "Managers", items[0].MajorGroup.Name)
+	}
+}
+
+func TestJobRepository_GetSubMajorGroupByID(t *testing.T) {
+	t.Run("existing ID returns the row with MajorGroup preloaded", func(t *testing.T) {
+		db := SetupTestDB(t)
+		repo := repositories.NewJobRepository(db)
+
+		parent := models.MajorGroup{Name: "Managers", Code: "1"}
+		db.Create(&parent)
+		seeded := models.SubMajorGroup{MajorGroupID: parent.ID, Name: "Chief Executives", Code: "11"}
+		db.Create(&seeded)
+
+		got, err := repo.GetSubMajorGroupByID(seeded.ID)
+		if err != nil {
+			t.Fatalf("GetSubMajorGroupByID returned error: %v", err)
+		}
+		if got.MajorGroup == nil || got.MajorGroup.Name != "Managers" {
+			t.Fatalf("expected preloaded MajorGroup.Name %q, got %+v", "Managers", got.MajorGroup)
+		}
+	})
+
+	t.Run("non-existent ID returns gorm.ErrRecordNotFound", func(t *testing.T) {
+		db := SetupTestDB(t)
+		repo := repositories.NewJobRepository(db)
+
+		_, err := repo.GetSubMajorGroupByID(999999)
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			t.Fatalf("expected gorm.ErrRecordNotFound, got: %v", err)
+		}
+	})
+}
+
+func TestJobRepository_UpdateSubMajorGroup(t *testing.T) {
+	db := SetupTestDB(t)
+	repo := repositories.NewJobRepository(db)
+
+	parent := models.MajorGroup{Name: "Managers", Code: "1"}
+	db.Create(&parent)
+	seeded := models.SubMajorGroup{MajorGroupID: parent.ID, Name: "Chief Executives", Code: "11"}
+	db.Create(&seeded)
+
+	updated, err := repo.UpdateSubMajorGroup(seeded.ID, map[string]interface{}{"name": "Senior Executives"})
+	if err != nil {
+		t.Fatalf("UpdateSubMajorGroup returned error: %v", err)
+	}
+	if updated.Name != "Senior Executives" {
+		t.Fatalf("expected Name %q, got %q", "Senior Executives", updated.Name)
+	}
+}
+
+func TestJobRepository_DeleteSubMajorGroup(t *testing.T) {
+	db := SetupTestDB(t)
+	repo := repositories.NewJobRepository(db)
+
+	parent := models.MajorGroup{Name: "Managers", Code: "1"}
+	db.Create(&parent)
+	seeded := models.SubMajorGroup{MajorGroupID: parent.ID, Name: "Chief Executives", Code: "11"}
+	db.Create(&seeded)
+
+	if err := repo.DeleteSubMajorGroup(seeded.ID); err != nil {
+		t.Fatalf("DeleteSubMajorGroup returned error: %v", err)
+	}
+
+	var count int64
+	db.Model(&models.SubMajorGroup{}).Where("id = ?", seeded.ID).Count(&count)
+	if count != 0 {
+		t.Fatalf("expected row to be deleted, got count %d", count)
+	}
+}
+
+// ================= MinorGroup (has Preload("SubMajorGroup")) =================
+
+func TestJobRepository_CreateMinorGroup(t *testing.T) {
+	db := SetupTestDB(t)
+	repo := repositories.NewJobRepository(db)
+
+	major := models.MajorGroup{Name: "Managers", Code: "1"}
+	db.Create(&major)
+	sub := models.SubMajorGroup{MajorGroupID: major.ID, Name: "Chief Executives", Code: "11"}
+	db.Create(&sub)
+
+	item := &models.MinorGroup{SubMajorGroupID: sub.ID, Name: "Legislators", Code: "111"}
+	if err := repo.CreateMinorGroup(item); err != nil {
+		t.Fatalf("CreateMinorGroup returned error: %v", err)
+	}
+	if item.ID == 0 {
+		t.Fatalf("expected ID to be populated after create, got 0")
+	}
+}
+
+func TestJobRepository_GetAllMinorGroups(t *testing.T) {
+	db := SetupTestDB(t)
+	repo := repositories.NewJobRepository(db)
+
+	major := models.MajorGroup{Name: "Managers", Code: "1"}
+	db.Create(&major)
+	sub := models.SubMajorGroup{MajorGroupID: major.ID, Name: "Chief Executives", Code: "11"}
+	db.Create(&sub)
+	db.Create(&models.MinorGroup{SubMajorGroupID: sub.ID, Name: "Legislators", Code: "111"})
+
+	items, err := repo.GetAllMinorGroups()
+	if err != nil {
+		t.Fatalf("GetAllMinorGroups returned error: %v", err)
+	}
+	if len(items) != 1 {
+		t.Fatalf("expected 1 item, got %d", len(items))
+	}
+	if items[0].SubMajorGroup == nil || items[0].SubMajorGroup.Name != "Chief Executives" {
+		t.Fatalf("expected preloaded SubMajorGroup.Name %q, got %+v", "Chief Executives", items[0].SubMajorGroup)
+	}
+}
+
+func TestJobRepository_GetMinorGroupByID(t *testing.T) {
+	t.Run("existing ID returns the row with SubMajorGroup preloaded", func(t *testing.T) {
+		db := SetupTestDB(t)
+		repo := repositories.NewJobRepository(db)
+
+		major := models.MajorGroup{Name: "Managers", Code: "1"}
+		db.Create(&major)
+		sub := models.SubMajorGroup{MajorGroupID: major.ID, Name: "Chief Executives", Code: "11"}
+		db.Create(&sub)
+		seeded := models.MinorGroup{SubMajorGroupID: sub.ID, Name: "Legislators", Code: "111"}
+		db.Create(&seeded)
+
+		got, err := repo.GetMinorGroupByID(seeded.ID)
+		if err != nil {
+			t.Fatalf("GetMinorGroupByID returned error: %v", err)
+		}
+		if got.SubMajorGroup == nil || got.SubMajorGroup.Name != "Chief Executives" {
+			t.Fatalf("expected preloaded SubMajorGroup.Name %q, got %+v", "Chief Executives", got.SubMajorGroup)
+		}
+	})
+
+	t.Run("non-existent ID returns gorm.ErrRecordNotFound", func(t *testing.T) {
+		db := SetupTestDB(t)
+		repo := repositories.NewJobRepository(db)
+
+		_, err := repo.GetMinorGroupByID(999999)
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			t.Fatalf("expected gorm.ErrRecordNotFound, got: %v", err)
+		}
+	})
+}
+
+func TestJobRepository_UpdateMinorGroup(t *testing.T) {
+	db := SetupTestDB(t)
+	repo := repositories.NewJobRepository(db)
+
+	major := models.MajorGroup{Name: "Managers", Code: "1"}
+	db.Create(&major)
+	sub := models.SubMajorGroup{MajorGroupID: major.ID, Name: "Chief Executives", Code: "11"}
+	db.Create(&sub)
+	seeded := models.MinorGroup{SubMajorGroupID: sub.ID, Name: "Legislators", Code: "111"}
+	db.Create(&seeded)
+
+	updated, err := repo.UpdateMinorGroup(seeded.ID, map[string]interface{}{"name": "Senior Legislators"})
+	if err != nil {
+		t.Fatalf("UpdateMinorGroup returned error: %v", err)
+	}
+	if updated.Name != "Senior Legislators" {
+		t.Fatalf("expected Name %q, got %q", "Senior Legislators", updated.Name)
+	}
+}
+
+func TestJobRepository_DeleteMinorGroup(t *testing.T) {
+	db := SetupTestDB(t)
+	repo := repositories.NewJobRepository(db)
+
+	major := models.MajorGroup{Name: "Managers", Code: "1"}
+	db.Create(&major)
+	sub := models.SubMajorGroup{MajorGroupID: major.ID, Name: "Chief Executives", Code: "11"}
+	db.Create(&sub)
+	seeded := models.MinorGroup{SubMajorGroupID: sub.ID, Name: "Legislators", Code: "111"}
+	db.Create(&seeded)
+
+	if err := repo.DeleteMinorGroup(seeded.ID); err != nil {
+		t.Fatalf("DeleteMinorGroup returned error: %v", err)
+	}
+
+	var count int64
+	db.Model(&models.MinorGroup{}).Where("id = ?", seeded.ID).Count(&count)
+	if count != 0 {
+		t.Fatalf("expected row to be deleted, got count %d", count)
+	}
+}
+
+// ================= UnitGroup (has Preload("MinorGroup")) =================
+
+func seedUnitGroupChain(t *testing.T, db *gorm.DB) models.MinorGroup {
 	t.Helper()
+	major := models.MajorGroup{Name: "Managers", Code: "1"}
+	db.Create(&major)
+	sub := models.SubMajorGroup{MajorGroupID: major.ID, Name: "Chief Executives", Code: "11"}
+	db.Create(&sub)
+	minor := models.MinorGroup{SubMajorGroupID: sub.ID, Name: "Legislators", Code: "111"}
+	db.Create(&minor)
+	return minor
 }
 
-func TestGetGenderByLevel_ExcludesGenderCreatedAfterRange(t *testing.T) {
-	db, repo := setupTestDB(t)
+func TestJobRepository_CreateUnitGroup(t *testing.T) {
+	db := SetupTestDB(t)
+	repo := repositories.NewJobRepository(db)
+	minor := seedUnitGroupChain(t, db)
 
-	// Minimal occupation hierarchy chain down to occupation-group, since
-	// buildJobPostIDsForLevel needs a real chain to resolve job post ids.
-	mg := models.MajorGroup{Name: "MG", Code: "1"}
-	db.Create(&mg)
-	smg := models.SubMajorGroup{MajorGroupID: mg.ID, Name: "SMG", Code: "11"}
-	db.Create(&smg)
-	ming := models.MinorGroup{SubMajorGroupID: smg.ID, Name: "MinG", Code: "111"}
-	db.Create(&ming)
-	ug := models.UnitGroup{MinorGroupID: ming.ID, Name: "UG", Code: "1111"}
-	db.Create(&ug)
-	og := models.OccupationGroup{UnitGroupID: ug.ID, Name: "OG", Code: "11111"}
-	db.Create(&og)
-
-	// A brand-new gender category, created "today".
-	db.Create(&models.Gender{GenderType: "Newly Added"})
-
-	fromDate := time.Now().AddDate(0, 0, -30)
-	toDate := time.Now().AddDate(0, 0, -1)
-
-	results, err := repo.GetGenderByLevel("occupation", "major-group", mg.ID, fromDate, toDate)
-	require.NoError(t, err)
-
-	for _, r := range results {
-		assert.NotEqual(t, "Newly Added", r.GenderType,
-			"a gender category created after the range's end date should not appear in a historical breakdown")
+	item := &models.UnitGroup{MinorGroupID: minor.ID, Name: "Senior Officials", Code: "1111"}
+	if err := repo.CreateUnitGroup(item); err != nil {
+		t.Fatalf("CreateUnitGroup returned error: %v", err)
+	}
+	if item.ID == 0 {
+		t.Fatalf("expected ID to be populated after create, got 0")
 	}
 }
 
-func TestGetGenderByLevel_IncludesGenderDeletedDuringRange(t *testing.T) {
-	db, repo := setupTestDB(t)
+func TestJobRepository_GetAllUnitGroups(t *testing.T) {
+	db := SetupTestDB(t)
+	repo := repositories.NewJobRepository(db)
+	minor := seedUnitGroupChain(t, db)
+	db.Create(&models.UnitGroup{MinorGroupID: minor.ID, Name: "Senior Officials", Code: "1111"})
 
-	mg := models.MajorGroup{Name: "MG", Code: "1"}
-	db.Create(&mg)
-	smg := models.SubMajorGroup{MajorGroupID: mg.ID, Name: "SMG", Code: "11"}
-	db.Create(&smg)
-	ming := models.MinorGroup{SubMajorGroupID: smg.ID, Name: "MinG", Code: "111"}
-	db.Create(&ming)
-	ug := models.UnitGroup{MinorGroupID: ming.ID, Name: "UG", Code: "1111"}
-	db.Create(&ug)
-	og := models.OccupationGroup{UnitGroupID: ug.ID, Name: "OG", Code: "11111"}
-	db.Create(&og)
+	items, err := repo.GetAllUnitGroups()
+	if err != nil {
+		t.Fatalf("GetAllUnitGroups returned error: %v", err)
+	}
+	if len(items) != 1 {
+		t.Fatalf("expected 1 item, got %d", len(items))
+	}
+	if items[0].MinorGroup == nil || items[0].MinorGroup.Name != "Legislators" {
+		t.Fatalf("expected preloaded MinorGroup.Name %q, got %+v", "Legislators", items[0].MinorGroup)
+	}
+}
 
-	g := models.Gender{GenderType: "Retiring Gender"}
-	db.Create(&g)
-	db.Delete(&g)
+func TestJobRepository_GetUnitGroupByID(t *testing.T) {
+	t.Run("existing ID returns the row with MinorGroup preloaded", func(t *testing.T) {
+		db := SetupTestDB(t)
+		repo := repositories.NewJobRepository(db)
+		minor := seedUnitGroupChain(t, db)
+		seeded := models.UnitGroup{MinorGroupID: minor.ID, Name: "Senior Officials", Code: "1111"}
+		db.Create(&seeded)
 
-	fromDate := time.Now().AddDate(0, 0, -10)
-	toDate := time.Now()
-
-	results, err := repo.GetGenderByLevel("occupation", "major-group", mg.ID, fromDate, toDate)
-	require.NoError(t, err)
-
-	found := false
-	for _, r := range results {
-		if r.GenderType == "Retiring Gender" {
-			found = true
+		got, err := repo.GetUnitGroupByID(seeded.ID)
+		if err != nil {
+			t.Fatalf("GetUnitGroupByID returned error: %v", err)
 		}
+		if got.MinorGroup == nil || got.MinorGroup.Name != "Legislators" {
+			t.Fatalf("expected preloaded MinorGroup.Name %q, got %+v", "Legislators", got.MinorGroup)
+		}
+	})
+
+	t.Run("non-existent ID returns gorm.ErrRecordNotFound", func(t *testing.T) {
+		db := SetupTestDB(t)
+		repo := repositories.NewJobRepository(db)
+
+		_, err := repo.GetUnitGroupByID(999999)
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			t.Fatalf("expected gorm.ErrRecordNotFound, got: %v", err)
+		}
+	})
+}
+
+func TestJobRepository_UpdateUnitGroup(t *testing.T) {
+	db := SetupTestDB(t)
+	repo := repositories.NewJobRepository(db)
+	minor := seedUnitGroupChain(t, db)
+	seeded := models.UnitGroup{MinorGroupID: minor.ID, Name: "Senior Officials", Code: "1111"}
+	db.Create(&seeded)
+
+	updated, err := repo.UpdateUnitGroup(seeded.ID, map[string]interface{}{"name": "Senior Government Officials"})
+	if err != nil {
+		t.Fatalf("UpdateUnitGroup returned error: %v", err)
 	}
-	assert.True(t, found, "a gender deleted mid-range should still appear in the breakdown for that range")
+	if updated.Name != "Senior Government Officials" {
+		t.Fatalf("expected Name %q, got %q", "Senior Government Officials", updated.Name)
+	}
 }
 
-type occupationHierarchyFixture struct {
-	MajorGroup      models.MajorGroup
-	SubMajorGroup   models.SubMajorGroup
-	MinorGroup      models.MinorGroup
-	UnitGroup       models.UnitGroup
-	OccupationGroup models.OccupationGroup
+func TestJobRepository_DeleteUnitGroup(t *testing.T) {
+	db := SetupTestDB(t)
+	repo := repositories.NewJobRepository(db)
+	minor := seedUnitGroupChain(t, db)
+	seeded := models.UnitGroup{MinorGroupID: minor.ID, Name: "Senior Officials", Code: "1111"}
+	db.Create(&seeded)
+
+	if err := repo.DeleteUnitGroup(seeded.ID); err != nil {
+		t.Fatalf("DeleteUnitGroup returned error: %v", err)
+	}
+
+	var count int64
+	db.Model(&models.UnitGroup{}).Where("id = ?", seeded.ID).Count(&count)
+	if count != 0 {
+		t.Fatalf("expected row to be deleted, got count %d", count)
+	}
 }
 
-func buildOccupationHierarchyFixture(t *testing.T, db interface {
-	Create(value interface{}) interface{ Error() error }
-}) occupationHierarchyFixture {
+// ================= OccupationGroup (Preload("UnitGroup") + limit/offset/total) =================
+
+func seedOccupationGroupChain(t *testing.T, db *gorm.DB) models.UnitGroup {
 	t.Helper()
-	// (placeholder signature removed below - see actual helper)
-	return occupationHierarchyFixture{}
+	minor := seedUnitGroupChain(t, db)
+	unit := models.UnitGroup{MinorGroupID: minor.ID, Name: "Senior Officials", Code: "1111"}
+	db.Create(&unit)
+	return unit
 }
 
-func TestGetTopHiringEmployersByOccupationLevel_RanksEmployersByVacancyCountDescending(t *testing.T) {
-	db, repo := setupTestDB(t)
+func TestJobRepository_CreateOccupationGroup(t *testing.T) {
+	db := SetupTestDB(t)
+	repo := repositories.NewJobRepository(db)
+	unit := seedOccupationGroupChain(t, db)
 
-	mg := models.MajorGroup{Name: "MG", Code: "1"}
-	db.Create(&mg)
-	smg := models.SubMajorGroup{MajorGroupID: mg.ID, Name: "SMG", Code: "11"}
-	db.Create(&smg)
-	ming := models.MinorGroup{SubMajorGroupID: smg.ID, Name: "MinG", Code: "111"}
-	db.Create(&ming)
-	ug := models.UnitGroup{MinorGroupID: ming.ID, Name: "UG", Code: "1111"}
-	db.Create(&ug)
-	og := models.OccupationGroup{UnitGroupID: ug.ID, Name: "OG", Code: "11111"}
-	db.Create(&og)
-
-	jobType := models.JobType{Type: "Full Time"}
-	db.Create(&jobType)
-
-	empA := models.Employer{Name: "Employer A"}
-	db.Create(&empA)
-	empB := models.Employer{Name: "Employer B"}
-	db.Create(&empB)
-
-	postedAt := time.Now().AddDate(0, 0, -5)
-
-	// Employer A: two postings, 3 + 2 = 5 total vacancies
-	jobA1 := models.JobPost{EmployerID: empA.ID, JobTypeID: jobType.ID, JobRole: "Role A1", NoOfVacancies: 3}
-	db.Create(&jobA1)
-	db.Create(&models.JobMetaData{JobPostID: jobA1.ID, OccupationGroupID: og.ID, PostedAt: postedAt})
-
-	jobA2 := models.JobPost{EmployerID: empA.ID, JobTypeID: jobType.ID, JobRole: "Role A2", NoOfVacancies: 2}
-	db.Create(&jobA2)
-	db.Create(&models.JobMetaData{JobPostID: jobA2.ID, OccupationGroupID: og.ID, PostedAt: postedAt})
-
-	// Employer B: one posting, 10 vacancies - should rank first
-	jobB1 := models.JobPost{EmployerID: empB.ID, JobTypeID: jobType.ID, JobRole: "Role B1", NoOfVacancies: 10}
-	db.Create(&jobB1)
-	db.Create(&models.JobMetaData{JobPostID: jobB1.ID, OccupationGroupID: og.ID, PostedAt: postedAt})
-
-	fromDate := time.Now().AddDate(0, 0, -30)
-	toDate := time.Now()
-
-	results, err := repo.GetTopHiringEmployersByOccupationLevel("major-group", mg.ID, fromDate, toDate)
-	require.NoError(t, err)
-	require.Len(t, results, 2)
-
-	assert.Equal(t, "Employer B", results[0].Name)
-	assert.Equal(t, int64(10), results[0].OpenJobCount)
-	assert.Equal(t, "Employer A", results[1].Name)
-	assert.Equal(t, int64(5), results[1].OpenJobCount)
-}
-
-func TestGetTopHiringEmployersByOccupationLevel_ExcludesJobsOutsideDateRange(t *testing.T) {
-	db, repo := setupTestDB(t)
-
-	mg := models.MajorGroup{Name: "MG", Code: "1"}
-	db.Create(&mg)
-	smg := models.SubMajorGroup{MajorGroupID: mg.ID, Name: "SMG", Code: "11"}
-	db.Create(&smg)
-	ming := models.MinorGroup{SubMajorGroupID: smg.ID, Name: "MinG", Code: "111"}
-	db.Create(&ming)
-	ug := models.UnitGroup{MinorGroupID: ming.ID, Name: "UG", Code: "1111"}
-	db.Create(&ug)
-	og := models.OccupationGroup{UnitGroupID: ug.ID, Name: "OG", Code: "11111"}
-	db.Create(&og)
-
-	jobType := models.JobType{Type: "Full Time"}
-	db.Create(&jobType)
-
-	emp := models.Employer{Name: "Outside Range Employer"}
-	db.Create(&emp)
-
-	// Posted well before the queried range.
-	oldPostedAt := time.Now().AddDate(0, 0, -100)
-	job := models.JobPost{EmployerID: emp.ID, JobTypeID: jobType.ID, JobRole: "Old Role", NoOfVacancies: 7}
-	db.Create(&job)
-	db.Create(&models.JobMetaData{JobPostID: job.ID, OccupationGroupID: og.ID, PostedAt: oldPostedAt})
-
-	fromDate := time.Now().AddDate(0, 0, -10)
-	toDate := time.Now()
-
-	results, err := repo.GetTopHiringEmployersByOccupationLevel("major-group", mg.ID, fromDate, toDate)
-	require.NoError(t, err)
-	assert.Empty(t, results, "a job posted well outside the queried range should not contribute to the results")
-}
-
-func TestGetTopHiringEmployersByOccupationLevel_ExcludesJobsUnderDifferentMajorGroup(t *testing.T) {
-	db, repo := setupTestDB(t)
-
-	// Target hierarchy - the one we'll actually query.
-	mgTarget := models.MajorGroup{Name: "Target MG", Code: "1"}
-	db.Create(&mgTarget)
-	smgTarget := models.SubMajorGroup{MajorGroupID: mgTarget.ID, Name: "SMG", Code: "11"}
-	db.Create(&smgTarget)
-	mingTarget := models.MinorGroup{SubMajorGroupID: smgTarget.ID, Name: "MinG", Code: "111"}
-	db.Create(&mingTarget)
-	ugTarget := models.UnitGroup{MinorGroupID: mingTarget.ID, Name: "UG", Code: "1111"}
-	db.Create(&ugTarget)
-	ogTarget := models.OccupationGroup{UnitGroupID: ugTarget.ID, Name: "OG", Code: "11111"}
-	db.Create(&ogTarget)
-
-	// A separate, unrelated hierarchy - jobs here must never appear in the
-	// target major group's results.
-	mgOther := models.MajorGroup{Name: "Other MG", Code: "2"}
-	db.Create(&mgOther)
-	smgOther := models.SubMajorGroup{MajorGroupID: mgOther.ID, Name: "SMG Other", Code: "21"}
-	db.Create(&smgOther)
-	mingOther := models.MinorGroup{SubMajorGroupID: smgOther.ID, Name: "MinG Other", Code: "211"}
-	db.Create(&mingOther)
-	ugOther := models.UnitGroup{MinorGroupID: mingOther.ID, Name: "UG Other", Code: "2111"}
-	db.Create(&ugOther)
-	ogOther := models.OccupationGroup{UnitGroupID: ugOther.ID, Name: "OG Other", Code: "21111"}
-	db.Create(&ogOther)
-
-	jobType := models.JobType{Type: "Full Time"}
-	db.Create(&jobType)
-
-	emp := models.Employer{Name: "Wrong Hierarchy Employer"}
-	db.Create(&emp)
-
-	postedAt := time.Now().AddDate(0, 0, -5)
-	job := models.JobPost{EmployerID: emp.ID, JobTypeID: jobType.ID, JobRole: "Other Role", NoOfVacancies: 8}
-	db.Create(&job)
-	db.Create(&models.JobMetaData{JobPostID: job.ID, OccupationGroupID: ogOther.ID, PostedAt: postedAt})
-
-	fromDate := time.Now().AddDate(0, 0, -30)
-	toDate := time.Now()
-
-	results, err := repo.GetTopHiringEmployersByOccupationLevel("major-group", mgTarget.ID, fromDate, toDate)
-	require.NoError(t, err)
-	assert.Empty(t, results, "a job posted under a different major group must not appear in this major group's results")
-}
-
-func TestGetTopHiringEmployersByOccupationLevel_LimitsToTop5(t *testing.T) {
-	db, repo := setupTestDB(t)
-
-	mg := models.MajorGroup{Name: "MG", Code: "1"}
-	db.Create(&mg)
-	smg := models.SubMajorGroup{MajorGroupID: mg.ID, Name: "SMG", Code: "11"}
-	db.Create(&smg)
-	ming := models.MinorGroup{SubMajorGroupID: smg.ID, Name: "MinG", Code: "111"}
-	db.Create(&ming)
-	ug := models.UnitGroup{MinorGroupID: ming.ID, Name: "UG", Code: "1111"}
-	db.Create(&ug)
-	og := models.OccupationGroup{UnitGroupID: ug.ID, Name: "OG", Code: "11111"}
-	db.Create(&og)
-
-	jobType := models.JobType{Type: "Full Time"}
-	db.Create(&jobType)
-
-	postedAt := time.Now().AddDate(0, 0, -5)
-
-	// Seven distinct employers, each with a single posting - more than the
-	// method's LIMIT 5.
-	for i := 0; i < 7; i++ {
-		emp := models.Employer{Name: "Employer " + string(rune('A'+i))}
-		db.Create(&emp)
-
-		job := models.JobPost{EmployerID: emp.ID, JobTypeID: jobType.ID, JobRole: "Role", NoOfVacancies: uint(i + 1)}
-		db.Create(&job)
-		db.Create(&models.JobMetaData{JobPostID: job.ID, OccupationGroupID: og.ID, PostedAt: postedAt})
+	item := &models.OccupationGroup{UnitGroupID: unit.ID, Name: "Legislator", Code: "11111"}
+	if err := repo.CreateOccupationGroup(item); err != nil {
+		t.Fatalf("CreateOccupationGroup returned error: %v", err)
 	}
-
-	fromDate := time.Now().AddDate(0, 0, -30)
-	toDate := time.Now()
-
-	results, err := repo.GetTopHiringEmployersByOccupationLevel("major-group", mg.ID, fromDate, toDate)
-	require.NoError(t, err)
-	assert.Len(t, results, 5, "results should be capped at 5 employers even when more exist")
-}
-
-func TestGetTopHiringEmployersByOccupationLevel_InvalidLevelReturnsError(t *testing.T) {
-	_, repo := setupTestDB(t)
-
-	_, err := repo.GetTopHiringEmployersByOccupationLevel("not-a-real-level", 1, time.Now().AddDate(0, 0, -10), time.Now())
-	assert.Error(t, err, "an invalid occupation level should surface the error from buildJobPostIDsForLevel")
-}
-
-func TestGetAllSkillsByOccupationLevel_ReturnsCorrectTotalIndependentOfLimit(t *testing.T) {
-	db, repo := setupTestDB(t)
-
-	mg, og := seedOccupationHierarchy(t, db, "MG", "1")
-
-	jobType := models.JobType{Type: "Full Time"}
-	db.Create(&jobType)
-
-	postedAt := time.Now().AddDate(0, 0, -5)
-
-	// Three distinct skills, each attached to its own job post.
-	skillNames := []string{"Go", "PostgreSQL", "Docker"}
-	for _, name := range skillNames {
-		skill := models.Skill{Skill: name}
-		db.Create(&skill)
-
-		job := models.JobPost{JobTypeID: jobType.ID, JobRole: "Role", NoOfVacancies: 1}
-		db.Create(&job)
-		db.Create(&models.JobMetaData{JobPostID: job.ID, OccupationGroupID: og.ID, PostedAt: postedAt})
-		db.Create(&models.JobPostSkill{JobPostID: job.ID, SkillID: skill.ID})
-	}
-
-	fromDate := time.Now().AddDate(0, 0, -30)
-	toDate := time.Now()
-
-	// Request only 2 rows back, but total should still report all 3.
-	results, total, err := repo.GetAllSkillsByOccupationLevel("major-group", mg.ID, fromDate, toDate, 2, 0)
-	require.NoError(t, err)
-
-	assert.Len(t, results, 2, "limit should cap the returned rows")
-	assert.Equal(t, int64(3), total, "total must reflect the full matching set, unaffected by limit")
-}
-
-func TestGetAllSkillsByOccupationLevel_OffsetSkipsCorrectNumberOfRows(t *testing.T) {
-	db, repo := setupTestDB(t)
-
-	mg, og := seedOccupationHierarchy(t, db, "MG", "1")
-
-	jobType := models.JobType{Type: "Full Time"}
-	db.Create(&jobType)
-
-	postedAt := time.Now().AddDate(0, 0, -5)
-
-	// Skills with distinct, ordered vacancy counts so ranking is deterministic:
-	// "Highest" (10) > "Middle" (5) > "Lowest" (1)
-	skillCounts := map[string]uint{"Highest": 10, "Middle": 5, "Lowest": 1}
-	for name, count := range skillCounts {
-		skill := models.Skill{Skill: name}
-		db.Create(&skill)
-
-		job := models.JobPost{JobTypeID: jobType.ID, JobRole: "Role", NoOfVacancies: count}
-		db.Create(&job)
-		db.Create(&models.JobMetaData{JobPostID: job.ID, OccupationGroupID: og.ID, PostedAt: postedAt})
-		db.Create(&models.JobPostSkill{JobPostID: job.ID, SkillID: skill.ID})
-	}
-
-	fromDate := time.Now().AddDate(0, 0, -30)
-	toDate := time.Now()
-
-	// Page 1: first result only.
-	page1, total, err := repo.GetAllSkillsByOccupationLevel("major-group", mg.ID, fromDate, toDate, 1, 0)
-	require.NoError(t, err)
-	require.Len(t, page1, 1)
-	assert.Equal(t, "Highest", page1[0].Skill)
-	assert.Equal(t, int64(3), total)
-
-	// Page 2: skip the first, get the second-ranked skill.
-	page2, total, err := repo.GetAllSkillsByOccupationLevel("major-group", mg.ID, fromDate, toDate, 1, 1)
-	require.NoError(t, err)
-	require.Len(t, page2, 1)
-	assert.Equal(t, "Middle", page2[0].Skill)
-	assert.Equal(t, int64(3), total, "total should be identical across pages of the same query")
-}
-
-func TestGetAllSkillsByOccupationLevel_SumsVacanciesAcrossMultipleJobsForSameSkill(t *testing.T) {
-	db, repo := setupTestDB(t)
-
-	mg, og := seedOccupationHierarchy(t, db, "MG", "1")
-
-	jobType := models.JobType{Type: "Full Time"}
-	db.Create(&jobType)
-
-	skill := models.Skill{Skill: "Go"}
-	db.Create(&skill)
-
-	postedAt := time.Now().AddDate(0, 0, -5)
-
-	job1 := models.JobPost{JobTypeID: jobType.ID, JobRole: "Role 1", NoOfVacancies: 3}
-	db.Create(&job1)
-	db.Create(&models.JobMetaData{JobPostID: job1.ID, OccupationGroupID: og.ID, PostedAt: postedAt})
-	db.Create(&models.JobPostSkill{JobPostID: job1.ID, SkillID: skill.ID})
-
-	job2 := models.JobPost{JobTypeID: jobType.ID, JobRole: "Role 2", NoOfVacancies: 2}
-	db.Create(&job2)
-	db.Create(&models.JobMetaData{JobPostID: job2.ID, OccupationGroupID: og.ID, PostedAt: postedAt})
-	db.Create(&models.JobPostSkill{JobPostID: job2.ID, SkillID: skill.ID})
-
-	fromDate := time.Now().AddDate(0, 0, -30)
-	toDate := time.Now()
-
-	results, total, err := repo.GetAllSkillsByOccupationLevel("major-group", mg.ID, fromDate, toDate, 10, 0)
-	require.NoError(t, err)
-	require.Len(t, results, 1)
-	assert.Equal(t, int64(1), total, "one distinct skill, even though it's referenced by two job posts")
-	assert.Equal(t, int64(5), results[0].OpenJobCount, "vacancy counts across all matching jobs for this skill should be summed")
-}
-
-func TestGetAllSkillsByOccupationLevel_ZeroLimitReturnsAllRows(t *testing.T) {
-	db, repo := setupTestDB(t)
-
-	mg, og := seedOccupationHierarchy(t, db, "MG", "1")
-
-	jobType := models.JobType{Type: "Full Time"}
-	db.Create(&jobType)
-	postedAt := time.Now().AddDate(0, 0, -5)
-
-	for _, name := range []string{"Go", "Python", "Rust"} {
-		skill := models.Skill{Skill: name}
-		db.Create(&skill)
-		job := models.JobPost{JobTypeID: jobType.ID, JobRole: "Role", NoOfVacancies: 1}
-		db.Create(&job)
-		db.Create(&models.JobMetaData{JobPostID: job.ID, OccupationGroupID: og.ID, PostedAt: postedAt})
-		db.Create(&models.JobPostSkill{JobPostID: job.ID, SkillID: skill.ID})
-	}
-
-	fromDate := time.Now().AddDate(0, 0, -30)
-	toDate := time.Now()
-
-	// limit=0 means "no limit applied" per the method's own `if limit > 0` guard.
-	results, total, err := repo.GetAllSkillsByOccupationLevel("major-group", mg.ID, fromDate, toDate, 0, 0)
-	require.NoError(t, err)
-	assert.Len(t, results, 3)
-	assert.Equal(t, int64(3), total)
-}
-
-func TestGetAllSkillsByOccupationLevel_InvalidLevelReturnsError(t *testing.T) {
-	_, repo := setupTestDB(t)
-
-	_, _, err := repo.GetAllSkillsByOccupationLevel("not-a-real-level", 1, time.Now().AddDate(0, 0, -10), time.Now(), 10, 0)
-	assert.Error(t, err)
-}
-
-func TestGetTop15SkillsByOccupationLevel_OrdersByVacancyCountDescending(t *testing.T) {
-	db, repo := setupTestDB(t)
-
-	mg, og := seedOccupationHierarchy(t, db, "MG", "1")
-
-	jobType := models.JobType{Type: "Full Time"}
-	db.Create(&jobType)
-
-	postedAt := time.Now().AddDate(0, 0, -5)
-
-	skillCounts := map[string]uint{"Low": 1, "High": 20, "Mid": 5}
-	for name, count := range skillCounts {
-		skill := models.Skill{Skill: name}
-		db.Create(&skill)
-
-		job := models.JobPost{JobTypeID: jobType.ID, JobRole: "Role", NoOfVacancies: count}
-		db.Create(&job)
-		db.Create(&models.JobMetaData{JobPostID: job.ID, OccupationGroupID: og.ID, PostedAt: postedAt})
-		db.Create(&models.JobPostSkill{JobPostID: job.ID, SkillID: skill.ID})
-	}
-
-	fromDate := time.Now().AddDate(0, 0, -30)
-	toDate := time.Now()
-
-	results, err := repo.GetTop15SkillsByOccupationLevel("major-group", mg.ID, fromDate, toDate)
-	require.NoError(t, err)
-	require.Len(t, results, 3)
-
-	assert.Equal(t, "High", results[0].Skill)
-	assert.Equal(t, int64(20), results[0].OpenJobCount)
-	assert.Equal(t, "Mid", results[1].Skill)
-	assert.Equal(t, int64(5), results[1].OpenJobCount)
-	assert.Equal(t, "Low", results[2].Skill)
-	assert.Equal(t, int64(1), results[2].OpenJobCount)
-}
-
-func TestGetTop15SkillsByOccupationLevel_CapsAt15EvenWithMoreMatches(t *testing.T) {
-	db, repo := setupTestDB(t)
-
-	mg, og := seedOccupationHierarchy(t, db, "MG", "1")
-
-	jobType := models.JobType{Type: "Full Time"}
-	db.Create(&jobType)
-	postedAt := time.Now().AddDate(0, 0, -5)
-
-	// 18 distinct skills - more than the method's LIMIT 15.
-	for i := 0; i < 18; i++ {
-		skill := models.Skill{Skill: "Skill-" + string(rune('A'+i))}
-		db.Create(&skill)
-
-		job := models.JobPost{JobTypeID: jobType.ID, JobRole: "Role", NoOfVacancies: uint(i + 1)}
-		db.Create(&job)
-		db.Create(&models.JobMetaData{JobPostID: job.ID, OccupationGroupID: og.ID, PostedAt: postedAt})
-		db.Create(&models.JobPostSkill{JobPostID: job.ID, SkillID: skill.ID})
-	}
-
-	fromDate := time.Now().AddDate(0, 0, -30)
-	toDate := time.Now()
-
-	results, err := repo.GetTop15SkillsByOccupationLevel("major-group", mg.ID, fromDate, toDate)
-	require.NoError(t, err)
-	assert.Len(t, results, 15, "results should be capped at 15 skills even when more exist")
-}
-
-func TestGetTop15SkillsByOccupationLevel_SumsVacanciesAcrossMultipleJobsForSameSkill(t *testing.T) {
-	db, repo := setupTestDB(t)
-
-	mg, og := seedOccupationHierarchy(t, db, "MG", "1")
-
-	jobType := models.JobType{Type: "Full Time"}
-	db.Create(&jobType)
-
-	skill := models.Skill{Skill: "Go"}
-	db.Create(&skill)
-
-	postedAt := time.Now().AddDate(0, 0, -5)
-
-	job1 := models.JobPost{JobTypeID: jobType.ID, JobRole: "Role 1", NoOfVacancies: 4}
-	db.Create(&job1)
-	db.Create(&models.JobMetaData{JobPostID: job1.ID, OccupationGroupID: og.ID, PostedAt: postedAt})
-	db.Create(&models.JobPostSkill{JobPostID: job1.ID, SkillID: skill.ID})
-
-	job2 := models.JobPost{JobTypeID: jobType.ID, JobRole: "Role 2", NoOfVacancies: 6}
-	db.Create(&job2)
-	db.Create(&models.JobMetaData{JobPostID: job2.ID, OccupationGroupID: og.ID, PostedAt: postedAt})
-	db.Create(&models.JobPostSkill{JobPostID: job2.ID, SkillID: skill.ID})
-
-	fromDate := time.Now().AddDate(0, 0, -30)
-	toDate := time.Now()
-
-	results, err := repo.GetTop15SkillsByOccupationLevel("major-group", mg.ID, fromDate, toDate)
-	require.NoError(t, err)
-	require.Len(t, results, 1)
-	assert.Equal(t, int64(10), results[0].OpenJobCount, "vacancy counts across all matching jobs for this skill should be summed")
-}
-
-func TestGetTop15SkillsByOccupationLevel_ExcludesJobsOutsideDateRange(t *testing.T) {
-	db, repo := setupTestDB(t)
-
-	mg, og := seedOccupationHierarchy(t, db, "MG", "1")
-
-	jobType := models.JobType{Type: "Full Time"}
-	db.Create(&jobType)
-
-	skill := models.Skill{Skill: "Outdated Skill"}
-	db.Create(&skill)
-
-	oldPostedAt := time.Now().AddDate(0, 0, -100)
-	job := models.JobPost{JobTypeID: jobType.ID, JobRole: "Old Role", NoOfVacancies: 9}
-	db.Create(&job)
-	db.Create(&models.JobMetaData{JobPostID: job.ID, OccupationGroupID: og.ID, PostedAt: oldPostedAt})
-	db.Create(&models.JobPostSkill{JobPostID: job.ID, SkillID: skill.ID})
-
-	fromDate := time.Now().AddDate(0, 0, -10)
-	toDate := time.Now()
-
-	results, err := repo.GetTop15SkillsByOccupationLevel("major-group", mg.ID, fromDate, toDate)
-	require.NoError(t, err)
-	assert.Empty(t, results, "a job posted well outside the queried range should not contribute to the results")
-}
-
-func TestGetTop15SkillsByOccupationLevel_ExcludesJobsUnderDifferentMajorGroup(t *testing.T) {
-	db, repo := setupTestDB(t)
-
-	mgTarget, ogTarget := seedOccupationHierarchy(t, db, "Target MG", "1")
-	_, ogOther := seedOccupationHierarchy(t, db, "Other MG", "2")
-
-	jobType := models.JobType{Type: "Full Time"}
-	db.Create(&jobType)
-
-	skill := models.Skill{Skill: "Wrong Hierarchy Skill"}
-	db.Create(&skill)
-
-	postedAt := time.Now().AddDate(0, 0, -5)
-	job := models.JobPost{JobTypeID: jobType.ID, JobRole: "Other Role", NoOfVacancies: 8}
-	db.Create(&job)
-	db.Create(&models.JobMetaData{JobPostID: job.ID, OccupationGroupID: ogOther.ID, PostedAt: postedAt})
-	db.Create(&models.JobPostSkill{JobPostID: job.ID, SkillID: skill.ID})
-
-	fromDate := time.Now().AddDate(0, 0, -30)
-	toDate := time.Now()
-
-	results, err := repo.GetTop15SkillsByOccupationLevel("major-group", mgTarget.ID, fromDate, toDate)
-	require.NoError(t, err)
-	assert.Empty(t, results, "a job posted under a different major group must not appear in this major group's results")
-
-	// Sanity check: the "other" hierarchy's own occupation group id is real
-	// and distinct, confirming the two fixtures didn't accidentally collide.
-	assert.NotEqual(t, ogTarget.ID, ogOther.ID)
-}
-
-func TestGetTop15SkillsByOccupationLevel_NoMatchingJobsReturnsEmptySlice(t *testing.T) {
-	db, repo := setupTestDB(t)
-
-	mg, _ := seedOccupationHierarchy(t, db, "MG", "1")
-
-	fromDate := time.Now().AddDate(0, 0, -30)
-	toDate := time.Now()
-
-	results, err := repo.GetTop15SkillsByOccupationLevel("major-group", mg.ID, fromDate, toDate)
-	require.NoError(t, err)
-	assert.Empty(t, results)
-}
-
-func TestGetTop15SkillsByOccupationLevel_InvalidLevelReturnsError(t *testing.T) {
-	_, repo := setupTestDB(t)
-
-	_, err := repo.GetTop15SkillsByOccupationLevel("not-a-real-level", 1, time.Now().AddDate(0, 0, -10), time.Now())
-	assert.Error(t, err)
-}
-
-func TestGetJobTypeByLevel_SumsVacanciesPerJobType(t *testing.T) {
-	db, repo := setupTestDB(t)
-
-	mg, og := seedOccupationHierarchy(t, db, "MG", "1")
-
-	fullTime := models.JobType{Type: "Full Time"}
-	db.Create(&fullTime)
-	partTime := models.JobType{Type: "Part Time"}
-	db.Create(&partTime)
-
-	postedAt := time.Now().AddDate(0, 0, -5)
-
-	// Two Full Time postings (3 + 2 = 5), one Part Time posting (1).
-	job1 := models.JobPost{JobTypeID: fullTime.ID, JobRole: "Role 1", NoOfVacancies: 3}
-	db.Create(&job1)
-	db.Create(&models.JobMetaData{JobPostID: job1.ID, OccupationGroupID: og.ID, PostedAt: postedAt})
-
-	job2 := models.JobPost{JobTypeID: fullTime.ID, JobRole: "Role 2", NoOfVacancies: 2}
-	db.Create(&job2)
-	db.Create(&models.JobMetaData{JobPostID: job2.ID, OccupationGroupID: og.ID, PostedAt: postedAt})
-
-	job3 := models.JobPost{JobTypeID: partTime.ID, JobRole: "Role 3", NoOfVacancies: 1}
-	db.Create(&job3)
-	db.Create(&models.JobMetaData{JobPostID: job3.ID, OccupationGroupID: og.ID, PostedAt: postedAt})
-
-	fromDate := time.Now().AddDate(0, 0, -30)
-	toDate := time.Now()
-
-	results, err := repo.GetJobTypeByLevel("occupation", "major-group", mg.ID, fromDate, toDate)
-	require.NoError(t, err)
-	require.Len(t, results, 2)
-
-	byType := make(map[string]int64)
-	for _, r := range results {
-		byType[r.Type] = r.OpenJobCount
-	}
-	assert.Equal(t, int64(5), byType["Full Time"])
-	assert.Equal(t, int64(1), byType["Part Time"])
-}
-
-func TestGetJobTypeByLevel_IncludesJobTypesWithZeroMatchingJobs(t *testing.T) {
-	db, repo := setupTestDB(t)
-
-	mg, og := seedOccupationHierarchy(t, db, "MG", "1")
-
-	usedType := models.JobType{Type: "Full Time"}
-	db.Create(&usedType)
-	unusedType := models.JobType{Type: "Internship"}
-	db.Create(&unusedType)
-
-	postedAt := time.Now().AddDate(0, 0, -5)
-	job := models.JobPost{JobTypeID: usedType.ID, JobRole: "Role", NoOfVacancies: 4}
-	db.Create(&job)
-	db.Create(&models.JobMetaData{JobPostID: job.ID, OccupationGroupID: og.ID, PostedAt: postedAt})
-
-	fromDate := time.Now().AddDate(0, 0, -30)
-	toDate := time.Now()
-
-	results, err := repo.GetJobTypeByLevel("occupation", "major-group", mg.ID, fromDate, toDate)
-	require.NoError(t, err)
-	require.Len(t, results, 2, "every job type should appear, even ones with no matching jobs, since the joins are LEFT JOINs")
-
-	byType := make(map[string]int64)
-	for _, r := range results {
-		byType[r.Type] = r.OpenJobCount
-	}
-	assert.Equal(t, int64(4), byType["Full Time"])
-	assert.Equal(t, int64(0), byType["Internship"], "a job type with zero matching jobs should show a count of 0, not be omitted")
-}
-
-func TestGetJobTypeByLevel_ExcludesJobsOutsideDateRange(t *testing.T) {
-	db, repo := setupTestDB(t)
-
-	mg, og := seedOccupationHierarchy(t, db, "MG", "1")
-
-	jobType := models.JobType{Type: "Full Time"}
-	db.Create(&jobType)
-
-	oldPostedAt := time.Now().AddDate(0, 0, -100)
-	job := models.JobPost{JobTypeID: jobType.ID, JobRole: "Old Role", NoOfVacancies: 9}
-	db.Create(&job)
-	db.Create(&models.JobMetaData{JobPostID: job.ID, OccupationGroupID: og.ID, PostedAt: oldPostedAt})
-
-	fromDate := time.Now().AddDate(0, 0, -10)
-	toDate := time.Now()
-
-	results, err := repo.GetJobTypeByLevel("occupation", "major-group", mg.ID, fromDate, toDate)
-	require.NoError(t, err)
-	require.Len(t, results, 1, "the job type row still appears, per the LEFT JOIN behavior")
-	assert.Equal(t, int64(0), results[0].OpenJobCount, "a job posted outside the range should not contribute to the count")
-}
-
-func TestGetJobTypeByLevel_ExcludesJobsUnderDifferentMajorGroup(t *testing.T) {
-	db, repo := setupTestDB(t)
-
-	mgTarget, ogTarget := seedOccupationHierarchy(t, db, "Target MG", "1")
-	_, ogOther := seedOccupationHierarchy(t, db, "Other MG", "2")
-
-	jobType := models.JobType{Type: "Full Time"}
-	db.Create(&jobType)
-
-	postedAt := time.Now().AddDate(0, 0, -5)
-	job := models.JobPost{JobTypeID: jobType.ID, JobRole: "Other Role", NoOfVacancies: 6}
-	db.Create(&job)
-	db.Create(&models.JobMetaData{JobPostID: job.ID, OccupationGroupID: ogOther.ID, PostedAt: postedAt})
-
-	fromDate := time.Now().AddDate(0, 0, -30)
-	toDate := time.Now()
-
-	results, err := repo.GetJobTypeByLevel("occupation", "major-group", mgTarget.ID, fromDate, toDate)
-	require.NoError(t, err)
-	require.Len(t, results, 1)
-	assert.Equal(t, int64(0), results[0].OpenJobCount, "a job posted under a different major group must not count toward this one")
-
-	assert.NotEqual(t, ogTarget.ID, ogOther.ID)
-}
-
-func TestGetJobTypeByLevel_WorksForIndustryStandardToo(t *testing.T) {
-	db, repo := setupTestDB(t)
-
-	industrySector := models.IndustrySector{Name: "Sector", Code: "1"}
-	db.Create(&industrySector)
-	industryDivision := models.IndustryDivision{IndustrySectorID: industrySector.ID, Name: "Division", Code: "11"}
-	db.Create(&industryDivision)
-	industryGroup := models.IndustryGroup{IndustryDivisionID: industryDivision.ID, Name: "Group", Code: "111"}
-	db.Create(&industryGroup)
-	industryClass := models.IndustryClass{IndustryGroupID: industryGroup.ID, Name: "Class", Code: "1111"}
-	db.Create(&industryClass)
-	industrySubclass := models.IndustrySubclass{IndustryClassID: industryClass.ID, Name: "Subclass", Code: "11111"}
-	db.Create(&industrySubclass)
-
-	jobType := models.JobType{Type: "Contract"}
-	db.Create(&jobType)
-
-	postedAt := time.Now().AddDate(0, 0, -5)
-	job := models.JobPost{JobTypeID: jobType.ID, JobRole: "Role", NoOfVacancies: 3}
-	db.Create(&job)
-	db.Create(&models.JobMetaData{JobPostID: job.ID, IndustrySubclassID: industrySubclass.ID, PostedAt: postedAt})
-
-	fromDate := time.Now().AddDate(0, 0, -30)
-	toDate := time.Now()
-
-	results, err := repo.GetJobTypeByLevel("industry", "industry-sector", industrySector.ID, fromDate, toDate)
-	require.NoError(t, err)
-	require.Len(t, results, 1)
-	assert.Equal(t, "Contract", results[0].Type)
-	assert.Equal(t, int64(3), results[0].OpenJobCount)
-}
-
-func TestGetJobTypeByLevel_InvalidStandardReturnsError(t *testing.T) {
-	_, repo := setupTestDB(t)
-
-	_, err := repo.GetJobTypeByLevel("not-a-real-standard", "major-group", 1, time.Now().AddDate(0, 0, -10), time.Now())
-	assert.Error(t, err)
-}
-
-func TestGetRemoteOnSiteByLevel_SplitsCountsByIsRemoteFlag(t *testing.T) {
-	db, repo := setupTestDB(t)
-
-	mg, og := seedOccupationHierarchy(t, db, "MG", "1")
-
-	jobType := models.JobType{Type: "Full Time"}
-	db.Create(&jobType)
-
-	postedAt := time.Now().AddDate(0, 0, -5)
-
-	// Two remote postings (5 + 3 = 8), one on-site posting (2).
-	remoteJob1 := models.JobPost{JobTypeID: jobType.ID, JobRole: "Remote 1", NoOfVacancies: 5, IsRemote: true}
-	db.Create(&remoteJob1)
-	db.Create(&models.JobMetaData{JobPostID: remoteJob1.ID, OccupationGroupID: og.ID, PostedAt: postedAt})
-
-	remoteJob2 := models.JobPost{JobTypeID: jobType.ID, JobRole: "Remote 2", NoOfVacancies: 3, IsRemote: true}
-	db.Create(&remoteJob2)
-	db.Create(&models.JobMetaData{JobPostID: remoteJob2.ID, OccupationGroupID: og.ID, PostedAt: postedAt})
-
-	onSiteJob := models.JobPost{JobTypeID: jobType.ID, JobRole: "On-Site", NoOfVacancies: 2, IsRemote: false}
-	db.Create(&onSiteJob)
-	db.Create(&models.JobMetaData{JobPostID: onSiteJob.ID, OccupationGroupID: og.ID, PostedAt: postedAt})
-
-	fromDate := time.Now().AddDate(0, 0, -30)
-	toDate := time.Now()
-
-	result, err := repo.GetRemoteOnSiteByLevel("occupation", "major-group", mg.ID, fromDate, toDate)
-	require.NoError(t, err)
-	assert.Equal(t, int64(8), result.RemoteCount)
-	assert.Equal(t, int64(2), result.OnSiteCount)
-}
-
-func TestGetRemoteOnSiteByLevel_NoMatchingJobsReturnsZeroForBoth(t *testing.T) {
-	db, repo := setupTestDB(t)
-
-	mg, _ := seedOccupationHierarchy(t, db, "MG", "1")
-
-	fromDate := time.Now().AddDate(0, 0, -30)
-	toDate := time.Now()
-
-	result, err := repo.GetRemoteOnSiteByLevel("occupation", "major-group", mg.ID, fromDate, toDate)
-	require.NoError(t, err)
-	assert.Equal(t, int64(0), result.RemoteCount, "with no matching jobs at all, RemoteCount should default to its zero value, not be left unset in a way that panics or errors")
-	assert.Equal(t, int64(0), result.OnSiteCount)
-}
-
-func TestGetRemoteOnSiteByLevel_OnlyRemoteJobsLeavesOnSiteAtZero(t *testing.T) {
-	db, repo := setupTestDB(t)
-
-	mg, og := seedOccupationHierarchy(t, db, "MG", "1")
-
-	jobType := models.JobType{Type: "Full Time"}
-	db.Create(&jobType)
-
-	postedAt := time.Now().AddDate(0, 0, -5)
-	job := models.JobPost{JobTypeID: jobType.ID, JobRole: "Remote Only", NoOfVacancies: 4, IsRemote: true}
-	db.Create(&job)
-	db.Create(&models.JobMetaData{JobPostID: job.ID, OccupationGroupID: og.ID, PostedAt: postedAt})
-
-	fromDate := time.Now().AddDate(0, 0, -30)
-	toDate := time.Now()
-
-	result, err := repo.GetRemoteOnSiteByLevel("occupation", "major-group", mg.ID, fromDate, toDate)
-	require.NoError(t, err)
-	assert.Equal(t, int64(4), result.RemoteCount)
-	assert.Equal(t, int64(0), result.OnSiteCount, "on-site count should default to 0 when no on-site rows exist in the grouped result at all")
-}
-
-func TestGetRemoteOnSiteByLevel_ExcludesJobsOutsideDateRange(t *testing.T) {
-	db, repo := setupTestDB(t)
-
-	mg, og := seedOccupationHierarchy(t, db, "MG", "1")
-
-	jobType := models.JobType{Type: "Full Time"}
-	db.Create(&jobType)
-
-	oldPostedAt := time.Now().AddDate(0, 0, -100)
-	job := models.JobPost{JobTypeID: jobType.ID, JobRole: "Old Role", NoOfVacancies: 9, IsRemote: true}
-	db.Create(&job)
-	db.Create(&models.JobMetaData{JobPostID: job.ID, OccupationGroupID: og.ID, PostedAt: oldPostedAt})
-
-	fromDate := time.Now().AddDate(0, 0, -10)
-	toDate := time.Now()
-
-	result, err := repo.GetRemoteOnSiteByLevel("occupation", "major-group", mg.ID, fromDate, toDate)
-	require.NoError(t, err)
-	assert.Equal(t, int64(0), result.RemoteCount, "a job posted well outside the queried range should not contribute to the counts")
-	assert.Equal(t, int64(0), result.OnSiteCount)
-}
-
-func TestGetRemoteOnSiteByLevel_ExcludesJobsUnderDifferentMajorGroup(t *testing.T) {
-	db, repo := setupTestDB(t)
-
-	mgTarget, _ := seedOccupationHierarchy(t, db, "Target MG", "1")
-	_, ogOther := seedOccupationHierarchy(t, db, "Other MG", "2")
-
-	jobType := models.JobType{Type: "Full Time"}
-	db.Create(&jobType)
-
-	postedAt := time.Now().AddDate(0, 0, -5)
-	job := models.JobPost{JobTypeID: jobType.ID, JobRole: "Other Role", NoOfVacancies: 6, IsRemote: true}
-	db.Create(&job)
-	db.Create(&models.JobMetaData{JobPostID: job.ID, OccupationGroupID: ogOther.ID, PostedAt: postedAt})
-
-	fromDate := time.Now().AddDate(0, 0, -30)
-	toDate := time.Now()
-
-	result, err := repo.GetRemoteOnSiteByLevel("occupation", "major-group", mgTarget.ID, fromDate, toDate)
-	require.NoError(t, err)
-	assert.Equal(t, int64(0), result.RemoteCount, "a job posted under a different major group must not count toward this one")
-	assert.Equal(t, int64(0), result.OnSiteCount)
-}
-
-func TestGetRemoteOnSiteByLevel_InvalidLevelReturnsError(t *testing.T) {
-	_, repo := setupTestDB(t)
-
-	_, err := repo.GetRemoteOnSiteByLevel("occupation", "not-a-real-level", 1, time.Now().AddDate(0, 0, -10), time.Now())
-	assert.Error(t, err)
-}
-
-func TestGetVocationalEducationByLevel_SumsVacanciesPerCategory(t *testing.T) {
-	db, repo := setupTestDB(t)
-
-	mg, og := seedOccupationHierarchy(t, db, "MG", "1")
-
-	nvq4 := models.VocationalEducation{Level: "NVQ 4"}
-	db.Create(&nvq4)
-	nvq5 := models.VocationalEducation{Level: "NVQ 5"}
-	db.Create(&nvq5)
-
-	jobType := models.JobType{Type: "Full Time"}
-	db.Create(&jobType)
-	postedAt := time.Now().AddDate(0, 0, -5)
-
-	job1 := models.JobPost{JobTypeID: jobType.ID, JobRole: "Role 1", NoOfVacancies: 3}
-	db.Create(&job1)
-	db.Create(&models.JobMetaData{JobPostID: job1.ID, OccupationGroupID: og.ID, VocationalEducationID: nvq4.ID, PostedAt: postedAt})
-
-	job2 := models.JobPost{JobTypeID: jobType.ID, JobRole: "Role 2", NoOfVacancies: 2}
-	db.Create(&job2)
-	db.Create(&models.JobMetaData{JobPostID: job2.ID, OccupationGroupID: og.ID, VocationalEducationID: nvq4.ID, PostedAt: postedAt})
-
-	job3 := models.JobPost{JobTypeID: jobType.ID, JobRole: "Role 3", NoOfVacancies: 1}
-	db.Create(&job3)
-	db.Create(&models.JobMetaData{JobPostID: job3.ID, OccupationGroupID: og.ID, VocationalEducationID: nvq5.ID, PostedAt: postedAt})
-
-	fromDate := time.Now().AddDate(0, 0, -30)
-	toDate := time.Now()
-
-	results, err := repo.GetVocationalEducationByLevel("occupation", "major-group", mg.ID, fromDate, toDate)
-	require.NoError(t, err)
-	require.Len(t, results, 2)
-
-	byLevel := make(map[string]int64)
-	for _, r := range results {
-		byLevel[r.Level] = r.OpenJobCount
-	}
-	assert.Equal(t, int64(5), byLevel["NVQ 4"])
-	assert.Equal(t, int64(1), byLevel["NVQ 5"])
-}
-
-func TestGetVocationalEducationByLevel_IncludesCategoryWithZeroMatchingJobs(t *testing.T) {
-	db, repo := setupTestDB(t)
-
-	mg, og := seedOccupationHierarchy(t, db, "MG", "1")
-
-	used := models.VocationalEducation{Level: "NVQ 4"}
-	db.Create(&used)
-	unused := models.VocationalEducation{Level: "NVQ 7"}
-	db.Create(&unused)
-
-	jobType := models.JobType{Type: "Full Time"}
-	db.Create(&jobType)
-	postedAt := time.Now().AddDate(0, 0, -5)
-
-	job := models.JobPost{JobTypeID: jobType.ID, JobRole: "Role", NoOfVacancies: 4}
-	db.Create(&job)
-	db.Create(&models.JobMetaData{JobPostID: job.ID, OccupationGroupID: og.ID, VocationalEducationID: used.ID, PostedAt: postedAt})
-
-	fromDate := time.Now().AddDate(0, 0, -30)
-	toDate := time.Now()
-
-	results, err := repo.GetVocationalEducationByLevel("occupation", "major-group", mg.ID, fromDate, toDate)
-	require.NoError(t, err)
-	require.Len(t, results, 2, "a category with zero matching jobs should still appear, per the LEFT JOIN")
-
-	byLevel := make(map[string]int64)
-	for _, r := range results {
-		byLevel[r.Level] = r.OpenJobCount
-	}
-	assert.Equal(t, int64(4), byLevel["NVQ 4"])
-	assert.Equal(t, int64(0), byLevel["NVQ 7"])
-}
-
-func TestGetVocationalEducationByLevel_ExcludesCategoryCreatedAfterRange(t *testing.T) {
-	db, repo := setupTestDB(t)
-
-	mg, _ := seedOccupationHierarchy(t, db, "MG", "1")
-
-	// Created "today" - after the range being queried.
-	db.Create(&models.VocationalEducation{Level: "Brand New NVQ"})
-
-	fromDate := time.Now().AddDate(0, 0, -30)
-	toDate := time.Now().AddDate(0, 0, -1)
-
-	results, err := repo.GetVocationalEducationByLevel("occupation", "major-group", mg.ID, fromDate, toDate)
-	require.NoError(t, err)
-
-	for _, r := range results {
-		assert.NotEqual(t, "Brand New NVQ", r.Level,
-			"a category created after the range's end date should not appear in a historical breakdown")
+	if item.ID == 0 {
+		t.Fatalf("expected ID to be populated after create, got 0")
 	}
 }
 
-func TestGetVocationalEducationByLevel_IncludesCategoryDeletedDuringRange(t *testing.T) {
-	db, repo := setupTestDB(t)
-
-	mg, og := seedOccupationHierarchy(t, db, "MG", "1")
-
-	nvq := models.VocationalEducation{Level: "Retiring NVQ"}
-	db.Create(&nvq)
-
-	jobType := models.JobType{Type: "Full Time"}
-	db.Create(&jobType)
-	postedAt := time.Now().AddDate(0, 0, -5)
-	job := models.JobPost{JobTypeID: jobType.ID, JobRole: "Role", NoOfVacancies: 6}
-	db.Create(&job)
-	db.Create(&models.JobMetaData{JobPostID: job.ID, OccupationGroupID: og.ID, VocationalEducationID: nvq.ID, PostedAt: postedAt})
-
-	db.Delete(&nvq) // deleted "today"
-
-	fromDate := time.Now().AddDate(0, 0, -10)
-	toDate := time.Now()
-
-	results, err := repo.GetVocationalEducationByLevel("occupation", "major-group", mg.ID, fromDate, toDate)
-	require.NoError(t, err)
-
-	found := false
-	for _, r := range results {
-		if r.Level == "Retiring NVQ" {
-			found = true
-			assert.Equal(t, int64(6), r.OpenJobCount, "the historical count should still reflect the real postings made before deletion")
+func TestJobRepository_GetAllOccupationGroups(t *testing.T) {
+	t.Run("total reflects all rows regardless of limit", func(t *testing.T) {
+		db := SetupTestDB(t)
+		repo := repositories.NewJobRepository(db)
+		unit := seedOccupationGroupChain(t, db)
+		for i := 0; i < 5; i++ {
+			db.Create(&models.OccupationGroup{UnitGroupID: unit.ID, Name: "Group", Code: "X"})
 		}
-	}
-	assert.True(t, found, "a category deleted mid-range should still appear, since it was active for part of the range")
-}
 
-func TestGetVocationalEducationByLevel_ExcludesCategoryDeletedBeforeRangeStarted(t *testing.T) {
-	db, repo := setupTestDB(t)
-
-	mg, _ := seedOccupationHierarchy(t, db, "MG", "1")
-
-	nvq := models.VocationalEducation{Level: "Long Gone NVQ"}
-	db.Create(&nvq)
-	db.Delete(&nvq) // deleted "today"
-
-	// Query a range that starts tomorrow - entirely after the deletion.
-	fromDate := time.Now().AddDate(0, 0, 1)
-	toDate := time.Now().AddDate(0, 0, 10)
-
-	results, err := repo.GetVocationalEducationByLevel("occupation", "major-group", mg.ID, fromDate, toDate)
-	require.NoError(t, err)
-
-	for _, r := range results {
-		assert.NotEqual(t, "Long Gone NVQ", r.Level,
-			"a category already deleted before the range started should not appear")
-	}
-}
-
-func TestGetVocationalEducationByLevel_IncludesCategoryDeletedOnSameDayAsFromDate(t *testing.T) {
-	db, repo := setupTestDB(t)
-
-	mg, _ := seedOccupationHierarchy(t, db, "MG", "1")
-
-	nvq := models.VocationalEducation{Level: "Same Day Deletion"}
-	db.Create(&nvq)
-	db.Delete(&nvq) // deleted right now
-
-	fromDate := time.Now().Truncate(24 * time.Hour) // midnight today
-	toDate := time.Now().AddDate(0, 0, 5)
-
-	results, err := repo.GetVocationalEducationByLevel("occupation", "major-group", mg.ID, fromDate, toDate)
-	require.NoError(t, err)
-
-	found := false
-	for _, r := range results {
-		if r.Level == "Same Day Deletion" {
-			found = true
+		items, total, err := repo.GetAllOccupationGroups(2, 0)
+		if err != nil {
+			t.Fatalf("GetAllOccupationGroups returned error: %v", err)
 		}
-	}
-	assert.True(t, found, "a category deleted on the same day the range starts should still appear for that day")
-}
-
-func TestGetVocationalEducationByLevel_ExcludesJobsUnderDifferentMajorGroup(t *testing.T) {
-	db, repo := setupTestDB(t)
-
-	mgTarget, _ := seedOccupationHierarchy(t, db, "Target MG", "1")
-	_, ogOther := seedOccupationHierarchy(t, db, "Other MG", "2")
-
-	nvq := models.VocationalEducation{Level: "NVQ 4"}
-	db.Create(&nvq)
-
-	jobType := models.JobType{Type: "Full Time"}
-	db.Create(&jobType)
-	postedAt := time.Now().AddDate(0, 0, -5)
-	job := models.JobPost{JobTypeID: jobType.ID, JobRole: "Other Role", NoOfVacancies: 7}
-	db.Create(&job)
-	db.Create(&models.JobMetaData{JobPostID: job.ID, OccupationGroupID: ogOther.ID, VocationalEducationID: nvq.ID, PostedAt: postedAt})
-
-	fromDate := time.Now().AddDate(0, 0, -30)
-	toDate := time.Now()
-
-	results, err := repo.GetVocationalEducationByLevel("occupation", "major-group", mgTarget.ID, fromDate, toDate)
-	require.NoError(t, err)
-	require.Len(t, results, 1, "the NVQ category itself still appears since it exists in the table")
-	assert.Equal(t, int64(0), results[0].OpenJobCount, "a job posted under a different major group must not count toward this one")
-}
-
-func TestGetVocationalEducationByLevel_InvalidStandardReturnsError(t *testing.T) {
-	_, repo := setupTestDB(t)
-
-	_, err := repo.GetVocationalEducationByLevel("not-a-real-standard", "major-group", 1, time.Now().AddDate(0, 0, -10), time.Now())
-	assert.Error(t, err)
-}
-
-func TestGetGenderByLevel_SumsVacanciesPerCategory(t *testing.T) {
-	db, repo := setupTestDB(t)
-
-	mg, og := seedOccupationHierarchy(t, db, "MG", "1")
-
-	male := models.Gender{GenderType: "Male"}
-	db.Create(&male)
-	female := models.Gender{GenderType: "Female"}
-	db.Create(&female)
-
-	jobType := models.JobType{Type: "Full Time"}
-	db.Create(&jobType)
-	postedAt := time.Now().AddDate(0, 0, -5)
-
-	job1 := models.JobPost{JobTypeID: jobType.ID, JobRole: "Role 1", NoOfVacancies: 3}
-	db.Create(&job1)
-	db.Create(&models.JobMetaData{JobPostID: job1.ID, OccupationGroupID: og.ID, GenderID: male.ID, PostedAt: postedAt})
-
-	job2 := models.JobPost{JobTypeID: jobType.ID, JobRole: "Role 2", NoOfVacancies: 2}
-	db.Create(&job2)
-	db.Create(&models.JobMetaData{JobPostID: job2.ID, OccupationGroupID: og.ID, GenderID: male.ID, PostedAt: postedAt})
-
-	job3 := models.JobPost{JobTypeID: jobType.ID, JobRole: "Role 3", NoOfVacancies: 1}
-	db.Create(&job3)
-	db.Create(&models.JobMetaData{JobPostID: job3.ID, OccupationGroupID: og.ID, GenderID: female.ID, PostedAt: postedAt})
-
-	fromDate := time.Now().AddDate(0, 0, -30)
-	toDate := time.Now()
-
-	results, err := repo.GetGenderByLevel("occupation", "major-group", mg.ID, fromDate, toDate)
-	require.NoError(t, err)
-	require.Len(t, results, 2)
-
-	byGender := make(map[string]int64)
-	for _, r := range results {
-		byGender[r.GenderType] = r.OpenJobCount
-	}
-	assert.Equal(t, int64(5), byGender["Male"])
-	assert.Equal(t, int64(1), byGender["Female"])
-}
-
-func TestGetGenderByLevel_IncludesCategoryWithZeroMatchingJobs(t *testing.T) {
-	db, repo := setupTestDB(t)
-
-	mg, og := seedOccupationHierarchy(t, db, "MG", "1")
-
-	used := models.Gender{GenderType: "Male"}
-	db.Create(&used)
-	unused := models.Gender{GenderType: "Female"}
-	db.Create(&unused)
-
-	jobType := models.JobType{Type: "Full Time"}
-	db.Create(&jobType)
-	postedAt := time.Now().AddDate(0, 0, -5)
-
-	job := models.JobPost{JobTypeID: jobType.ID, JobRole: "Role", NoOfVacancies: 4}
-	db.Create(&job)
-	db.Create(&models.JobMetaData{JobPostID: job.ID, OccupationGroupID: og.ID, GenderID: used.ID, PostedAt: postedAt})
-
-	fromDate := time.Now().AddDate(0, 0, -30)
-	toDate := time.Now()
-
-	results, err := repo.GetGenderByLevel("occupation", "major-group", mg.ID, fromDate, toDate)
-	require.NoError(t, err)
-	require.Len(t, results, 2, "a category with zero matching jobs should still appear, per the LEFT JOIN")
-
-	byGender := make(map[string]int64)
-	for _, r := range results {
-		byGender[r.GenderType] = r.OpenJobCount
-	}
-	assert.Equal(t, int64(4), byGender["Male"])
-	assert.Equal(t, int64(0), byGender["Female"])
-}
-
-func TestGetGenderByLevel_ExcludesCategoryCreatedAfterRange(t *testing.T) {
-	db, repo := setupTestDB(t)
-
-	mg, _ := seedOccupationHierarchy(t, db, "MG", "1")
-
-	db.Create(&models.Gender{GenderType: "Brand New Gender"})
-
-	fromDate := time.Now().AddDate(0, 0, -30)
-	toDate := time.Now().AddDate(0, 0, -1)
-
-	results, err := repo.GetGenderByLevel("occupation", "major-group", mg.ID, fromDate, toDate)
-	require.NoError(t, err)
-
-	for _, r := range results {
-		assert.NotEqual(t, "Brand New Gender", r.GenderType,
-			"a category created after the range's end date should not appear in a historical breakdown")
-	}
-}
-
-func TestGetGenderByLevel_IncludesCategoryDeletedDuringRange(t *testing.T) {
-	db, repo := setupTestDB(t)
-
-	mg, og := seedOccupationHierarchy(t, db, "MG", "1")
-
-	gender := models.Gender{GenderType: "Retiring Gender"}
-	db.Create(&gender)
-
-	jobType := models.JobType{Type: "Full Time"}
-	db.Create(&jobType)
-	postedAt := time.Now().AddDate(0, 0, -5)
-	job := models.JobPost{JobTypeID: jobType.ID, JobRole: "Role", NoOfVacancies: 6}
-	db.Create(&job)
-	db.Create(&models.JobMetaData{JobPostID: job.ID, OccupationGroupID: og.ID, GenderID: gender.ID, PostedAt: postedAt})
-
-	db.Delete(&gender) // deleted "today"
-
-	fromDate := time.Now().AddDate(0, 0, -10)
-	toDate := time.Now()
-
-	results, err := repo.GetGenderByLevel("occupation", "major-group", mg.ID, fromDate, toDate)
-	require.NoError(t, err)
-
-	found := false
-	for _, r := range results {
-		if r.GenderType == "Retiring Gender" {
-			found = true
-			assert.Equal(t, int64(6), r.OpenJobCount, "the historical count should still reflect the real postings made before deletion")
+		if total != 5 {
+			t.Fatalf("expected total 5, got %d", total)
 		}
-	}
-	assert.True(t, found, "a category deleted mid-range should still appear, since it was active for part of the range")
-}
-
-func TestGetGenderByLevel_ExcludesCategoryDeletedBeforeRangeStarted(t *testing.T) {
-	db, repo := setupTestDB(t)
-
-	mg, _ := seedOccupationHierarchy(t, db, "MG", "1")
-
-	gender := models.Gender{GenderType: "Long Gone Gender"}
-	db.Create(&gender)
-	db.Delete(&gender) // deleted "today"
-
-	fromDate := time.Now().AddDate(0, 0, 1)
-	toDate := time.Now().AddDate(0, 0, 10)
-
-	results, err := repo.GetGenderByLevel("occupation", "major-group", mg.ID, fromDate, toDate)
-	require.NoError(t, err)
-
-	for _, r := range results {
-		assert.NotEqual(t, "Long Gone Gender", r.GenderType,
-			"a category already deleted before the range started should not appear")
-	}
-}
-
-func TestGetGenderByLevel_IncludesCategoryDeletedOnSameDayAsFromDate(t *testing.T) {
-	db, repo := setupTestDB(t)
-
-	mg, _ := seedOccupationHierarchy(t, db, "MG", "1")
-
-	gender := models.Gender{GenderType: "Same Day Deletion"}
-	db.Create(&gender)
-	db.Delete(&gender) // deleted right now
-
-	fromDate := time.Now().Truncate(24 * time.Hour) // midnight today
-	toDate := time.Now().AddDate(0, 0, 5)
-
-	results, err := repo.GetGenderByLevel("occupation", "major-group", mg.ID, fromDate, toDate)
-	require.NoError(t, err)
-
-	found := false
-	for _, r := range results {
-		if r.GenderType == "Same Day Deletion" {
-			found = true
+		if len(items) != 2 {
+			t.Fatalf("expected 2 items with limit=2, got %d", len(items))
 		}
-	}
-	assert.True(t, found, "a category deleted on the same day the range starts should still appear for that day")
-}
+	})
 
-func TestGetGenderByLevel_ExcludesJobsUnderDifferentMajorGroup(t *testing.T) {
-	db, repo := setupTestDB(t)
-
-	mgTarget, _ := seedOccupationHierarchy(t, db, "Target MG", "1")
-	_, ogOther := seedOccupationHierarchy(t, db, "Other MG", "2")
-
-	gender := models.Gender{GenderType: "Male"}
-	db.Create(&gender)
-
-	jobType := models.JobType{Type: "Full Time"}
-	db.Create(&jobType)
-	postedAt := time.Now().AddDate(0, 0, -5)
-	job := models.JobPost{JobTypeID: jobType.ID, JobRole: "Other Role", NoOfVacancies: 7}
-	db.Create(&job)
-	db.Create(&models.JobMetaData{JobPostID: job.ID, OccupationGroupID: ogOther.ID, GenderID: gender.ID, PostedAt: postedAt})
-
-	fromDate := time.Now().AddDate(0, 0, -30)
-	toDate := time.Now()
-
-	results, err := repo.GetGenderByLevel("occupation", "major-group", mgTarget.ID, fromDate, toDate)
-	require.NoError(t, err)
-	require.Len(t, results, 1, "the gender category itself still appears since it exists in the table")
-	assert.Equal(t, int64(0), results[0].OpenJobCount, "a job posted under a different major group must not count toward this one")
-}
-
-func TestGetGenderByLevel_InvalidStandardReturnsError(t *testing.T) {
-	_, repo := setupTestDB(t)
-
-	_, err := repo.GetGenderByLevel("not-a-real-standard", "major-group", 1, time.Now().AddDate(0, 0, -10), time.Now())
-	assert.Error(t, err)
-}
-
-func TestGetFormalityByLevel_SumsVacanciesPerCategory(t *testing.T) {
-	db, repo := setupTestDB(t)
-
-	mg, og := seedOccupationHierarchy(t, db, "MG", "1")
-
-	formal := models.Formality{FormalityType: "Formal"}
-	db.Create(&formal)
-	informal := models.Formality{FormalityType: "Informal"}
-	db.Create(&informal)
-
-	jobType := models.JobType{Type: "Full Time"}
-	db.Create(&jobType)
-	postedAt := time.Now().AddDate(0, 0, -5)
-
-	job1 := models.JobPost{JobTypeID: jobType.ID, JobRole: "Role 1", NoOfVacancies: 3}
-	db.Create(&job1)
-	db.Create(&models.JobMetaData{JobPostID: job1.ID, OccupationGroupID: og.ID, FormalityID: formal.ID, PostedAt: postedAt})
-
-	job2 := models.JobPost{JobTypeID: jobType.ID, JobRole: "Role 2", NoOfVacancies: 2}
-	db.Create(&job2)
-	db.Create(&models.JobMetaData{JobPostID: job2.ID, OccupationGroupID: og.ID, FormalityID: formal.ID, PostedAt: postedAt})
-
-	job3 := models.JobPost{JobTypeID: jobType.ID, JobRole: "Role 3", NoOfVacancies: 1}
-	db.Create(&job3)
-	db.Create(&models.JobMetaData{JobPostID: job3.ID, OccupationGroupID: og.ID, FormalityID: informal.ID, PostedAt: postedAt})
-
-	fromDate := time.Now().AddDate(0, 0, -30)
-	toDate := time.Now()
-
-	results, err := repo.GetFormalityByLevel("occupation", "major-group", mg.ID, fromDate, toDate)
-	require.NoError(t, err)
-	require.Len(t, results, 2)
-
-	byType := make(map[string]int64)
-	for _, r := range results {
-		byType[r.FormalityType] = r.OpenJobCount
-	}
-	assert.Equal(t, int64(5), byType["Formal"])
-	assert.Equal(t, int64(1), byType["Informal"])
-}
-
-func TestGetFormalityByLevel_IncludesCategoryWithZeroMatchingJobs(t *testing.T) {
-	db, repo := setupTestDB(t)
-
-	mg, og := seedOccupationHierarchy(t, db, "MG", "1")
-
-	used := models.Formality{FormalityType: "Formal"}
-	db.Create(&used)
-	unused := models.Formality{FormalityType: "Informal"}
-	db.Create(&unused)
-
-	jobType := models.JobType{Type: "Full Time"}
-	db.Create(&jobType)
-	postedAt := time.Now().AddDate(0, 0, -5)
-
-	job := models.JobPost{JobTypeID: jobType.ID, JobRole: "Role", NoOfVacancies: 4}
-	db.Create(&job)
-	db.Create(&models.JobMetaData{JobPostID: job.ID, OccupationGroupID: og.ID, FormalityID: used.ID, PostedAt: postedAt})
-
-	fromDate := time.Now().AddDate(0, 0, -30)
-	toDate := time.Now()
-
-	results, err := repo.GetFormalityByLevel("occupation", "major-group", mg.ID, fromDate, toDate)
-	require.NoError(t, err)
-	require.Len(t, results, 2, "a category with zero matching jobs should still appear, per the LEFT JOIN")
-
-	byType := make(map[string]int64)
-	for _, r := range results {
-		byType[r.FormalityType] = r.OpenJobCount
-	}
-	assert.Equal(t, int64(4), byType["Formal"])
-	assert.Equal(t, int64(0), byType["Informal"])
-}
-
-func TestGetFormalityByLevel_ExcludesCategoryCreatedAfterRange(t *testing.T) {
-	db, repo := setupTestDB(t)
-
-	mg, _ := seedOccupationHierarchy(t, db, "MG", "1")
-
-	db.Create(&models.Formality{FormalityType: "Brand New Formality"})
-
-	fromDate := time.Now().AddDate(0, 0, -30)
-	toDate := time.Now().AddDate(0, 0, -1)
-
-	results, err := repo.GetFormalityByLevel("occupation", "major-group", mg.ID, fromDate, toDate)
-	require.NoError(t, err)
-
-	for _, r := range results {
-		assert.NotEqual(t, "Brand New Formality", r.FormalityType,
-			"a category created after the range's end date should not appear in a historical breakdown")
-	}
-}
-
-func TestGetFormalityByLevel_IncludesCategoryDeletedDuringRange(t *testing.T) {
-	db, repo := setupTestDB(t)
-
-	mg, og := seedOccupationHierarchy(t, db, "MG", "1")
-
-	formality := models.Formality{FormalityType: "Retiring Formality"}
-	db.Create(&formality)
-
-	jobType := models.JobType{Type: "Full Time"}
-	db.Create(&jobType)
-	postedAt := time.Now().AddDate(0, 0, -5)
-	job := models.JobPost{JobTypeID: jobType.ID, JobRole: "Role", NoOfVacancies: 6}
-	db.Create(&job)
-	db.Create(&models.JobMetaData{JobPostID: job.ID, OccupationGroupID: og.ID, FormalityID: formality.ID, PostedAt: postedAt})
-
-	db.Delete(&formality) // deleted "today"
-
-	fromDate := time.Now().AddDate(0, 0, -10)
-	toDate := time.Now()
-
-	results, err := repo.GetFormalityByLevel("occupation", "major-group", mg.ID, fromDate, toDate)
-	require.NoError(t, err)
-
-	found := false
-	for _, r := range results {
-		if r.FormalityType == "Retiring Formality" {
-			found = true
-			assert.Equal(t, int64(6), r.OpenJobCount, "the historical count should still reflect the real postings made before deletion")
+	t.Run("offset skips the correct number of rows, ordered by id", func(t *testing.T) {
+		db := SetupTestDB(t)
+		repo := repositories.NewJobRepository(db)
+		unit := seedOccupationGroupChain(t, db)
+		var seeded []models.OccupationGroup
+		for i := 0; i < 3; i++ {
+			g := models.OccupationGroup{UnitGroupID: unit.ID, Name: "Group", Code: "X"}
+			db.Create(&g)
+			seeded = append(seeded, g)
 		}
-	}
-	assert.True(t, found, "a category deleted mid-range should still appear, since it was active for part of the range")
-}
 
-func TestGetFormalityByLevel_ExcludesCategoryDeletedBeforeRangeStarted(t *testing.T) {
-	db, repo := setupTestDB(t)
-
-	mg, _ := seedOccupationHierarchy(t, db, "MG", "1")
-
-	formality := models.Formality{FormalityType: "Long Gone Formality"}
-	db.Create(&formality)
-	db.Delete(&formality) // deleted "today"
-
-	fromDate := time.Now().AddDate(0, 0, 1)
-	toDate := time.Now().AddDate(0, 0, 10)
-
-	results, err := repo.GetFormalityByLevel("occupation", "major-group", mg.ID, fromDate, toDate)
-	require.NoError(t, err)
-
-	for _, r := range results {
-		assert.NotEqual(t, "Long Gone Formality", r.FormalityType,
-			"a category already deleted before the range started should not appear")
-	}
-}
-
-func TestGetFormalityByLevel_IncludesCategoryDeletedOnSameDayAsFromDate(t *testing.T) {
-	db, repo := setupTestDB(t)
-
-	mg, _ := seedOccupationHierarchy(t, db, "MG", "1")
-
-	formality := models.Formality{FormalityType: "Same Day Deletion"}
-	db.Create(&formality)
-	db.Delete(&formality) // deleted right now
-
-	fromDate := time.Now().Truncate(24 * time.Hour) // midnight today
-	toDate := time.Now().AddDate(0, 0, 5)
-
-	results, err := repo.GetFormalityByLevel("occupation", "major-group", mg.ID, fromDate, toDate)
-	require.NoError(t, err)
-
-	found := false
-	for _, r := range results {
-		if r.FormalityType == "Same Day Deletion" {
-			found = true
+		items, _, err := repo.GetAllOccupationGroups(0, 2)
+		if err != nil {
+			t.Fatalf("GetAllOccupationGroups returned error: %v", err)
 		}
-	}
-	assert.True(t, found, "a category deleted on the same day the range starts should still appear for that day")
-}
-
-func TestGetFormalityByLevel_ExcludesJobsUnderDifferentMajorGroup(t *testing.T) {
-	db, repo := setupTestDB(t)
-
-	mgTarget, _ := seedOccupationHierarchy(t, db, "Target MG", "1")
-	_, ogOther := seedOccupationHierarchy(t, db, "Other MG", "2")
-
-	formality := models.Formality{FormalityType: "Formal"}
-	db.Create(&formality)
-
-	jobType := models.JobType{Type: "Full Time"}
-	db.Create(&jobType)
-	postedAt := time.Now().AddDate(0, 0, -5)
-	job := models.JobPost{JobTypeID: jobType.ID, JobRole: "Other Role", NoOfVacancies: 7}
-	db.Create(&job)
-	db.Create(&models.JobMetaData{JobPostID: job.ID, OccupationGroupID: ogOther.ID, FormalityID: formality.ID, PostedAt: postedAt})
-
-	fromDate := time.Now().AddDate(0, 0, -30)
-	toDate := time.Now()
-
-	results, err := repo.GetFormalityByLevel("occupation", "major-group", mgTarget.ID, fromDate, toDate)
-	require.NoError(t, err)
-	require.Len(t, results, 1, "the formality category itself still appears since it exists in the table")
-	assert.Equal(t, int64(0), results[0].OpenJobCount, "a job posted under a different major group must not count toward this one")
-}
-
-func TestGetFormalityByLevel_InvalidStandardReturnsError(t *testing.T) {
-	_, repo := setupTestDB(t)
-
-	_, err := repo.GetFormalityByLevel("not-a-real-standard", "major-group", 1, time.Now().AddDate(0, 0, -10), time.Now())
-	assert.Error(t, err)
-}
-
-func TestGetEducationLevelByLevel_SumsVacanciesPerCategory(t *testing.T) {
-	db, repo := setupTestDB(t)
-
-	mg, og := seedOccupationHierarchy(t, db, "MG", "1")
-
-	degree := models.EducationLevel{Level: "Degree"}
-	db.Create(&degree)
-	alevel := models.EducationLevel{Level: "A/L"}
-	db.Create(&alevel)
-
-	jobType := models.JobType{Type: "Full Time"}
-	db.Create(&jobType)
-	postedAt := time.Now().AddDate(0, 0, -5)
-
-	job1 := models.JobPost{JobTypeID: jobType.ID, JobRole: "Role 1", NoOfVacancies: 3}
-	db.Create(&job1)
-	db.Create(&models.JobMetaData{JobPostID: job1.ID, OccupationGroupID: og.ID, EducationLevelID: degree.ID, PostedAt: postedAt})
-
-	job2 := models.JobPost{JobTypeID: jobType.ID, JobRole: "Role 2", NoOfVacancies: 2}
-	db.Create(&job2)
-	db.Create(&models.JobMetaData{JobPostID: job2.ID, OccupationGroupID: og.ID, EducationLevelID: degree.ID, PostedAt: postedAt})
-
-	job3 := models.JobPost{JobTypeID: jobType.ID, JobRole: "Role 3", NoOfVacancies: 1}
-	db.Create(&job3)
-	db.Create(&models.JobMetaData{JobPostID: job3.ID, OccupationGroupID: og.ID, EducationLevelID: alevel.ID, PostedAt: postedAt})
-
-	fromDate := time.Now().AddDate(0, 0, -30)
-	toDate := time.Now()
-
-	results, err := repo.GetEducationLevelByLevel("occupation", "major-group", mg.ID, fromDate, toDate)
-	require.NoError(t, err)
-	require.Len(t, results, 2)
-
-	byLevel := make(map[string]int64)
-	for _, r := range results {
-		byLevel[r.Level] = r.OpenJobCount
-	}
-	assert.Equal(t, int64(5), byLevel["Degree"])
-	assert.Equal(t, int64(1), byLevel["A/L"])
-}
-
-func TestGetEducationLevelByLevel_IncludesCategoryWithZeroMatchingJobs(t *testing.T) {
-	db, repo := setupTestDB(t)
-
-	mg, og := seedOccupationHierarchy(t, db, "MG", "1")
-
-	used := models.EducationLevel{Level: "Degree"}
-	db.Create(&used)
-	unused := models.EducationLevel{Level: "O/L"}
-	db.Create(&unused)
-
-	jobType := models.JobType{Type: "Full Time"}
-	db.Create(&jobType)
-	postedAt := time.Now().AddDate(0, 0, -5)
-
-	job := models.JobPost{JobTypeID: jobType.ID, JobRole: "Role", NoOfVacancies: 4}
-	db.Create(&job)
-	db.Create(&models.JobMetaData{JobPostID: job.ID, OccupationGroupID: og.ID, EducationLevelID: used.ID, PostedAt: postedAt})
-
-	fromDate := time.Now().AddDate(0, 0, -30)
-	toDate := time.Now()
-
-	results, err := repo.GetEducationLevelByLevel("occupation", "major-group", mg.ID, fromDate, toDate)
-	require.NoError(t, err)
-	require.Len(t, results, 2, "a category with zero matching jobs should still appear, per the LEFT JOIN")
-
-	byLevel := make(map[string]int64)
-	for _, r := range results {
-		byLevel[r.Level] = r.OpenJobCount
-	}
-	assert.Equal(t, int64(4), byLevel["Degree"])
-	assert.Equal(t, int64(0), byLevel["O/L"])
-}
-
-func TestGetEducationLevelByLevel_ExcludesCategoryCreatedAfterRange(t *testing.T) {
-	db, repo := setupTestDB(t)
-
-	mg, _ := seedOccupationHierarchy(t, db, "MG", "1")
-
-	db.Create(&models.EducationLevel{Level: "Brand New Level"})
-
-	fromDate := time.Now().AddDate(0, 0, -30)
-	toDate := time.Now().AddDate(0, 0, -1)
-
-	results, err := repo.GetEducationLevelByLevel("occupation", "major-group", mg.ID, fromDate, toDate)
-	require.NoError(t, err)
-
-	for _, r := range results {
-		assert.NotEqual(t, "Brand New Level", r.Level,
-			"a category created after the range's end date should not appear in a historical breakdown")
-	}
-}
-
-func TestGetEducationLevelByLevel_IncludesCategoryDeletedDuringRange(t *testing.T) {
-	db, repo := setupTestDB(t)
-
-	mg, og := seedOccupationHierarchy(t, db, "MG", "1")
-
-	edu := models.EducationLevel{Level: "Retiring Level"}
-	db.Create(&edu)
-
-	jobType := models.JobType{Type: "Full Time"}
-	db.Create(&jobType)
-	postedAt := time.Now().AddDate(0, 0, -5)
-	job := models.JobPost{JobTypeID: jobType.ID, JobRole: "Role", NoOfVacancies: 6}
-	db.Create(&job)
-	db.Create(&models.JobMetaData{JobPostID: job.ID, OccupationGroupID: og.ID, EducationLevelID: edu.ID, PostedAt: postedAt})
-
-	db.Delete(&edu) // deleted "today"
-
-	fromDate := time.Now().AddDate(0, 0, -10)
-	toDate := time.Now()
-
-	results, err := repo.GetEducationLevelByLevel("occupation", "major-group", mg.ID, fromDate, toDate)
-	require.NoError(t, err)
-
-	found := false
-	for _, r := range results {
-		if r.Level == "Retiring Level" {
-			found = true
-			assert.Equal(t, int64(6), r.OpenJobCount, "the historical count should still reflect the real postings made before deletion")
+		if len(items) != 1 {
+			t.Fatalf("expected 1 item after offsetting past 2 of 3, got %d", len(items))
 		}
-	}
-	assert.True(t, found, "a category deleted mid-range should still appear, since it was active for part of the range")
-}
-
-func TestGetEducationLevelByLevel_ExcludesCategoryDeletedBeforeRangeStarted(t *testing.T) {
-	db, repo := setupTestDB(t)
-
-	mg, _ := seedOccupationHierarchy(t, db, "MG", "1")
-
-	edu := models.EducationLevel{Level: "Long Gone Level"}
-	db.Create(&edu)
-	db.Delete(&edu) // deleted "today"
-
-	fromDate := time.Now().AddDate(0, 0, 1)
-	toDate := time.Now().AddDate(0, 0, 10)
-
-	results, err := repo.GetEducationLevelByLevel("occupation", "major-group", mg.ID, fromDate, toDate)
-	require.NoError(t, err)
-
-	for _, r := range results {
-		assert.NotEqual(t, "Long Gone Level", r.Level,
-			"a category already deleted before the range started should not appear")
-	}
-}
-
-func TestGetEducationLevelByLevel_IncludesCategoryDeletedOnSameDayAsFromDate(t *testing.T) {
-	db, repo := setupTestDB(t)
-
-	mg, _ := seedOccupationHierarchy(t, db, "MG", "1")
-
-	edu := models.EducationLevel{Level: "Same Day Deletion"}
-	db.Create(&edu)
-	db.Delete(&edu) // deleted right now
-
-	fromDate := time.Now().Truncate(24 * time.Hour) // midnight today
-	toDate := time.Now().AddDate(0, 0, 5)
-
-	results, err := repo.GetEducationLevelByLevel("occupation", "major-group", mg.ID, fromDate, toDate)
-	require.NoError(t, err)
-
-	found := false
-	for _, r := range results {
-		if r.Level == "Same Day Deletion" {
-			found = true
+		if items[0].ID != seeded[2].ID {
+			t.Fatalf("expected remaining item to be the 3rd seeded row (id %d), got id %d", seeded[2].ID, items[0].ID)
 		}
-	}
-	assert.True(t, found, "a category deleted on the same day the range starts should still appear for that day")
-}
-
-func TestGetEducationLevelByLevel_ExcludesJobsUnderDifferentMajorGroup(t *testing.T) {
-	db, repo := setupTestDB(t)
-
-	mgTarget, _ := seedOccupationHierarchy(t, db, "Target MG", "1")
-	_, ogOther := seedOccupationHierarchy(t, db, "Other MG", "2")
-
-	edu := models.EducationLevel{Level: "Degree"}
-	db.Create(&edu)
-
-	jobType := models.JobType{Type: "Full Time"}
-	db.Create(&jobType)
-	postedAt := time.Now().AddDate(0, 0, -5)
-	job := models.JobPost{JobTypeID: jobType.ID, JobRole: "Other Role", NoOfVacancies: 7}
-	db.Create(&job)
-	db.Create(&models.JobMetaData{JobPostID: job.ID, OccupationGroupID: ogOther.ID, EducationLevelID: edu.ID, PostedAt: postedAt})
-
-	fromDate := time.Now().AddDate(0, 0, -30)
-	toDate := time.Now()
-
-	results, err := repo.GetEducationLevelByLevel("occupation", "major-group", mgTarget.ID, fromDate, toDate)
-	require.NoError(t, err)
-	require.Len(t, results, 1, "the education level category itself still appears since it exists in the table")
-	assert.Equal(t, int64(0), results[0].OpenJobCount, "a job posted under a different major group must not count toward this one")
-}
-
-func TestGetEducationLevelByLevel_InvalidStandardReturnsError(t *testing.T) {
-	_, repo := setupTestDB(t)
-
-	_, err := repo.GetEducationLevelByLevel("not-a-real-standard", "major-group", 1, time.Now().AddDate(0, 0, -10), time.Now())
-	assert.Error(t, err)
-}
-
-func TestGetProvinceByLevel_SumsVacanciesPerProvince(t *testing.T) {
-	db, repo := setupTestDB(t)
-
-	mg, og := seedOccupationHierarchy(t, db, "MG", "1")
-
-	western := models.GeoData{Province: "Western", Latitude: 6.9271, Longitude: 79.8612}
-	db.Create(&western)
-	central := models.GeoData{Province: "Central", Latitude: 7.2906, Longitude: 80.6337}
-	db.Create(&central)
-
-	jobType := models.JobType{Type: "Full Time"}
-	db.Create(&jobType)
-	postedAt := time.Now().AddDate(0, 0, -5)
-
-	job1 := models.JobPost{JobTypeID: jobType.ID, JobRole: "Role 1", NoOfVacancies: 3}
-	db.Create(&job1)
-	db.Create(&models.JobMetaData{JobPostID: job1.ID, OccupationGroupID: og.ID, GeoDataID: western.ID, PostedAt: postedAt})
-
-	job2 := models.JobPost{JobTypeID: jobType.ID, JobRole: "Role 2", NoOfVacancies: 2}
-	db.Create(&job2)
-	db.Create(&models.JobMetaData{JobPostID: job2.ID, OccupationGroupID: og.ID, GeoDataID: western.ID, PostedAt: postedAt})
-
-	job3 := models.JobPost{JobTypeID: jobType.ID, JobRole: "Role 3", NoOfVacancies: 1}
-	db.Create(&job3)
-	db.Create(&models.JobMetaData{JobPostID: job3.ID, OccupationGroupID: og.ID, GeoDataID: central.ID, PostedAt: postedAt})
-
-	fromDate := time.Now().AddDate(0, 0, -30)
-	toDate := time.Now()
-
-	results, err := repo.GetProvinceByLevel("occupation", "major-group", mg.ID, fromDate, toDate)
-	require.NoError(t, err)
-	require.Len(t, results, 2)
-
-	byProvince := make(map[string]int64)
-	for _, r := range results {
-		byProvince[r.Province] = r.OpenJobCount
-	}
-	assert.Equal(t, int64(5), byProvince["Western"])
-	assert.Equal(t, int64(1), byProvince["Central"])
-}
-
-func TestGetProvinceByLevel_IncludesProvinceWithZeroMatchingJobs(t *testing.T) {
-	db, repo := setupTestDB(t)
-
-	mg, og := seedOccupationHierarchy(t, db, "MG", "1")
-
-	used := models.GeoData{Province: "Western", Latitude: 6.9271, Longitude: 79.8612}
-	db.Create(&used)
-	unused := models.GeoData{Province: "Southern", Latitude: 6.0535, Longitude: 80.2210}
-	db.Create(&unused)
-
-	jobType := models.JobType{Type: "Full Time"}
-	db.Create(&jobType)
-	postedAt := time.Now().AddDate(0, 0, -5)
-
-	job := models.JobPost{JobTypeID: jobType.ID, JobRole: "Role", NoOfVacancies: 4}
-	db.Create(&job)
-	db.Create(&models.JobMetaData{JobPostID: job.ID, OccupationGroupID: og.ID, GeoDataID: used.ID, PostedAt: postedAt})
-
-	fromDate := time.Now().AddDate(0, 0, -30)
-	toDate := time.Now()
-
-	results, err := repo.GetProvinceByLevel("occupation", "major-group", mg.ID, fromDate, toDate)
-	require.NoError(t, err)
-	require.Len(t, results, 2, "a province with zero matching jobs should still appear, per the LEFT JOIN")
-
-	byProvince := make(map[string]int64)
-	for _, r := range results {
-		byProvince[r.Province] = r.OpenJobCount
-	}
-	assert.Equal(t, int64(4), byProvince["Western"])
-	assert.Equal(t, int64(0), byProvince["Southern"])
-}
-
-func TestGetProvinceByLevel_ReturnsLatitudeAndLongitude(t *testing.T) {
-	db, repo := setupTestDB(t)
-
-	mg, og := seedOccupationHierarchy(t, db, "MG", "1")
-
-	western := models.GeoData{Province: "Western", Latitude: 6.9271, Longitude: 79.8612}
-	db.Create(&western)
-
-	jobType := models.JobType{Type: "Full Time"}
-	db.Create(&jobType)
-	postedAt := time.Now().AddDate(0, 0, -5)
-	job := models.JobPost{JobTypeID: jobType.ID, JobRole: "Role", NoOfVacancies: 2}
-	db.Create(&job)
-	db.Create(&models.JobMetaData{JobPostID: job.ID, OccupationGroupID: og.ID, GeoDataID: western.ID, PostedAt: postedAt})
-
-	fromDate := time.Now().AddDate(0, 0, -30)
-	toDate := time.Now()
-
-	results, err := repo.GetProvinceByLevel("occupation", "major-group", mg.ID, fromDate, toDate)
-	require.NoError(t, err)
-	require.Len(t, results, 1)
-	assert.InDelta(t, 6.9271, results[0].Latitude, 0.0001)
-	assert.InDelta(t, 79.8612, results[0].Longitude, 0.0001)
-}
-
-func TestGetProvinceByLevel_ExcludesJobsOutsideDateRange(t *testing.T) {
-	db, repo := setupTestDB(t)
-
-	mg, og := seedOccupationHierarchy(t, db, "MG", "1")
-
-	province := models.GeoData{Province: "Western", Latitude: 6.9271, Longitude: 79.8612}
-	db.Create(&province)
-
-	jobType := models.JobType{Type: "Full Time"}
-	db.Create(&jobType)
-
-	oldPostedAt := time.Now().AddDate(0, 0, -100)
-	job := models.JobPost{JobTypeID: jobType.ID, JobRole: "Old Role", NoOfVacancies: 9}
-	db.Create(&job)
-	db.Create(&models.JobMetaData{JobPostID: job.ID, OccupationGroupID: og.ID, GeoDataID: province.ID, PostedAt: oldPostedAt})
-
-	fromDate := time.Now().AddDate(0, 0, -10)
-	toDate := time.Now()
-
-	results, err := repo.GetProvinceByLevel("occupation", "major-group", mg.ID, fromDate, toDate)
-	require.NoError(t, err)
-	require.Len(t, results, 1, "the province row still appears, per the LEFT JOIN behavior")
-	assert.Equal(t, int64(0), results[0].OpenJobCount, "a job posted outside the range should not contribute to the count")
-}
-
-func TestGetProvinceByLevel_ExcludesJobsUnderDifferentMajorGroup(t *testing.T) {
-	db, repo := setupTestDB(t)
-
-	mgTarget, _ := seedOccupationHierarchy(t, db, "Target MG", "1")
-	_, ogOther := seedOccupationHierarchy(t, db, "Other MG", "2")
-
-	province := models.GeoData{Province: "Western", Latitude: 6.9271, Longitude: 79.8612}
-	db.Create(&province)
-
-	jobType := models.JobType{Type: "Full Time"}
-	db.Create(&jobType)
-	postedAt := time.Now().AddDate(0, 0, -5)
-	job := models.JobPost{JobTypeID: jobType.ID, JobRole: "Other Role", NoOfVacancies: 7}
-	db.Create(&job)
-	db.Create(&models.JobMetaData{JobPostID: job.ID, OccupationGroupID: ogOther.ID, GeoDataID: province.ID, PostedAt: postedAt})
-
-	fromDate := time.Now().AddDate(0, 0, -30)
-	toDate := time.Now()
-
-	results, err := repo.GetProvinceByLevel("occupation", "major-group", mgTarget.ID, fromDate, toDate)
-	require.NoError(t, err)
-	require.Len(t, results, 1, "the province row itself still appears since it exists in the table")
-	assert.Equal(t, int64(0), results[0].OpenJobCount, "a job posted under a different major group must not count toward this one")
-}
-
-func TestGetProvinceByLevel_InvalidStandardReturnsError(t *testing.T) {
-	_, repo := setupTestDB(t)
-
-	_, err := repo.GetProvinceByLevel("not-a-real-standard", "major-group", 1, time.Now().AddDate(0, 0, -10), time.Now())
-	assert.Error(t, err)
-}
-
-func TestGetExperienceByLevel_SumsVacanciesPerCategory(t *testing.T) {
-	db, repo := setupTestDB(t)
-
-	mg, og := seedOccupationHierarchy(t, db, "MG", "1")
-
-	entry := models.Experience{Name: "Entry Level"}
-	db.Create(&entry)
-	senior := models.Experience{Name: "Senior"}
-	db.Create(&senior)
-
-	jobType := models.JobType{Type: "Full Time"}
-	db.Create(&jobType)
-	postedAt := time.Now().AddDate(0, 0, -5)
-
-	job1 := models.JobPost{JobTypeID: jobType.ID, JobRole: "Role 1", NoOfVacancies: 3}
-	db.Create(&job1)
-	db.Create(&models.JobMetaData{JobPostID: job1.ID, OccupationGroupID: og.ID, ExperienceID: entry.ID, PostedAt: postedAt})
-
-	job2 := models.JobPost{JobTypeID: jobType.ID, JobRole: "Role 2", NoOfVacancies: 2}
-	db.Create(&job2)
-	db.Create(&models.JobMetaData{JobPostID: job2.ID, OccupationGroupID: og.ID, ExperienceID: entry.ID, PostedAt: postedAt})
-
-	job3 := models.JobPost{JobTypeID: jobType.ID, JobRole: "Role 3", NoOfVacancies: 1}
-	db.Create(&job3)
-	db.Create(&models.JobMetaData{JobPostID: job3.ID, OccupationGroupID: og.ID, ExperienceID: senior.ID, PostedAt: postedAt})
-
-	fromDate := time.Now().AddDate(0, 0, -30)
-	toDate := time.Now()
-
-	results, err := repo.GetExperienceByLevel("occupation", "major-group", mg.ID, fromDate, toDate)
-	require.NoError(t, err)
-	require.Len(t, results, 2)
-
-	byName := make(map[string]int64)
-	for _, r := range results {
-		byName[r.Name] = r.OpenJobCount
-	}
-	assert.Equal(t, int64(5), byName["Entry Level"])
-	assert.Equal(t, int64(1), byName["Senior"])
-}
-
-func TestGetExperienceByLevel_IncludesCategoryWithZeroMatchingJobs(t *testing.T) {
-	db, repo := setupTestDB(t)
-
-	mg, og := seedOccupationHierarchy(t, db, "MG", "1")
-
-	used := models.Experience{Name: "Entry Level"}
-	db.Create(&used)
-	unused := models.Experience{Name: "Senior"}
-	db.Create(&unused)
-
-	jobType := models.JobType{Type: "Full Time"}
-	db.Create(&jobType)
-	postedAt := time.Now().AddDate(0, 0, -5)
-
-	job := models.JobPost{JobTypeID: jobType.ID, JobRole: "Role", NoOfVacancies: 4}
-	db.Create(&job)
-	db.Create(&models.JobMetaData{JobPostID: job.ID, OccupationGroupID: og.ID, ExperienceID: used.ID, PostedAt: postedAt})
-
-	fromDate := time.Now().AddDate(0, 0, -30)
-	toDate := time.Now()
-
-	results, err := repo.GetExperienceByLevel("occupation", "major-group", mg.ID, fromDate, toDate)
-	require.NoError(t, err)
-	require.Len(t, results, 2, "a category with zero matching jobs should still appear, per the LEFT JOIN")
-
-	byName := make(map[string]int64)
-	for _, r := range results {
-		byName[r.Name] = r.OpenJobCount
-	}
-	assert.Equal(t, int64(4), byName["Entry Level"])
-	assert.Equal(t, int64(0), byName["Senior"])
-}
-
-func TestGetExperienceByLevel_ExcludesCategoryCreatedAfterRange(t *testing.T) {
-	db, repo := setupTestDB(t)
-
-	mg, _ := seedOccupationHierarchy(t, db, "MG", "1")
-
-	db.Create(&models.Experience{Name: "Brand New Experience"})
-
-	fromDate := time.Now().AddDate(0, 0, -30)
-	toDate := time.Now().AddDate(0, 0, -1)
-
-	results, err := repo.GetExperienceByLevel("occupation", "major-group", mg.ID, fromDate, toDate)
-	require.NoError(t, err)
-
-	for _, r := range results {
-		assert.NotEqual(t, "Brand New Experience", r.Name,
-			"a category created after the range's end date should not appear in a historical breakdown")
-	}
-}
-
-func TestGetExperienceByLevel_IncludesCategoryDeletedDuringRange(t *testing.T) {
-	db, repo := setupTestDB(t)
-
-	mg, og := seedOccupationHierarchy(t, db, "MG", "1")
-
-	exp := models.Experience{Name: "Retiring Experience"}
-	db.Create(&exp)
-
-	jobType := models.JobType{Type: "Full Time"}
-	db.Create(&jobType)
-	postedAt := time.Now().AddDate(0, 0, -5)
-	job := models.JobPost{JobTypeID: jobType.ID, JobRole: "Role", NoOfVacancies: 6}
-	db.Create(&job)
-	db.Create(&models.JobMetaData{JobPostID: job.ID, OccupationGroupID: og.ID, ExperienceID: exp.ID, PostedAt: postedAt})
-
-	db.Delete(&exp) // deleted "today"
-
-	fromDate := time.Now().AddDate(0, 0, -10)
-	toDate := time.Now()
-
-	results, err := repo.GetExperienceByLevel("occupation", "major-group", mg.ID, fromDate, toDate)
-	require.NoError(t, err)
-
-	found := false
-	for _, r := range results {
-		if r.Name == "Retiring Experience" {
-			found = true
-			assert.Equal(t, int64(6), r.OpenJobCount, "the historical count should still reflect the real postings made before deletion")
+	})
+
+	t.Run("limit=0 and offset=0 returns all rows", func(t *testing.T) {
+		db := SetupTestDB(t)
+		repo := repositories.NewJobRepository(db)
+		unit := seedOccupationGroupChain(t, db)
+		for i := 0; i < 4; i++ {
+			db.Create(&models.OccupationGroup{UnitGroupID: unit.ID, Name: "Group", Code: "X"})
 		}
-	}
-	assert.True(t, found, "a category deleted mid-range should still appear, since it was active for part of the range")
-}
 
-func TestGetExperienceByLevel_ExcludesCategoryDeletedBeforeRangeStarted(t *testing.T) {
-	db, repo := setupTestDB(t)
-
-	mg, _ := seedOccupationHierarchy(t, db, "MG", "1")
-
-	exp := models.Experience{Name: "Long Gone Experience"}
-	db.Create(&exp)
-	db.Delete(&exp) // deleted "today"
-
-	fromDate := time.Now().AddDate(0, 0, 1)
-	toDate := time.Now().AddDate(0, 0, 10)
-
-	results, err := repo.GetExperienceByLevel("occupation", "major-group", mg.ID, fromDate, toDate)
-	require.NoError(t, err)
-
-	for _, r := range results {
-		assert.NotEqual(t, "Long Gone Experience", r.Name,
-			"a category already deleted before the range started should not appear")
-	}
-}
-
-func TestGetExperienceByLevel_IncludesCategoryDeletedOnSameDayAsFromDate(t *testing.T) {
-	db, repo := setupTestDB(t)
-
-	mg, _ := seedOccupationHierarchy(t, db, "MG", "1")
-
-	exp := models.Experience{Name: "Same Day Deletion"}
-	db.Create(&exp)
-	db.Delete(&exp) // deleted right now
-
-	fromDate := time.Now().Truncate(24 * time.Hour) // midnight today
-	toDate := time.Now().AddDate(0, 0, 5)
-
-	results, err := repo.GetExperienceByLevel("occupation", "major-group", mg.ID, fromDate, toDate)
-	require.NoError(t, err)
-
-	found := false
-	for _, r := range results {
-		if r.Name == "Same Day Deletion" {
-			found = true
+		items, total, err := repo.GetAllOccupationGroups(0, 0)
+		if err != nil {
+			t.Fatalf("GetAllOccupationGroups returned error: %v", err)
 		}
+		if len(items) != 4 || total != 4 {
+			t.Fatalf("expected 4 items and total 4, got %d items, total %d", len(items), total)
+		}
+	})
+
+	t.Run("UnitGroup is preloaded on each item", func(t *testing.T) {
+		db := SetupTestDB(t)
+		repo := repositories.NewJobRepository(db)
+		unit := seedOccupationGroupChain(t, db)
+		db.Create(&models.OccupationGroup{UnitGroupID: unit.ID, Name: "Legislator", Code: "11111"})
+
+		items, _, err := repo.GetAllOccupationGroups(0, 0)
+		if err != nil {
+			t.Fatalf("GetAllOccupationGroups returned error: %v", err)
+		}
+		if len(items) != 1 || items[0].UnitGroup == nil || items[0].UnitGroup.Name != "Senior Officials" {
+			t.Fatalf("expected preloaded UnitGroup.Name %q, got %+v", "Senior Officials", items)
+		}
+	})
+}
+
+func TestJobRepository_GetOccupationGroupByID(t *testing.T) {
+	t.Run("existing ID returns the row with UnitGroup preloaded", func(t *testing.T) {
+		db := SetupTestDB(t)
+		repo := repositories.NewJobRepository(db)
+		unit := seedOccupationGroupChain(t, db)
+		seeded := models.OccupationGroup{UnitGroupID: unit.ID, Name: "Legislator", Code: "11111"}
+		db.Create(&seeded)
+
+		got, err := repo.GetOccupationGroupByID(seeded.ID)
+		if err != nil {
+			t.Fatalf("GetOccupationGroupByID returned error: %v", err)
+		}
+		if got.UnitGroup == nil || got.UnitGroup.Name != "Senior Officials" {
+			t.Fatalf("expected preloaded UnitGroup.Name %q, got %+v", "Senior Officials", got.UnitGroup)
+		}
+	})
+
+	t.Run("non-existent ID returns gorm.ErrRecordNotFound", func(t *testing.T) {
+		db := SetupTestDB(t)
+		repo := repositories.NewJobRepository(db)
+
+		_, err := repo.GetOccupationGroupByID(999999)
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			t.Fatalf("expected gorm.ErrRecordNotFound, got: %v", err)
+		}
+	})
+}
+
+func TestJobRepository_UpdateOccupationGroup(t *testing.T) {
+	db := SetupTestDB(t)
+	repo := repositories.NewJobRepository(db)
+	unit := seedOccupationGroupChain(t, db)
+	seeded := models.OccupationGroup{UnitGroupID: unit.ID, Name: "Legislator", Code: "11111"}
+	db.Create(&seeded)
+
+	updated, err := repo.UpdateOccupationGroup(seeded.ID, map[string]interface{}{"name": "Senior Legislator"})
+	if err != nil {
+		t.Fatalf("UpdateOccupationGroup returned error: %v", err)
 	}
-	assert.True(t, found, "a category deleted on the same day the range starts should still appear for that day")
-}
-
-func TestGetExperienceByLevel_ExcludesJobsUnderDifferentMajorGroup(t *testing.T) {
-	db, repo := setupTestDB(t)
-
-	mgTarget, _ := seedOccupationHierarchy(t, db, "Target MG", "1")
-	_, ogOther := seedOccupationHierarchy(t, db, "Other MG", "2")
-
-	exp := models.Experience{Name: "Entry Level"}
-	db.Create(&exp)
-
-	jobType := models.JobType{Type: "Full Time"}
-	db.Create(&jobType)
-	postedAt := time.Now().AddDate(0, 0, -5)
-	job := models.JobPost{JobTypeID: jobType.ID, JobRole: "Other Role", NoOfVacancies: 7}
-	db.Create(&job)
-	db.Create(&models.JobMetaData{JobPostID: job.ID, OccupationGroupID: ogOther.ID, ExperienceID: exp.ID, PostedAt: postedAt})
-
-	fromDate := time.Now().AddDate(0, 0, -30)
-	toDate := time.Now()
-
-	results, err := repo.GetExperienceByLevel("occupation", "major-group", mgTarget.ID, fromDate, toDate)
-	require.NoError(t, err)
-	require.Len(t, results, 1, "the experience category itself still appears since it exists in the table")
-	assert.Equal(t, int64(0), results[0].OpenJobCount, "a job posted under a different major group must not count toward this one")
-}
-
-func TestGetExperienceByLevel_InvalidStandardReturnsError(t *testing.T) {
-	_, repo := setupTestDB(t)
-
-	_, err := repo.GetExperienceByLevel("not-a-real-standard", "major-group", 1, time.Now().AddDate(0, 0, -10), time.Now())
-	assert.Error(t, err)
-}
-
-func TestGetEmploymentSectorByLevel_SumsVacanciesPerCategory(t *testing.T) {
-	db, repo := setupTestDB(t)
-
-	mg, og := seedOccupationHierarchy(t, db, "MG", "1")
-
-	private := models.EmploymentSector{Sector: "Private"}
-	db.Create(&private)
-	government := models.EmploymentSector{Sector: "Government"}
-	db.Create(&government)
-
-	jobType := models.JobType{Type: "Full Time"}
-	db.Create(&jobType)
-	postedAt := time.Now().AddDate(0, 0, -5)
-
-	job1 := models.JobPost{JobTypeID: jobType.ID, JobRole: "Role 1", NoOfVacancies: 3}
-	db.Create(&job1)
-	db.Create(&models.JobMetaData{JobPostID: job1.ID, OccupationGroupID: og.ID, EmploymentSectorID: private.ID, PostedAt: postedAt})
-
-	job2 := models.JobPost{JobTypeID: jobType.ID, JobRole: "Role 2", NoOfVacancies: 2}
-	db.Create(&job2)
-	db.Create(&models.JobMetaData{JobPostID: job2.ID, OccupationGroupID: og.ID, EmploymentSectorID: private.ID, PostedAt: postedAt})
-
-	job3 := models.JobPost{JobTypeID: jobType.ID, JobRole: "Role 3", NoOfVacancies: 1}
-	db.Create(&job3)
-	db.Create(&models.JobMetaData{JobPostID: job3.ID, OccupationGroupID: og.ID, EmploymentSectorID: government.ID, PostedAt: postedAt})
-
-	fromDate := time.Now().AddDate(0, 0, -30)
-	toDate := time.Now()
-
-	results, err := repo.GetEmploymentSectorByLevel("occupation", "major-group", mg.ID, fromDate, toDate)
-	require.NoError(t, err)
-	require.Len(t, results, 2)
-
-	bySector := make(map[string]int64)
-	for _, r := range results {
-		bySector[r.Sector] = r.OpenJobCount
-	}
-	assert.Equal(t, int64(5), bySector["Private"])
-	assert.Equal(t, int64(1), bySector["Government"])
-}
-
-func TestGetEmploymentSectorByLevel_IncludesCategoryWithZeroMatchingJobs(t *testing.T) {
-	db, repo := setupTestDB(t)
-
-	mg, og := seedOccupationHierarchy(t, db, "MG", "1")
-
-	used := models.EmploymentSector{Sector: "Private"}
-	db.Create(&used)
-	unused := models.EmploymentSector{Sector: "NGO"}
-	db.Create(&unused)
-
-	jobType := models.JobType{Type: "Full Time"}
-	db.Create(&jobType)
-	postedAt := time.Now().AddDate(0, 0, -5)
-
-	job := models.JobPost{JobTypeID: jobType.ID, JobRole: "Role", NoOfVacancies: 4}
-	db.Create(&job)
-	db.Create(&models.JobMetaData{JobPostID: job.ID, OccupationGroupID: og.ID, EmploymentSectorID: used.ID, PostedAt: postedAt})
-
-	fromDate := time.Now().AddDate(0, 0, -30)
-	toDate := time.Now()
-
-	results, err := repo.GetEmploymentSectorByLevel("occupation", "major-group", mg.ID, fromDate, toDate)
-	require.NoError(t, err)
-	require.Len(t, results, 2, "a category with zero matching jobs should still appear, per the LEFT JOIN")
-
-	bySector := make(map[string]int64)
-	for _, r := range results {
-		bySector[r.Sector] = r.OpenJobCount
-	}
-	assert.Equal(t, int64(4), bySector["Private"])
-	assert.Equal(t, int64(0), bySector["NGO"])
-}
-
-func TestGetEmploymentSectorByLevel_ExcludesCategoryCreatedAfterRange(t *testing.T) {
-	db, repo := setupTestDB(t)
-
-	mg, _ := seedOccupationHierarchy(t, db, "MG", "1")
-
-	db.Create(&models.EmploymentSector{Sector: "Brand New Sector"})
-
-	fromDate := time.Now().AddDate(0, 0, -30)
-	toDate := time.Now().AddDate(0, 0, -1)
-
-	results, err := repo.GetEmploymentSectorByLevel("occupation", "major-group", mg.ID, fromDate, toDate)
-	require.NoError(t, err)
-
-	for _, r := range results {
-		assert.NotEqual(t, "Brand New Sector", r.Sector,
-			"a category created after the range's end date should not appear in a historical breakdown")
+	if updated.Name != "Senior Legislator" {
+		t.Fatalf("expected Name %q, got %q", "Senior Legislator", updated.Name)
 	}
 }
 
-func TestGetEmploymentSectorByLevel_IncludesCategoryDeletedDuringRange(t *testing.T) {
-	db, repo := setupTestDB(t)
+func TestJobRepository_DeleteOccupationGroup(t *testing.T) {
+	db := SetupTestDB(t)
+	repo := repositories.NewJobRepository(db)
+	unit := seedOccupationGroupChain(t, db)
+	seeded := models.OccupationGroup{UnitGroupID: unit.ID, Name: "Legislator", Code: "11111"}
+	db.Create(&seeded)
 
-	mg, og := seedOccupationHierarchy(t, db, "MG", "1")
+	if err := repo.DeleteOccupationGroup(seeded.ID); err != nil {
+		t.Fatalf("DeleteOccupationGroup returned error: %v", err)
+	}
 
-	sector := models.EmploymentSector{Sector: "Retiring Sector"}
+	var count int64
+	db.Model(&models.OccupationGroup{}).Where("id = ?", seeded.ID).Count(&count)
+	if count != 0 {
+		t.Fatalf("expected row to be deleted, got count %d", count)
+	}
+}
+
+// ================= IndustrySector =================
+
+func TestJobRepository_CreateIndustrySector(t *testing.T) {
+	db := SetupTestDB(t)
+	repo := repositories.NewJobRepository(db)
+
+	item := &models.IndustrySector{Name: "Agriculture", Code: "A"}
+	if err := repo.CreateIndustrySector(item); err != nil {
+		t.Fatalf("CreateIndustrySector returned error: %v", err)
+	}
+	if item.ID == 0 {
+		t.Fatalf("expected ID to be populated after create, got 0")
+	}
+}
+
+func TestJobRepository_GetAllIndustrySectors(t *testing.T) {
+	db := SetupTestDB(t)
+	repo := repositories.NewJobRepository(db)
+
+	db.Create(&models.IndustrySector{Name: "Agriculture", Code: "A"})
+	db.Create(&models.IndustrySector{Name: "Mining", Code: "B"})
+
+	items, err := repo.GetAllIndustrySectors()
+	if err != nil {
+		t.Fatalf("GetAllIndustrySectors returned error: %v", err)
+	}
+	if len(items) != 2 {
+		t.Fatalf("expected 2 items, got %d", len(items))
+	}
+}
+
+func TestJobRepository_GetIndustrySectorByID(t *testing.T) {
+	t.Run("existing ID returns the correct row", func(t *testing.T) {
+		db := SetupTestDB(t)
+		repo := repositories.NewJobRepository(db)
+
+		seeded := models.IndustrySector{Name: "Agriculture", Code: "A"}
+		db.Create(&seeded)
+
+		got, err := repo.GetIndustrySectorByID(seeded.ID)
+		if err != nil {
+			t.Fatalf("GetIndustrySectorByID returned error: %v", err)
+		}
+		if got.Name != "Agriculture" {
+			t.Fatalf("expected Name %q, got %q", "Agriculture", got.Name)
+		}
+	})
+
+	t.Run("non-existent ID returns gorm.ErrRecordNotFound", func(t *testing.T) {
+		db := SetupTestDB(t)
+		repo := repositories.NewJobRepository(db)
+
+		_, err := repo.GetIndustrySectorByID(999999)
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			t.Fatalf("expected gorm.ErrRecordNotFound, got: %v", err)
+		}
+	})
+}
+
+func TestJobRepository_UpdateIndustrySector(t *testing.T) {
+	db := SetupTestDB(t)
+	repo := repositories.NewJobRepository(db)
+
+	seeded := models.IndustrySector{Name: "Agriculture", Code: "A"}
+	db.Create(&seeded)
+
+	updated, err := repo.UpdateIndustrySector(seeded.ID, map[string]interface{}{"name": "Agri & Fisheries"})
+	if err != nil {
+		t.Fatalf("UpdateIndustrySector returned error: %v", err)
+	}
+	if updated.Name != "Agri & Fisheries" {
+		t.Fatalf("expected Name %q, got %q", "Agri & Fisheries", updated.Name)
+	}
+}
+
+func TestJobRepository_DeleteIndustrySector(t *testing.T) {
+	db := SetupTestDB(t)
+	repo := repositories.NewJobRepository(db)
+
+	seeded := models.IndustrySector{Name: "Agriculture", Code: "A"}
+	db.Create(&seeded)
+
+	if err := repo.DeleteIndustrySector(seeded.ID); err != nil {
+		t.Fatalf("DeleteIndustrySector returned error: %v", err)
+	}
+
+	var count int64
+	db.Model(&models.IndustrySector{}).Where("id = ?", seeded.ID).Count(&count)
+	if count != 0 {
+		t.Fatalf("expected row to be deleted, got count %d", count)
+	}
+}
+
+// ================= IndustryDivision (Preload("IndustrySector")) =================
+
+func TestJobRepository_CreateIndustryDivision(t *testing.T) {
+	db := SetupTestDB(t)
+	repo := repositories.NewJobRepository(db)
+	sector := models.IndustrySector{Name: "Agriculture", Code: "A"}
 	db.Create(&sector)
 
-	jobType := models.JobType{Type: "Full Time"}
-	db.Create(&jobType)
-	postedAt := time.Now().AddDate(0, 0, -5)
-	job := models.JobPost{JobTypeID: jobType.ID, JobRole: "Role", NoOfVacancies: 6}
-	db.Create(&job)
-	db.Create(&models.JobMetaData{JobPostID: job.ID, OccupationGroupID: og.ID, EmploymentSectorID: sector.ID, PostedAt: postedAt})
-
-	db.Delete(&sector) // deleted "today"
-
-	fromDate := time.Now().AddDate(0, 0, -10)
-	toDate := time.Now()
-
-	results, err := repo.GetEmploymentSectorByLevel("occupation", "major-group", mg.ID, fromDate, toDate)
-	require.NoError(t, err)
-
-	found := false
-	for _, r := range results {
-		if r.Sector == "Retiring Sector" {
-			found = true
-			assert.Equal(t, int64(6), r.OpenJobCount, "the historical count should still reflect the real postings made before deletion")
-		}
+	item := &models.IndustryDivision{IndustrySectorID: sector.ID, Name: "Crop Farming", Code: "01"}
+	if err := repo.CreateIndustryDivision(item); err != nil {
+		t.Fatalf("CreateIndustryDivision returned error: %v", err)
 	}
-	assert.True(t, found, "a category deleted mid-range should still appear, since it was active for part of the range")
+	if item.ID == 0 {
+		t.Fatalf("expected ID to be populated after create, got 0")
+	}
 }
 
-func TestGetEmploymentSectorByLevel_ExcludesCategoryDeletedBeforeRangeStarted(t *testing.T) {
-	db, repo := setupTestDB(t)
-
-	mg, _ := seedOccupationHierarchy(t, db, "MG", "1")
-
-	sector := models.EmploymentSector{Sector: "Long Gone Sector"}
+func TestJobRepository_GetAllIndustryDivisions(t *testing.T) {
+	db := SetupTestDB(t)
+	repo := repositories.NewJobRepository(db)
+	sector := models.IndustrySector{Name: "Agriculture", Code: "A"}
 	db.Create(&sector)
-	db.Delete(&sector) // deleted "today"
+	db.Create(&models.IndustryDivision{IndustrySectorID: sector.ID, Name: "Crop Farming", Code: "01"})
 
-	fromDate := time.Now().AddDate(0, 0, 1)
-	toDate := time.Now().AddDate(0, 0, 10)
-
-	results, err := repo.GetEmploymentSectorByLevel("occupation", "major-group", mg.ID, fromDate, toDate)
-	require.NoError(t, err)
-
-	for _, r := range results {
-		assert.NotEqual(t, "Long Gone Sector", r.Sector,
-			"a category already deleted before the range started should not appear")
+	items, err := repo.GetAllIndustryDivisions()
+	if err != nil {
+		t.Fatalf("GetAllIndustryDivisions returned error: %v", err)
+	}
+	if len(items) != 1 {
+		t.Fatalf("expected 1 item, got %d", len(items))
+	}
+	if items[0].IndustrySector == nil || items[0].IndustrySector.Name != "Agriculture" {
+		t.Fatalf("expected preloaded IndustrySector.Name %q, got %+v", "Agriculture", items[0].IndustrySector)
 	}
 }
 
-func TestGetEmploymentSectorByLevel_IncludesCategoryDeletedOnSameDayAsFromDate(t *testing.T) {
-	db, repo := setupTestDB(t)
+func TestJobRepository_GetIndustryDivisionByID(t *testing.T) {
+	t.Run("existing ID returns the row with IndustrySector preloaded", func(t *testing.T) {
+		db := SetupTestDB(t)
+		repo := repositories.NewJobRepository(db)
+		sector := models.IndustrySector{Name: "Agriculture", Code: "A"}
+		db.Create(&sector)
+		seeded := models.IndustryDivision{IndustrySectorID: sector.ID, Name: "Crop Farming", Code: "01"}
+		db.Create(&seeded)
 
-	mg, _ := seedOccupationHierarchy(t, db, "MG", "1")
+		got, err := repo.GetIndustryDivisionByID(seeded.ID)
+		if err != nil {
+			t.Fatalf("GetIndustryDivisionByID returned error: %v", err)
+		}
+		if got.IndustrySector == nil || got.IndustrySector.Name != "Agriculture" {
+			t.Fatalf("expected preloaded IndustrySector.Name %q, got %+v", "Agriculture", got.IndustrySector)
+		}
+	})
 
-	sector := models.EmploymentSector{Sector: "Same Day Deletion"}
+	t.Run("non-existent ID returns gorm.ErrRecordNotFound", func(t *testing.T) {
+		db := SetupTestDB(t)
+		repo := repositories.NewJobRepository(db)
+
+		_, err := repo.GetIndustryDivisionByID(999999)
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			t.Fatalf("expected gorm.ErrRecordNotFound, got: %v", err)
+		}
+	})
+}
+
+func TestJobRepository_UpdateIndustryDivision(t *testing.T) {
+	db := SetupTestDB(t)
+	repo := repositories.NewJobRepository(db)
+	sector := models.IndustrySector{Name: "Agriculture", Code: "A"}
 	db.Create(&sector)
-	db.Delete(&sector) // deleted right now
+	seeded := models.IndustryDivision{IndustrySectorID: sector.ID, Name: "Crop Farming", Code: "01"}
+	db.Create(&seeded)
 
-	fromDate := time.Now().Truncate(24 * time.Hour) // midnight today
-	toDate := time.Now().AddDate(0, 0, 5)
-
-	results, err := repo.GetEmploymentSectorByLevel("occupation", "major-group", mg.ID, fromDate, toDate)
-	require.NoError(t, err)
-
-	found := false
-	for _, r := range results {
-		if r.Sector == "Same Day Deletion" {
-			found = true
-		}
+	updated, err := repo.UpdateIndustryDivision(seeded.ID, map[string]interface{}{"name": "Arable Farming"})
+	if err != nil {
+		t.Fatalf("UpdateIndustryDivision returned error: %v", err)
 	}
-	assert.True(t, found, "a category deleted on the same day the range starts should still appear for that day")
+	if updated.Name != "Arable Farming" {
+		t.Fatalf("expected Name %q, got %q", "Arable Farming", updated.Name)
+	}
 }
 
-func TestGetEmploymentSectorByLevel_ExcludesJobsUnderDifferentMajorGroup(t *testing.T) {
-	db, repo := setupTestDB(t)
-
-	mgTarget, _ := seedOccupationHierarchy(t, db, "Target MG", "1")
-	_, ogOther := seedOccupationHierarchy(t, db, "Other MG", "2")
-
-	sector := models.EmploymentSector{Sector: "Private"}
+func TestJobRepository_DeleteIndustryDivision(t *testing.T) {
+	db := SetupTestDB(t)
+	repo := repositories.NewJobRepository(db)
+	sector := models.IndustrySector{Name: "Agriculture", Code: "A"}
 	db.Create(&sector)
+	seeded := models.IndustryDivision{IndustrySectorID: sector.ID, Name: "Crop Farming", Code: "01"}
+	db.Create(&seeded)
 
-	jobType := models.JobType{Type: "Full Time"}
-	db.Create(&jobType)
-	postedAt := time.Now().AddDate(0, 0, -5)
-	job := models.JobPost{JobTypeID: jobType.ID, JobRole: "Other Role", NoOfVacancies: 7}
-	db.Create(&job)
-	db.Create(&models.JobMetaData{JobPostID: job.ID, OccupationGroupID: ogOther.ID, EmploymentSectorID: sector.ID, PostedAt: postedAt})
-
-	fromDate := time.Now().AddDate(0, 0, -30)
-	toDate := time.Now()
-
-	results, err := repo.GetEmploymentSectorByLevel("occupation", "major-group", mgTarget.ID, fromDate, toDate)
-	require.NoError(t, err)
-	require.Len(t, results, 1, "the employment sector category itself still appears since it exists in the table")
-	assert.Equal(t, int64(0), results[0].OpenJobCount, "a job posted under a different major group must not count toward this one")
-}
-
-func TestGetEmploymentSectorByLevel_InvalidStandardReturnsError(t *testing.T) {
-	_, repo := setupTestDB(t)
-
-	_, err := repo.GetEmploymentSectorByLevel("not-a-real-standard", "major-group", 1, time.Now().AddDate(0, 0, -10), time.Now())
-	assert.Error(t, err)
-}
-
-func TestGetOccupationJobCountByDateRange_SumsVacanciesPerMajorGroup(t *testing.T) {
-	db, repo := setupTestDB(t)
-
-	mgA, ogA := seedOccupationHierarchy(t, db, "Group A", "1")
-	mgB, ogB := seedOccupationHierarchy(t, db, "Group B", "2")
-
-	jobType := models.JobType{Type: "Full Time"}
-	db.Create(&jobType)
-	postedAt := time.Now().AddDate(0, 0, -5)
-
-	job1 := models.JobPost{JobTypeID: jobType.ID, JobRole: "Role 1", NoOfVacancies: 3}
-	db.Create(&job1)
-	db.Create(&models.JobMetaData{JobPostID: job1.ID, OccupationGroupID: ogA.ID, PostedAt: postedAt})
-
-	job2 := models.JobPost{JobTypeID: jobType.ID, JobRole: "Role 2", NoOfVacancies: 2}
-	db.Create(&job2)
-	db.Create(&models.JobMetaData{JobPostID: job2.ID, OccupationGroupID: ogA.ID, PostedAt: postedAt})
-
-	job3 := models.JobPost{JobTypeID: jobType.ID, JobRole: "Role 3", NoOfVacancies: 1}
-	db.Create(&job3)
-	db.Create(&models.JobMetaData{JobPostID: job3.ID, OccupationGroupID: ogB.ID, PostedAt: postedAt})
-
-	fromDate := time.Now().AddDate(0, 0, -30)
-	toDate := time.Now()
-
-	results, err := repo.GetOccupationJobCountByDateRange(fromDate, toDate)
-	require.NoError(t, err)
-	require.Len(t, results, 2)
-
-	byName := make(map[string]int64)
-	for _, r := range results {
-		byName[r.Name] = r.OpenJobCount
+	if err := repo.DeleteIndustryDivision(seeded.ID); err != nil {
+		t.Fatalf("DeleteIndustryDivision returned error: %v", err)
 	}
-	assert.Equal(t, int64(5), byName[mgA.Name])
-	assert.Equal(t, int64(1), byName[mgB.Name])
-}
 
-func TestGetOccupationJobCountByDateRange_IncludesGroupWithZeroMatchingJobs(t *testing.T) {
-	db, repo := setupTestDB(t)
-
-	usedMg, usedOg := seedOccupationHierarchy(t, db, "Used Group", "1")
-	unusedMg, _ := seedOccupationHierarchy(t, db, "Unused Group", "2")
-
-	jobType := models.JobType{Type: "Full Time"}
-	db.Create(&jobType)
-	postedAt := time.Now().AddDate(0, 0, -5)
-
-	job := models.JobPost{JobTypeID: jobType.ID, JobRole: "Role", NoOfVacancies: 4}
-	db.Create(&job)
-	db.Create(&models.JobMetaData{JobPostID: job.ID, OccupationGroupID: usedOg.ID, PostedAt: postedAt})
-
-	fromDate := time.Now().AddDate(0, 0, -30)
-	toDate := time.Now()
-
-	results, err := repo.GetOccupationJobCountByDateRange(fromDate, toDate)
-	require.NoError(t, err)
-	require.Len(t, results, 2, "a major group with zero matching jobs should still appear, per the LEFT JOIN")
-
-	byName := make(map[string]int64)
-	for _, r := range results {
-		byName[r.Name] = r.OpenJobCount
-	}
-	assert.Equal(t, int64(4), byName[usedMg.Name])
-	assert.Equal(t, int64(0), byName[unusedMg.Name])
-}
-
-func TestGetOccupationJobCountByDateRange_ExcludesGroupCreatedAfterRange(t *testing.T) {
-	db, repo := setupTestDB(t)
-
-	_, _ = seedOccupationHierarchy(t, db, "Existing Group", "1")
-	db.Create(&models.MajorGroup{Name: "Brand New Group", Code: "99"})
-
-	fromDate := time.Now().AddDate(0, 0, -30)
-	toDate := time.Now().AddDate(0, 0, -1)
-
-	results, err := repo.GetOccupationJobCountByDateRange(fromDate, toDate)
-	require.NoError(t, err)
-
-	for _, r := range results {
-		assert.NotEqual(t, "Brand New Group", r.Name,
-			"a major group created after the range's end date should not appear in a historical report")
+	var count int64
+	db.Model(&models.IndustryDivision{}).Where("id = ?", seeded.ID).Count(&count)
+	if count != 0 {
+		t.Fatalf("expected row to be deleted, got count %d", count)
 	}
 }
 
-func TestGetOccupationJobCountByDateRange_IncludesGroupDeletedDuringRange(t *testing.T) {
-	db, repo := setupTestDB(t)
+// ================= IndustryGroup (Preload("IndustryDivision")) =================
 
-	mg, og := seedOccupationHierarchy(t, db, "Retiring Group", "1")
+func seedIndustryGroupChain(t *testing.T, db *gorm.DB) models.IndustryDivision {
+	t.Helper()
+	sector := models.IndustrySector{Name: "Agriculture", Code: "A"}
+	db.Create(&sector)
+	division := models.IndustryDivision{IndustrySectorID: sector.ID, Name: "Crop Farming", Code: "01"}
+	db.Create(&division)
+	return division
+}
 
-	jobType := models.JobType{Type: "Full Time"}
-	db.Create(&jobType)
-	postedAt := time.Now().AddDate(0, 0, -5)
-	job := models.JobPost{JobTypeID: jobType.ID, JobRole: "Role", NoOfVacancies: 6}
-	db.Create(&job)
-	db.Create(&models.JobMetaData{JobPostID: job.ID, OccupationGroupID: og.ID, PostedAt: postedAt})
+func TestJobRepository_CreateIndustryGroup(t *testing.T) {
+	db := SetupTestDB(t)
+	repo := repositories.NewJobRepository(db)
+	division := seedIndustryGroupChain(t, db)
 
-	db.Delete(&mg) // deleted "today"
+	item := &models.IndustryGroup{IndustryDivisionID: division.ID, Name: "Cereal Growing", Code: "011"}
+	if err := repo.CreateIndustryGroup(item); err != nil {
+		t.Fatalf("CreateIndustryGroup returned error: %v", err)
+	}
+	if item.ID == 0 {
+		t.Fatalf("expected ID to be populated after create, got 0")
+	}
+}
 
-	fromDate := time.Now().AddDate(0, 0, -10)
-	toDate := time.Now()
+func TestJobRepository_GetAllIndustryGroups(t *testing.T) {
+	db := SetupTestDB(t)
+	repo := repositories.NewJobRepository(db)
+	division := seedIndustryGroupChain(t, db)
+	db.Create(&models.IndustryGroup{IndustryDivisionID: division.ID, Name: "Cereal Growing", Code: "011"})
 
-	results, err := repo.GetOccupationJobCountByDateRange(fromDate, toDate)
-	require.NoError(t, err)
+	items, err := repo.GetAllIndustryGroups()
+	if err != nil {
+		t.Fatalf("GetAllIndustryGroups returned error: %v", err)
+	}
+	if len(items) != 1 {
+		t.Fatalf("expected 1 item, got %d", len(items))
+	}
+	if items[0].IndustryDivision == nil || items[0].IndustryDivision.Name != "Crop Farming" {
+		t.Fatalf("expected preloaded IndustryDivision.Name %q, got %+v", "Crop Farming", items[0].IndustryDivision)
+	}
+}
 
-	found := false
-	for _, r := range results {
-		if r.Name == "Retiring Group" {
-			found = true
-			assert.Equal(t, int64(6), r.OpenJobCount, "the historical count should still reflect the real postings made before deletion")
+func TestJobRepository_GetIndustryGroupByID(t *testing.T) {
+	t.Run("existing ID returns the row with IndustryDivision preloaded", func(t *testing.T) {
+		db := SetupTestDB(t)
+		repo := repositories.NewJobRepository(db)
+		division := seedIndustryGroupChain(t, db)
+		seeded := models.IndustryGroup{IndustryDivisionID: division.ID, Name: "Cereal Growing", Code: "011"}
+		db.Create(&seeded)
+
+		got, err := repo.GetIndustryGroupByID(seeded.ID)
+		if err != nil {
+			t.Fatalf("GetIndustryGroupByID returned error: %v", err)
 		}
-	}
-	assert.True(t, found, "a major group deleted mid-range should still appear, since it was active for part of the range")
-}
-
-func TestGetOccupationJobCountByDateRange_ExcludesGroupDeletedBeforeRangeStarted(t *testing.T) {
-	db, repo := setupTestDB(t)
-
-	mg, _ := seedOccupationHierarchy(t, db, "Long Gone Group", "1")
-	db.Delete(&mg) // deleted "today"
-
-	fromDate := time.Now().AddDate(0, 0, 1)
-	toDate := time.Now().AddDate(0, 0, 10)
-
-	results, err := repo.GetOccupationJobCountByDateRange(fromDate, toDate)
-	require.NoError(t, err)
-
-	for _, r := range results {
-		assert.NotEqual(t, "Long Gone Group", r.Name,
-			"a major group already deleted before the range started should not appear")
-	}
-}
-
-func TestGetOccupationJobCountByDateRange_IncludesGroupDeletedOnSameDayAsFromDate(t *testing.T) {
-	db, repo := setupTestDB(t)
-
-	mg, _ := seedOccupationHierarchy(t, db, "Same Day Deletion", "1")
-	db.Delete(&mg) // deleted right now
-
-	fromDate := time.Now().Truncate(24 * time.Hour) // midnight today
-	toDate := time.Now().AddDate(0, 0, 5)
-
-	results, err := repo.GetOccupationJobCountByDateRange(fromDate, toDate)
-	require.NoError(t, err)
-
-	found := false
-	for _, r := range results {
-		if r.Name == "Same Day Deletion" {
-			found = true
+		if got.IndustryDivision == nil || got.IndustryDivision.Name != "Crop Farming" {
+			t.Fatalf("expected preloaded IndustryDivision.Name %q, got %+v", "Crop Farming", got.IndustryDivision)
 		}
+	})
+
+	t.Run("non-existent ID returns gorm.ErrRecordNotFound", func(t *testing.T) {
+		db := SetupTestDB(t)
+		repo := repositories.NewJobRepository(db)
+
+		_, err := repo.GetIndustryGroupByID(999999)
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			t.Fatalf("expected gorm.ErrRecordNotFound, got: %v", err)
+		}
+	})
+}
+
+func TestJobRepository_UpdateIndustryGroup(t *testing.T) {
+	db := SetupTestDB(t)
+	repo := repositories.NewJobRepository(db)
+	division := seedIndustryGroupChain(t, db)
+	seeded := models.IndustryGroup{IndustryDivisionID: division.ID, Name: "Cereal Growing", Code: "011"}
+	db.Create(&seeded)
+
+	updated, err := repo.UpdateIndustryGroup(seeded.ID, map[string]interface{}{"name": "Grain Growing"})
+	if err != nil {
+		t.Fatalf("UpdateIndustryGroup returned error: %v", err)
 	}
-	assert.True(t, found, "a major group deleted on the same day the range starts should still appear for that day")
+	if updated.Name != "Grain Growing" {
+		t.Fatalf("expected Name %q, got %q", "Grain Growing", updated.Name)
+	}
 }
 
-func TestGetOccupationJobCountByDateRange_ExcludesJobsOutsideDateRange(t *testing.T) {
-	db, repo := setupTestDB(t)
+func TestJobRepository_DeleteIndustryGroup(t *testing.T) {
+	db := SetupTestDB(t)
+	repo := repositories.NewJobRepository(db)
+	division := seedIndustryGroupChain(t, db)
+	seeded := models.IndustryGroup{IndustryDivisionID: division.ID, Name: "Cereal Growing", Code: "011"}
+	db.Create(&seeded)
 
-	mg, og := seedOccupationHierarchy(t, db, "Group", "1")
+	if err := repo.DeleteIndustryGroup(seeded.ID); err != nil {
+		t.Fatalf("DeleteIndustryGroup returned error: %v", err)
+	}
 
-	jobType := models.JobType{Type: "Full Time"}
-	db.Create(&jobType)
-
-	oldPostedAt := time.Now().AddDate(0, 0, -100)
-	job := models.JobPost{JobTypeID: jobType.ID, JobRole: "Old Role", NoOfVacancies: 9}
-	db.Create(&job)
-	db.Create(&models.JobMetaData{JobPostID: job.ID, OccupationGroupID: og.ID, PostedAt: oldPostedAt})
-
-	fromDate := time.Now().AddDate(0, 0, -10)
-	toDate := time.Now()
-
-	results, err := repo.GetOccupationJobCountByDateRange(fromDate, toDate)
-	require.NoError(t, err)
-	require.Len(t, results, 1, "the major group row still appears, per the LEFT JOIN behavior")
-	assert.Equal(t, int64(0), results[0].OpenJobCount, "a job posted outside the range should not contribute to the count")
-	assert.Equal(t, mg.Name, results[0].Name)
+	var count int64
+	db.Model(&models.IndustryGroup{}).Where("id = ?", seeded.ID).Count(&count)
+	if count != 0 {
+		t.Fatalf("expected row to be deleted, got count %d", count)
+	}
 }
 
-func TestGetOccupationJobCountByDateRange_NoMajorGroupsReturnsEmptySlice(t *testing.T) {
-	_, repo := setupTestDB(t)
+// ================= IndustryClass (Preload("IndustryGroup")) =================
 
-	fromDate := time.Now().AddDate(0, 0, -30)
-	toDate := time.Now()
-
-	results, err := repo.GetOccupationJobCountByDateRange(fromDate, toDate)
-	require.NoError(t, err)
-	assert.Empty(t, results)
+func seedIndustryClassChain(t *testing.T, db *gorm.DB) models.IndustryGroup {
+	t.Helper()
+	division := seedIndustryGroupChain(t, db)
+	group := models.IndustryGroup{IndustryDivisionID: division.ID, Name: "Cereal Growing", Code: "011"}
+	db.Create(&group)
+	return group
 }
 
-func TestGetTotalVacancyCount_SumsVacanciesAcrossAllMatchingJobs(t *testing.T) {
-	db, repo := setupTestDB(t)
+func TestJobRepository_CreateIndustryClass(t *testing.T) {
+	db := SetupTestDB(t)
+	repo := repositories.NewJobRepository(db)
+	group := seedIndustryClassChain(t, db)
 
-	jobType := models.JobType{Type: "Full Time"}
-	db.Create(&jobType)
-	postedAt := time.Now().AddDate(0, 0, -5)
-
-	job1 := models.JobPost{JobTypeID: jobType.ID, JobRole: "Role 1", NoOfVacancies: 3}
-	db.Create(&job1)
-	db.Create(&models.JobMetaData{JobPostID: job1.ID, PostedAt: postedAt})
-
-	job2 := models.JobPost{JobTypeID: jobType.ID, JobRole: "Role 2", NoOfVacancies: 7}
-	db.Create(&job2)
-	db.Create(&models.JobMetaData{JobPostID: job2.ID, PostedAt: postedAt})
-
-	fromDate := time.Now().AddDate(0, 0, -30)
-	toDate := time.Now()
-
-	total, err := repo.GetTotalVacancyCount(fromDate, toDate)
-	require.NoError(t, err)
-	assert.Equal(t, int64(10), total)
+	item := &models.IndustryClass{IndustryGroupID: group.ID, Name: "Rice Growing", Code: "0111"}
+	if err := repo.CreateIndustryClass(item); err != nil {
+		t.Fatalf("CreateIndustryClass returned error: %v", err)
+	}
+	if item.ID == 0 {
+		t.Fatalf("expected ID to be populated after create, got 0")
+	}
 }
 
-func TestGetTotalVacancyCount_ExcludesJobsOutsideDateRange(t *testing.T) {
-	db, repo := setupTestDB(t)
+func TestJobRepository_GetAllIndustryClasses(t *testing.T) {
+	db := SetupTestDB(t)
+	repo := repositories.NewJobRepository(db)
+	group := seedIndustryClassChain(t, db)
+	db.Create(&models.IndustryClass{IndustryGroupID: group.ID, Name: "Rice Growing", Code: "0111"})
 
-	jobType := models.JobType{Type: "Full Time"}
-	db.Create(&jobType)
-
-	insideRange := time.Now().AddDate(0, 0, -5)
-	outsideRange := time.Now().AddDate(0, 0, -100)
-
-	jobInside := models.JobPost{JobTypeID: jobType.ID, JobRole: "Inside", NoOfVacancies: 4}
-	db.Create(&jobInside)
-	db.Create(&models.JobMetaData{JobPostID: jobInside.ID, PostedAt: insideRange})
-
-	jobOutside := models.JobPost{JobTypeID: jobType.ID, JobRole: "Outside", NoOfVacancies: 100}
-	db.Create(&jobOutside)
-	db.Create(&models.JobMetaData{JobPostID: jobOutside.ID, PostedAt: outsideRange})
-
-	fromDate := time.Now().AddDate(0, 0, -10)
-	toDate := time.Now()
-
-	total, err := repo.GetTotalVacancyCount(fromDate, toDate)
-	require.NoError(t, err)
-	assert.Equal(t, int64(4), total, "a job posted well outside the range should not contribute to the total")
+	items, err := repo.GetAllIndustryClasses()
+	if err != nil {
+		t.Fatalf("GetAllIndustryClasses returned error: %v", err)
+	}
+	if len(items) != 1 {
+		t.Fatalf("expected 1 item, got %d", len(items))
+	}
+	if items[0].IndustryGroup == nil || items[0].IndustryGroup.Name != "Cereal Growing" {
+		t.Fatalf("expected preloaded IndustryGroup.Name %q, got %+v", "Cereal Growing", items[0].IndustryGroup)
+	}
 }
 
-func TestGetTotalVacancyCount_IncludesJobsOnBothBoundaryDates(t *testing.T) {
-	db, repo := setupTestDB(t)
+func TestJobRepository_GetIndustryClassByID(t *testing.T) {
+	t.Run("existing ID returns the row with IndustryGroup preloaded", func(t *testing.T) {
+		db := SetupTestDB(t)
+		repo := repositories.NewJobRepository(db)
+		group := seedIndustryClassChain(t, db)
+		seeded := models.IndustryClass{IndustryGroupID: group.ID, Name: "Rice Growing", Code: "0111"}
+		db.Create(&seeded)
 
-	jobType := models.JobType{Type: "Full Time"}
-	db.Create(&jobType)
+		got, err := repo.GetIndustryClassByID(seeded.ID)
+		if err != nil {
+			t.Fatalf("GetIndustryClassByID returned error: %v", err)
+		}
+		if got.IndustryGroup == nil || got.IndustryGroup.Name != "Cereal Growing" {
+			t.Fatalf("expected preloaded IndustryGroup.Name %q, got %+v", "Cereal Growing", got.IndustryGroup)
+		}
+	})
 
-	fromDate := time.Now().AddDate(0, 0, -10)
-	toDate := time.Now()
+	t.Run("non-existent ID returns gorm.ErrRecordNotFound", func(t *testing.T) {
+		db := SetupTestDB(t)
+		repo := repositories.NewJobRepository(db)
 
-	// One job posted exactly on fromDate, one exactly on toDate - both
-	// boundaries are inclusive per the BETWEEN clause.
-	jobOnFrom := models.JobPost{JobTypeID: jobType.ID, JobRole: "On From", NoOfVacancies: 2}
-	db.Create(&jobOnFrom)
-	db.Create(&models.JobMetaData{JobPostID: jobOnFrom.ID, PostedAt: fromDate})
-
-	jobOnTo := models.JobPost{JobTypeID: jobType.ID, JobRole: "On To", NoOfVacancies: 3}
-	db.Create(&jobOnTo)
-	db.Create(&models.JobMetaData{JobPostID: jobOnTo.ID, PostedAt: toDate})
-
-	total, err := repo.GetTotalVacancyCount(fromDate, toDate)
-	require.NoError(t, err)
-	assert.Equal(t, int64(5), total, "jobs posted exactly on either boundary date should be included")
+		_, err := repo.GetIndustryClassByID(999999)
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			t.Fatalf("expected gorm.ErrRecordNotFound, got: %v", err)
+		}
+	})
 }
 
-func TestGetTotalVacancyCount_NoMatchingJobsReturnsZero(t *testing.T) {
-	_, repo := setupTestDB(t)
+func TestJobRepository_UpdateIndustryClass(t *testing.T) {
+	db := SetupTestDB(t)
+	repo := repositories.NewJobRepository(db)
+	group := seedIndustryClassChain(t, db)
+	seeded := models.IndustryClass{IndustryGroupID: group.ID, Name: "Rice Growing", Code: "0111"}
+	db.Create(&seeded)
 
-	fromDate := time.Now().AddDate(0, 0, -30)
-	toDate := time.Now()
+	updated, err := repo.UpdateIndustryClass(seeded.ID, map[string]interface{}{"name": "Paddy Growing"})
+	if err != nil {
+		t.Fatalf("UpdateIndustryClass returned error: %v", err)
+	}
+	if updated.Name != "Paddy Growing" {
+		t.Fatalf("expected Name %q, got %q", "Paddy Growing", updated.Name)
+	}
+}
 
-	total, err := repo.GetTotalVacancyCount(fromDate, toDate)
-	require.NoError(t, err)
-	assert.Equal(t, int64(0), total, "with no matching jobs at all, the total should be 0, not an error or a null-derived panic")
+func TestJobRepository_DeleteIndustryClass(t *testing.T) {
+	db := SetupTestDB(t)
+	repo := repositories.NewJobRepository(db)
+	group := seedIndustryClassChain(t, db)
+	seeded := models.IndustryClass{IndustryGroupID: group.ID, Name: "Rice Growing", Code: "0111"}
+	db.Create(&seeded)
+
+	if err := repo.DeleteIndustryClass(seeded.ID); err != nil {
+		t.Fatalf("DeleteIndustryClass returned error: %v", err)
+	}
+
+	var count int64
+	db.Model(&models.IndustryClass{}).Where("id = ?", seeded.ID).Count(&count)
+	if count != 0 {
+		t.Fatalf("expected row to be deleted, got count %d", count)
+	}
+}
+
+// ================= IndustrySubclass (Preload("IndustryClass") + limit/offset/total) =================
+
+func seedIndustrySubclassChain(t *testing.T, db *gorm.DB) models.IndustryClass {
+	t.Helper()
+	group := seedIndustryClassChain(t, db)
+	class := models.IndustryClass{IndustryGroupID: group.ID, Name: "Rice Growing", Code: "0111"}
+	db.Create(&class)
+	return class
+}
+
+func TestJobRepository_CreateIndustrySubclass(t *testing.T) {
+	db := SetupTestDB(t)
+	repo := repositories.NewJobRepository(db)
+	class := seedIndustrySubclassChain(t, db)
+
+	item := &models.IndustrySubclass{IndustryClassID: class.ID, Name: "Rice Milling", Code: "01111"}
+	if err := repo.CreateIndustrySubclass(item); err != nil {
+		t.Fatalf("CreateIndustrySubclass returned error: %v", err)
+	}
+	if item.ID == 0 {
+		t.Fatalf("expected ID to be populated after create, got 0")
+	}
+}
+
+func TestJobRepository_GetAllIndustrySubclasses(t *testing.T) {
+	t.Run("total reflects all rows regardless of limit", func(t *testing.T) {
+		db := SetupTestDB(t)
+		repo := repositories.NewJobRepository(db)
+		class := seedIndustrySubclassChain(t, db)
+		for i := 0; i < 5; i++ {
+			db.Create(&models.IndustrySubclass{IndustryClassID: class.ID, Name: "Subclass", Code: "X"})
+		}
+
+		items, total, err := repo.GetAllIndustrySubclasses(2, 0)
+		if err != nil {
+			t.Fatalf("GetAllIndustrySubclasses returned error: %v", err)
+		}
+		if total != 5 {
+			t.Fatalf("expected total 5, got %d", total)
+		}
+		if len(items) != 2 {
+			t.Fatalf("expected 2 items with limit=2, got %d", len(items))
+		}
+	})
+
+	t.Run("offset skips the correct number of rows, ordered by id", func(t *testing.T) {
+		db := SetupTestDB(t)
+		repo := repositories.NewJobRepository(db)
+		class := seedIndustrySubclassChain(t, db)
+		var seeded []models.IndustrySubclass
+		for i := 0; i < 3; i++ {
+			s := models.IndustrySubclass{IndustryClassID: class.ID, Name: "Subclass", Code: "X"}
+			db.Create(&s)
+			seeded = append(seeded, s)
+		}
+
+		items, _, err := repo.GetAllIndustrySubclasses(0, 2)
+		if err != nil {
+			t.Fatalf("GetAllIndustrySubclasses returned error: %v", err)
+		}
+		if len(items) != 1 {
+			t.Fatalf("expected 1 item after offsetting past 2 of 3, got %d", len(items))
+		}
+		if items[0].ID != seeded[2].ID {
+			t.Fatalf("expected remaining item to be the 3rd seeded row (id %d), got id %d", seeded[2].ID, items[0].ID)
+		}
+	})
+
+	t.Run("IndustryClass is preloaded on each item", func(t *testing.T) {
+		db := SetupTestDB(t)
+		repo := repositories.NewJobRepository(db)
+		class := seedIndustrySubclassChain(t, db)
+		db.Create(&models.IndustrySubclass{IndustryClassID: class.ID, Name: "Rice Milling", Code: "01111"})
+
+		items, _, err := repo.GetAllIndustrySubclasses(0, 0)
+		if err != nil {
+			t.Fatalf("GetAllIndustrySubclasses returned error: %v", err)
+		}
+		if len(items) != 1 || items[0].IndustryClass == nil || items[0].IndustryClass.Name != "Rice Growing" {
+			t.Fatalf("expected preloaded IndustryClass.Name %q, got %+v", "Rice Growing", items)
+		}
+	})
+}
+
+func TestJobRepository_GetIndustrySubclassByID(t *testing.T) {
+	t.Run("existing ID returns the row with IndustryClass preloaded", func(t *testing.T) {
+		db := SetupTestDB(t)
+		repo := repositories.NewJobRepository(db)
+		class := seedIndustrySubclassChain(t, db)
+		seeded := models.IndustrySubclass{IndustryClassID: class.ID, Name: "Rice Milling", Code: "01111"}
+		db.Create(&seeded)
+
+		got, err := repo.GetIndustrySubclassByID(seeded.ID)
+		if err != nil {
+			t.Fatalf("GetIndustrySubclassByID returned error: %v", err)
+		}
+		if got.IndustryClass == nil || got.IndustryClass.Name != "Rice Growing" {
+			t.Fatalf("expected preloaded IndustryClass.Name %q, got %+v", "Rice Growing", got.IndustryClass)
+		}
+	})
+
+	t.Run("non-existent ID returns gorm.ErrRecordNotFound", func(t *testing.T) {
+		db := SetupTestDB(t)
+		repo := repositories.NewJobRepository(db)
+
+		_, err := repo.GetIndustrySubclassByID(999999)
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			t.Fatalf("expected gorm.ErrRecordNotFound, got: %v", err)
+		}
+	})
+}
+
+func TestJobRepository_UpdateIndustrySubclass(t *testing.T) {
+	db := SetupTestDB(t)
+	repo := repositories.NewJobRepository(db)
+	class := seedIndustrySubclassChain(t, db)
+	seeded := models.IndustrySubclass{IndustryClassID: class.ID, Name: "Rice Milling", Code: "01111"}
+	db.Create(&seeded)
+
+	updated, err := repo.UpdateIndustrySubclass(seeded.ID, map[string]interface{}{"name": "Paddy Milling"})
+	if err != nil {
+		t.Fatalf("UpdateIndustrySubclass returned error: %v", err)
+	}
+	if updated.Name != "Paddy Milling" {
+		t.Fatalf("expected Name %q, got %q", "Paddy Milling", updated.Name)
+	}
+}
+
+func TestJobRepository_DeleteIndustrySubclass(t *testing.T) {
+	db := SetupTestDB(t)
+	repo := repositories.NewJobRepository(db)
+	class := seedIndustrySubclassChain(t, db)
+	seeded := models.IndustrySubclass{IndustryClassID: class.ID, Name: "Rice Milling", Code: "01111"}
+	db.Create(&seeded)
+
+	if err := repo.DeleteIndustrySubclass(seeded.ID); err != nil {
+		t.Fatalf("DeleteIndustrySubclass returned error: %v", err)
+	}
+
+	var count int64
+	db.Model(&models.IndustrySubclass{}).Where("id = ?", seeded.ID).Count(&count)
+	if count != 0 {
+		t.Fatalf("expected row to be deleted, got count %d", count)
+	}
 }
