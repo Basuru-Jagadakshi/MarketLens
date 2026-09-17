@@ -60,7 +60,7 @@ export interface FormalityStat { id: number; formality_type: string; open_job_co
 export interface GenderStat { id: number; gender_type: string; open_job_count: number; }
 export interface VocationalEducationStat { id: number; level: string; open_job_count: number; }
 export interface JobTypeStat { id: number; type: string; open_job_count: number; }
-export interface RemoteOnSiteStat { remote_count: number; on_site_count: number; }
+export interface RemoteOnSiteHybridStat { remote_count: number; on_site_count: number; hybrid_count: number; }
 
 export interface OccupationAnalysisResponse {
   standard: string;
@@ -77,7 +77,7 @@ export interface OccupationAnalysisResponse {
   formality: { formalities: FormalityStat[] };
   gender: { genders: GenderStat[] };
   vocational_education: { vocational_educations: VocationalEducationStat[] };
-  remote_onsite: { remote_vs_onsite: RemoteOnSiteStat };
+  remote_onsite_hybrid: { remote_vs_onsite_vs_hybrid: RemoteOnSiteHybridStat };
   job_type: { job_types: JobTypeStat[] };
 }
 

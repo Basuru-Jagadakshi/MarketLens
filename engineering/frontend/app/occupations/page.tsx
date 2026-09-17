@@ -409,11 +409,12 @@ function OccupationAnalysis() {
     [analysis],
   );
   const remoteData = useMemo(() => {
-    const r = analysis?.remote_onsite.remote_vs_onsite;
+    const r = analysis?.remote_onsite_hybrid.remote_vs_onsite_vs_hybrid;
     if (!r) return [];
     return [
       { name: "On-Site", value: r.on_site_count },
       { name: "Remote", value: r.remote_count },
+      { name: "Hybrid", value: r.hybrid_count },
     ];
   }, [analysis]);
 

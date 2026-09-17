@@ -61,7 +61,10 @@ class MetadataSchemaBuilder:
                 },
                 "job_description": {"type": "string"},
                 "location": {"type": "string"},
-                "is_remote": {"type": "boolean"},
+                "work_mode": {
+                    "type": "string",
+                    "enum": ["remote", "onsite", "hybrid"],
+                },
                 "no_of_vacancies": {"type": "integer"},
                 "meta_data": {
                     "type": "object",
@@ -110,7 +113,7 @@ class MetadataSchemaBuilder:
             },
             "required": [
                 "employer", "job_role", "job_type", "job_description",
-                "location", "is_remote", "no_of_vacancies", "meta_data", "skills",
+                "location", "work_mode", "no_of_vacancies", "meta_data", "skills",
             ],
         }
 
@@ -140,7 +143,12 @@ class MetadataSchemaBuilder:
             6. 'no_of_vacancies': Number of open positions for this role, if stated.
             Default: 1
 
-            7. 'is_remote': true ONLY if explicit remote wording exists, else false.
+            7. 'work_mode': The job's work arrangement.
+            Must be one of: "remote", "onsite", "hybrid"
+            - "remote": explicit remote/work-from-home wording exists, with no on-site requirement
+            - "hybrid": explicit mention of a mix of remote and in-office work
+            - "onsite": no remote/hybrid wording, or the role explicitly requires in-office presence
+            Default: "onsite"
 
             8. 'meta_data': Object containing all metadata fields:
 

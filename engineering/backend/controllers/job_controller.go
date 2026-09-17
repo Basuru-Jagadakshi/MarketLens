@@ -384,7 +384,7 @@ func (ctrl *JobController) GetJobTypeByLevelHandler(c *gin.Context) {
 
 //This function returns remote vs on-site job counts for a given occupation/industry
 //hierarchy level and id, filtered by date range.
-func (ctrl *JobController) GetRemoteOnSiteByLevelHandler(c *gin.Context) {
+func (ctrl *JobController) GetRemoteOnSiteHybridByLevelHandler(c *gin.Context) {
 	standard := c.Param("standard")
 	level := c.Param("level")
 	idStr := c.Param("id")
@@ -456,7 +456,7 @@ func (ctrl *JobController) GetRemoteOnSiteByLevelHandler(c *gin.Context) {
 		return
 	}
 
-	result, err := ctrl.repo.GetRemoteOnSiteByLevel(standard, level, uint(id), fromDate, toDate)
+	result, err := ctrl.repo.GetRemoteOnSiteHybridByLevel(standard, level, uint(id), fromDate, toDate)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error":   "Failed to retrieve remote/on-site breakdown",
@@ -471,7 +471,7 @@ func (ctrl *JobController) GetRemoteOnSiteByLevelHandler(c *gin.Context) {
 		"id":        id,
 		"from_date": fromDateStr,
 		"to_date":   toDateStr,
-		"remote_vs_onsite": result,
+		"remote_vs_onsite_vs_hybrid": result,
 	})
 }
 

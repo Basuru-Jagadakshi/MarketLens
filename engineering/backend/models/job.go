@@ -295,6 +295,14 @@ type CrawlerRun struct {
 
 func (CrawlerRun) TableName() string { return "crawler_runs" }
 
+type WorkMode string
+
+const (
+	WorkModeRemote WorkMode = "remote"
+	WorkModeOnsite WorkMode = "onsite"
+	WorkModeHybrid WorkMode = "hybrid"
+)
+
 // Core job tables
 
 type JobPost struct {
@@ -304,7 +312,7 @@ type JobPost struct {
 	JobTypeID      *uint      `json:"job_type_id"`
 	JobType        *JobType   `json:"job_type"        gorm:"foreignKey:JobTypeID"`
 	JobRole        string     `json:"job_role"        gorm:"size:255;not null"`
-	IsRemote       bool       `json:"is_remote"       gorm:"default:false"`
+	WorkMode       WorkMode    `json:"work_mode"       gorm:"type:work_mode_enum;not null;default:onsite"`
 	JobDescription string     `json:"job_description" gorm:"type:text"`
 	Location       string     `json:"location"        gorm:"size:255"`
 	NoOfVacancies  int        `json:"no_of_vacancies" gorm:"not null;default:1"`
@@ -457,8 +465,9 @@ type EducationLevelJobCount struct {
 }
 
 type RemoteOnSiteCount struct {
-	RemoteCount  int64 `json:"remote_count"`
-	OnSiteCount  int64 `json:"on_site_count"`
+	RemoteCount int64 `json:"remote_count"`
+	OnSiteCount int64 `json:"on_site_count"`
+	HybridCount int64 `json:"hybrid_count"`
 }
 
 type JobTypeJobCount struct {

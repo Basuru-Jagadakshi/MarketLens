@@ -108,6 +108,7 @@ export interface VocationalEducationStat {
 export interface RemoteOnSiteStat {
   remote_count: number;
   on_site_count: number;
+  hybrid_count: number;
 }
 
 export interface JobTypeStat {
