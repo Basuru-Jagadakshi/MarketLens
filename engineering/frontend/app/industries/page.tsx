@@ -25,6 +25,7 @@ import {
 } from "@/hooks/use-industry";
 import type { HierarchyNode } from "@/types/industry";
 import Header from "@/components/layout/Header";
+import { clsx } from "clsx";
 
 const C = {
   indigo: "#6366f1",
@@ -166,6 +167,15 @@ function IndustryAnalysis() {
   const [fromDate, setFromDate] = useState<string>(urlFrom ?? defaultFrom);
   const [toDate, setToDate] = useState<string>(urlTo ?? defaultTo);
   const [restored, setRestored] = useState(false);
+
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 8);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   useEffect(() => {
     if (!urlFrom && !urlTo) {
@@ -463,38 +473,48 @@ function IndustryAnalysis() {
       />
 
       <div className="p-4 md:p-8 space-y-6 md:space-y-8 w-full max-w-[1400px] mx-auto pb-20">
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-2 bg-zinc-100 px-3 py-2 rounded-xl">
-            <label className="text-[10px] font-black uppercase tracking-wider text-zinc-400">
-              From
-            </label>
-            <input
-              type="date"
-              value={fromDate}
-              min={toISO(DATA_START)}
-              max={toDate}
-              onChange={(e) => setFromDate(e.target.value)}
-              className="cursor-pointer bg-transparent text-xs font-bold text-zinc-700 outline-none [&::-webkit-calendar-picker-indicator]:cursor-pointer"
-            />
-          </div>
-          <span
-            className="text-zinc-400 font-black text-sm select-none"
-            aria-hidden
-          >
-            →
-          </span>
-          <div className="flex items-center gap-2 bg-zinc-100 px-3 py-2 rounded-xl">
-            <label className="text-[10px] font-black uppercase tracking-wider text-zinc-400">
-              To
-            </label>
-            <input
-              type="date"
-              value={toDate}
-              min={fromDate}
-              max={toISO(DATA_END)}
-              onChange={(e) => setToDate(e.target.value)}
-              className="cursor-pointer bg-transparent text-xs font-bold text-zinc-700 outline-none [&::-webkit-calendar-picker-indicator]:cursor-pointer"
-            />
+        <div
+          className={clsx(
+            "sticky top-[70px] z-30 -mx-4 px-4 md:-mx-8 md:px-8 pt-4 md:pt-6 pb-3 transition-all duration-300",
+            "bg-white/60 backdrop-blur-md backdrop-saturate-150",
+            scrolled
+              ? "shadow-[0_4px_20px_-4px_rgba(0,0,0,0.08)] border-b border-zinc-200/60"
+              : "border-b border-transparent",
+          )}
+        >
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2 bg-zinc-100 px-3 py-2 rounded-xl">
+              <label className="text-[10px] font-black uppercase tracking-wider text-zinc-400">
+                From
+              </label>
+              <input
+                type="date"
+                value={fromDate}
+                min={toISO(DATA_START)}
+                max={toDate}
+                onChange={(e) => setFromDate(e.target.value)}
+                className="cursor-pointer bg-transparent text-xs font-bold text-zinc-700 outline-none [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+              />
+            </div>
+            <span
+              className="text-zinc-400 font-black text-sm select-none"
+              aria-hidden
+            >
+              →
+            </span>
+            <div className="flex items-center gap-2 bg-zinc-100 px-3 py-2 rounded-xl">
+              <label className="text-[10px] font-black uppercase tracking-wider text-zinc-400">
+                To
+              </label>
+              <input
+                type="date"
+                value={toDate}
+                min={fromDate}
+                max={toISO(DATA_END)}
+                onChange={(e) => setToDate(e.target.value)}
+                className="cursor-pointer bg-transparent text-xs font-bold text-zinc-700 outline-none [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+              />
+            </div>
           </div>
         </div>
 
