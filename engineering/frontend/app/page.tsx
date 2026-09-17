@@ -15,15 +15,15 @@ import {
 } from "recharts";
 import { useDashboardOverview } from "@/hooks/use-dashboard";
 import Header from "@/components/layout/Header";
-
+import { clsx } from "clsx";
 
 const C = {
   indigo: "#6366f1",
   teal: "#0d9488",
 };
 
-const GRID_STROKE = "#e4e4e7"; 
-const TICK_COLOR = "#71717a"; 
+const GRID_STROKE = "#e4e4e7";
+const TICK_COLOR = "#71717a";
 
 const tooltipStyle = {
   backgroundColor: "#18181b",
@@ -52,6 +52,24 @@ export default function DashboardPage() {
   const [toDate, setToDate] = useState<string>(defaultTo);
 
   const [restored, setRestored] = useState(false);
+
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkSize = () => setIsMobile(window.innerWidth < 768);
+    checkSize();
+    window.addEventListener("resize", checkSize);
+    return () => window.removeEventListener("resize", checkSize);
+  }, []);
+
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 8);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   useEffect(() => {
     try {
@@ -159,7 +177,15 @@ export default function DashboardPage() {
 
       <div className="p-4 md:p-8 space-y-6 md:space-y-8 w-full max-w-[1400px] mx-auto pb-20">
         {/* DATE RANGE SELECTOR */}
-        <div>
+        <div
+          className={clsx(
+            "sticky top-[70px] z-30 -mx-4 px-4 md:-mx-8 md:px-8 pt-4 md:pt-6 pb-3 transition-all duration-300",
+            "bg-white/60 backdrop-blur-md backdrop-saturate-150",
+            scrolled
+              ? "shadow-[0_4px_20px_-4px_rgba(0,0,0,0.08)] border-b border-zinc-200/60"
+              : "border-b border-transparent",
+          )}
+        >
           <p className="text-xs text-zinc-400 font-medium">
             Select a date range to view labour market analytics for that period
           </p>
@@ -201,6 +227,12 @@ export default function DashboardPage() {
           </div>
         </div>
 
+        {isMobile && (
+          <div className="md:hidden bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs font-medium px-4 py-2 rounded-xl flex items-center gap-2">
+            💡 Rotate your device to landscape for a better chart view
+          </div>
+        )}
+
         {rangeInvalid && (
           <div className="bg-zinc-100 border border-zinc-300 text-zinc-700 text-xs font-bold px-4 py-3 rounded-xl">
             The start date must be before the end date.
@@ -215,7 +247,7 @@ export default function DashboardPage() {
         )}
 
         {/* ADAPTIVE VACANCY TREND */}
-        <div className="bg-white border border-zinc-200 p-5 rounded-xl shadow-sm h-[420px] flex flex-col">
+        <div className="bg-white border border-zinc-200 p-5 rounded-xl shadow-sm h-[320px] md:h-[420px] flex flex-col">
           <div className="flex flex-wrap justify-between items-start border-b border-zinc-100 pb-2 gap-2">
             <div>
               <h4 className="text-sm font-bold text-zinc-900">Vacancy Trend</h4>
@@ -239,7 +271,7 @@ export default function DashboardPage() {
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart
                   data={trendData}
-                  margin={{ top: 10, right: 20, left: -10, bottom: 15 }}
+                  margin={{ top: 10, right: 20, left: 4, bottom: 15 }}
                 >
                   <defs>
                     <linearGradient id="trendFill" x1="0" y1="0" x2="0" y2="1">
@@ -303,7 +335,7 @@ export default function DashboardPage() {
         </div>
 
         {/* OCCUPATION CHART */}
-        <div className="bg-white border border-zinc-200 p-5 rounded-xl shadow-sm h-[540px] flex flex-col">
+        <div className="bg-white border border-zinc-200 p-5 rounded-xl shadow-sm h-[420px] md:h-[540px] flex flex-col">
           <div className="border-b border-zinc-100 pb-2">
             <h4 className="text-sm font-bold text-zinc-900">
               Job Distribution by Occupation (SLSO)
@@ -339,8 +371,12 @@ export default function DashboardPage() {
                     dataKey="name"
                     type="category"
                     tick={{ fontSize: 10, fill: TICK_COLOR }}
-                    width={170}
-                    tickFormatter={(v: string) => (v.length > 22 ? `${v.substring(0, 22)}...` : v)}
+                    width={isMobile ? 90 : 170}
+                    tickFormatter={(v) =>
+                      v.length > (isMobile ? 12 : 22)
+                        ? `${v.substring(0, 22)}...`
+                        : v
+                    }
                     label={{
                       value: "Occupation",
                       angle: -90,
@@ -376,13 +412,13 @@ export default function DashboardPage() {
         </div>
 
         {/* INDUSTRY CHART */}
-        <div className="bg-white border border-zinc-200 p-5 rounded-xl shadow-sm h-[640px] flex flex-col">
+        <div className="bg-white border border-zinc-200 p-5 rounded-xl shadow-sm h-[480px] md:h-[640px] flex flex-col">
           <div className="border-b border-zinc-100 pb-2">
             <h4 className="text-sm font-bold text-zinc-900">
               Job Distribution by Industry (SLSIC)
             </h4>
             <p className="text-[11px] text-zinc-400">
-              All 21 standard industries 
+              All 21 standard industries
             </p>
           </div>
           <div className="flex-1 mt-4 pb-10 min-w-0">
