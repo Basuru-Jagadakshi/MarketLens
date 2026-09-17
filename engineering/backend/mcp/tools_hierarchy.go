@@ -143,7 +143,7 @@ func registerHierarchyTools(server *mcp.Server, repo *repositories.JobRepository
 	registerLevelBreakdownTool(server, "get_remote_onsite_by_level",
 		"Get remote vs on-site job counts for a given occupation/industry hierarchy level and id, within a date range.",
 		func(standard, level string, id uint, from, to time.Time) (any, error) {
-			return repo.GetRemoteOnSiteByLevel(standard, level, id, from, to)
+			return repo.GetRemoteOnSiteHybridByLevel(standard, level, id, from, to)
 		})
 	registerLevelBreakdownTool(server, "get_job_type_by_level",
 		"Get job type breakdown for a given occupation/industry hierarchy level and id, within a date range.",

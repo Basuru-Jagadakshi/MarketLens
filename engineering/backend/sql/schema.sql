@@ -208,13 +208,20 @@ CREATE TABLE IF NOT EXISTS industry_subclass (
 -- -----------------------------------------------------------------------------
 -- 4. Core job post tables
 -- -----------------------------------------------------------------------------
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'work_mode_enum') THEN
+        CREATE TYPE work_mode_enum AS ENUM ('remote', 'onsite', 'hybrid');
+    END IF;
+END
+$$;
 
 CREATE TABLE IF NOT EXISTS job_post (
     id              BIGSERIAL PRIMARY KEY,
     employer_id     BIGINT REFERENCES employer(id),
     job_type_id     INT REFERENCES job_type(id),
     job_role        VARCHAR(255) NOT NULL,
-    is_remote       BOOLEAN DEFAULT FALSE,
+    work_mode       work_mode_enum NOT NULL DEFAULT 'onsite',
     job_description TEXT,
     location        VARCHAR(255),
     no_of_vacancies INT NOT NULL DEFAULT 1,

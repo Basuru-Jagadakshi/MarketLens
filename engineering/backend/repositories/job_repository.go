@@ -258,24 +258,24 @@ func (r *JobRepository) GetJobTypeByLevel(standard, level string, id uint, fromD
 
 //This function returns remote vs on-site job counts for the given
 //occupation/industry hierarchy level and id, filtered by date range.
-func (r *JobRepository) GetRemoteOnSiteByLevel(standard, level string, id uint, fromDate, toDate time.Time) (models.RemoteOnSiteCount, error) {
+func (r *JobRepository) GetRemoteOnSiteHybridByLevel(standard, level string, id uint, fromDate, toDate time.Time) (models.RemoteOnSiteCount, error) {
 	jobPostIDs, err := r.buildJobPostIDsForLevel(standard, level, id)
 	if err != nil {
 		return models.RemoteOnSiteCount{}, err
 	}
 
-	type remoteOnSiteRow struct {
-		IsRemote bool
+	type workModeRow struct {
+		WorkMode models.WorkMode
 		Count    int64
 	}
-	var rows []remoteOnSiteRow
+	var rows []workModeRow
 
 	err = r.db.Table("job_post").
-		Select("job_post.is_remote, COALESCE(SUM(job_post.no_of_vacancies), 0) AS count").
+		Select("job_post.work_mode, COALESCE(SUM(job_post.no_of_vacancies), 0) AS count").
 		Joins("JOIN meta_data ON meta_data.job_post_id = job_post.id").
 		Where("meta_data.posted_at::date BETWEEN ? AND ?", fromDate, toDate).
 		Where("job_post.id IN (?)", jobPostIDs).
-		Group("job_post.is_remote").
+		Group("job_post.work_mode").
 		Scan(&rows).Error
 
 	if err != nil {
@@ -284,10 +284,13 @@ func (r *JobRepository) GetRemoteOnSiteByLevel(standard, level string, id uint, 
 
 	var result models.RemoteOnSiteCount
 	for _, row := range rows {
-		if row.IsRemote {
+		switch row.WorkMode {
+		case models.WorkModeRemote:
 			result.RemoteCount = row.Count
-		} else {
+		case models.WorkModeOnsite:
 			result.OnSiteCount = row.Count
+		case models.WorkModeHybrid:
+			result.HybridCount = row.Count
 		}
 	}
 
@@ -952,18 +955,7 @@ func (r *JobRepository) GetJobsByBucketKeys(bucketKeys []string) ([]models.JobPo
 		Joins("JOIN lsh_index ON lsh_index.job_post_id = job_post.id").
 		Joins("JOIN meta_data ON meta_data.job_post_id = job_post.id").
 		Where("lsh_index.bucket_key IN ? AND meta_data.end_date IS NULL", bucketKeys).
-		Preload("Employer").
-		Preload("JobType").
-		Preload("Skills").
 		Preload("MetaData"). 
-		Preload("MetaData.AiVersion").
-		Preload("MetaData.EducationLevel").
-		Preload("MetaData.GeoData").
-		Preload("MetaData.Industry").
-		Preload("MetaData.Occupation").
-		Preload("MetaData.Source").
-		Preload("MetaData.Experience").
-		Preload("MetaData.CrawlerRun").
 		Find(&jobs).Error
 
 	if err != nil {

@@ -49,7 +49,7 @@ func main() {
 		v1.GET("/:standard/:level/:id/formality", jobCtrl.GetFormalityByLevelHandler)
 		v1.GET("/:standard/:level/:id/gender", jobCtrl.GetGenderByLevelHandler)
 		v1.GET("/:standard/:level/:id/vocational-education", jobCtrl.GetVocationalEducationByLevelHandler)
-		v1.GET("/:standard/:level/:id/remote-onsite", jobCtrl.GetRemoteOnSiteByLevelHandler)
+		v1.GET("/:standard/:level/:id/remote-onsite-hybrid", jobCtrl.GetRemoteOnSiteHybridByLevelHandler)
 		v1.GET("/:standard/:level/:id/job-type", jobCtrl.GetJobTypeByLevelHandler)
 		v1.GET("/occupation/:level/:id/top-15-skills", jobCtrl.GetTop15SkillsByOccupationLevelHandler)
 		v1.GET("/occupation/:level/:id/all-skills", jobCtrl.GetAllSkillsByOccupationLevelHandler)
