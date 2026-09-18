@@ -45,8 +45,6 @@ INSERT INTO public.employment_sector (id, sector, created_at, updated_at, delete
 INSERT INTO public.employment_sector (id, sector, created_at, updated_at, deleted_at) VALUES (6, 'Other', '2026-07-30 04:46:40.755303+00', '2026-07-30 04:46:40.755303+00', NULL);
 INSERT INTO public.employment_sector (id, sector, created_at, updated_at, deleted_at) VALUES (1, 'Public Sectors', '2026-07-30 04:45:41.61702+00', '2026-08-25 11:23:00.001597+00', NULL);
 INSERT INTO public.employment_sector (id, sector, created_at, updated_at, deleted_at) VALUES (2, 'Statutory Bodies', '2026-07-30 04:45:57.34934+00', '2026-08-28 09:32:51.966899+00', NULL);
-INSERT INTO public.employment_sector (id, sector, created_at, updated_at, deleted_at) VALUES (14, 'vnsnehvnuvhvn', '2026-09-09 03:26:18.94511+00', '2026-09-09 03:26:18.94511+00', '2026-09-09 03:26:37.722427+00');
-INSERT INTO public.employment_sector (id, sector, created_at, updated_at, deleted_at) VALUES (15, 'aaaddd', '2026-09-09 10:13:09.488311+00', '2026-09-14 04:34:00.732922+00', '2026-09-14 04:34:02.955007+00');
 
 
 --
@@ -73,7 +71,6 @@ INSERT INTO public.experience (id, name, created_at, updated_at, deleted_at) VAL
 
 INSERT INTO public.formality (id, formality_type, created_at, updated_at, deleted_at) VALUES (1, 'Formal', '2026-07-30 04:15:12.217965+00', '2026-07-30 04:15:12.217965+00', NULL);
 INSERT INTO public.formality (id, formality_type, created_at, updated_at, deleted_at) VALUES (2, 'Informal', '2026-07-30 04:15:22.451324+00', '2026-07-30 04:15:22.451324+00', NULL);
-INSERT INTO public.formality (id, formality_type, created_at, updated_at, deleted_at) VALUES (10, 'vvvew', '2026-09-14 05:19:33.06674+00', '2026-09-14 05:19:36.036528+00', NULL);
 
 
 --
@@ -85,7 +82,6 @@ INSERT INTO public.formality (id, formality_type, created_at, updated_at, delete
 INSERT INTO public.gender (id, gender_type, created_at, updated_at, deleted_at) VALUES (1, 'Male', '2026-07-30 04:26:36.498708+00', '2026-07-30 04:26:36.498708+00', NULL);
 INSERT INTO public.gender (id, gender_type, created_at, updated_at, deleted_at) VALUES (2, 'Female', '2026-07-30 04:26:46.551579+00', '2026-07-30 04:26:46.551579+00', NULL);
 INSERT INTO public.gender (id, gender_type, created_at, updated_at, deleted_at) VALUES (3, 'Both Sexes (Not Specified)', '2026-07-30 04:27:07.301634+00', '2026-07-30 04:27:07.301634+00', NULL);
-INSERT INTO public.gender (id, gender_type, created_at, updated_at, deleted_at) VALUES (8, 'gggbbb', '2026-09-11 02:56:36.503251+00', '2026-09-11 02:57:53.852309+00', '2026-09-11 02:58:01.379355+00');
 
 
 --
@@ -132,7 +128,6 @@ INSERT INTO public.industry_sector (id, name, code, created_at, updated_at, dele
 INSERT INTO public.industry_sector (id, name, code, created_at, updated_at, deleted_at) VALUES (20, 'Activities of households as employers; undifferentiated goods- and service-producing activities of households for own use', 'T', '2026-07-30 03:33:15.995011+00', '2026-07-30 03:33:15.995011+00', NULL);
 INSERT INTO public.industry_sector (id, name, code, created_at, updated_at, deleted_at) VALUES (21, 'Activities of extraterritorial organizations and bodies', 'U', '2026-07-30 03:33:15.995011+00', '2026-07-30 03:33:15.995011+00', NULL);
 INSERT INTO public.industry_sector (id, name, code, created_at, updated_at, deleted_at) VALUES (6, 'Constructions', 'F', '2026-07-30 03:33:15.995011+00', '2026-08-25 09:31:20.317816+00', NULL);
-INSERT INTO public.industry_sector (id, name, code, created_at, updated_at, deleted_at) VALUES (24, 'm1', '098', '2026-09-09 09:33:09.325909+00', '2026-09-09 09:33:09.325909+00', NULL);
 
 --
 -- TOC entry 3812 (class 0 OID 16723)
@@ -226,7 +221,6 @@ INSERT INTO public.industry_division (id, industry_sector_id, name, code, create
 INSERT INTO public.industry_division (id, industry_sector_id, name, code, created_at, updated_at, deleted_at) VALUES (84, 20, 'Activities of households as employers of domestic Personnel', '97', '2026-07-30 03:37:41.504243+00', '2026-07-30 03:37:41.504243+00', NULL);
 INSERT INTO public.industry_division (id, industry_sector_id, name, code, created_at, updated_at, deleted_at) VALUES (85, 20, 'Undifferentiated goods and services producing activities of private households for own use', '98', '2026-07-30 03:37:41.504243+00', '2026-07-30 03:37:41.504243+00', NULL);
 INSERT INTO public.industry_division (id, industry_sector_id, name, code, created_at, updated_at, deleted_at) VALUES (86, 21, 'Activities of extraterritorial organizations and bodies', '99', '2026-07-30 03:37:41.504243+00', '2026-07-30 03:37:41.504243+00', NULL);
-INSERT INTO public.industry_division (id, industry_sector_id, name, code, created_at, updated_at, deleted_at) VALUES (87, 24, 'm2', '870', '2026-09-09 09:33:34.443258+00', '2026-09-09 09:33:34.443258+00', NULL);
 
 --
 -- TOC entry 3814 (class 0 OID 16737)
@@ -467,7 +461,6 @@ INSERT INTO public.industry_group (id, industry_division_id, name, code, created
 INSERT INTO public.industry_group (id, industry_division_id, name, code, created_at, updated_at, deleted_at) VALUES (231, 85, 'Undifferentiated goods producing activities of private households for own use', '981', '2026-07-30 03:40:37.068872+00', '2026-07-30 03:40:37.068872+00', NULL);
 INSERT INTO public.industry_group (id, industry_division_id, name, code, created_at, updated_at, deleted_at) VALUES (232, 85, 'Undifferentiated service- producing activities of private households for own use', '982', '2026-07-30 03:40:37.068872+00', '2026-07-30 03:40:37.068872+00', NULL);
 INSERT INTO public.industry_group (id, industry_division_id, name, code, created_at, updated_at, deleted_at) VALUES (233, 86, 'Activities of extraterritorial Organizations and bodies', '990', '2026-07-30 03:40:37.068872+00', '2026-07-30 03:40:37.068872+00', NULL);
-INSERT INTO public.industry_group (id, industry_division_id, name, code, created_at, updated_at, deleted_at) VALUES (235, 87, 'm3', '88900', '2026-09-09 09:33:56.096903+00', '2026-09-09 09:33:56.096903+00', NULL);
 
 --
 -- TOC entry 3816 (class 0 OID 16751)
@@ -888,7 +881,6 @@ INSERT INTO public.industry_class (id, industry_group_id, name, code, created_at
 INSERT INTO public.industry_class (id, industry_group_id, name, code, created_at, updated_at, deleted_at) VALUES (411, 231, 'Undifferentiated goods producing activities of private households for own use', '9810', '2026-07-30 03:44:06.816009+00', '2026-07-30 03:44:06.816009+00', NULL);
 INSERT INTO public.industry_class (id, industry_group_id, name, code, created_at, updated_at, deleted_at) VALUES (412, 232, 'Undifferentiated service- producing activities of private households for own use', '9820', '2026-07-30 03:44:06.816009+00', '2026-07-30 03:44:06.816009+00', NULL);
 INSERT INTO public.industry_class (id, industry_group_id, name, code, created_at, updated_at, deleted_at) VALUES (413, 233, 'Activities of extraterritorial Organizations and bodies', '9900', '2026-07-30 03:44:06.816009+00', '2026-07-30 03:44:06.816009+00', NULL);
-INSERT INTO public.industry_class (id, industry_group_id, name, code, created_at, updated_at, deleted_at) VALUES (414, 235, 'm4', '54', '2026-09-09 09:34:13.642624+00', '2026-09-09 09:34:13.642624+00', NULL);
 
 
 --
@@ -2517,7 +2509,6 @@ INSERT INTO public.major_group (id, name, code, created_at, updated_at, deleted_
 INSERT INTO public.major_group (id, name, code, created_at, updated_at, deleted_at) VALUES (9, 'Elementary Occupations', '9', '2026-07-29 23:30:51.184383+00', '2026-07-29 23:30:51.184383+00', NULL);
 INSERT INTO public.major_group (id, name, code, created_at, updated_at, deleted_at) VALUES (10, 'Workers Not Classified by Occupations and Armed Forces Occupations', '0', '2026-07-29 23:30:51.184383+00', '2026-07-29 23:30:51.184383+00', NULL);
 INSERT INTO public.major_group (id, name, code, created_at, updated_at, deleted_at) VALUES (7, 'Craft and Related Trade Workers', '7', '2026-07-29 23:30:51.184383+00', '2026-08-25 09:28:30.749172+00', NULL);
-INSERT INTO public.major_group (id, name, code, created_at, updated_at, deleted_at) VALUES (13, 'qqq', '000009', '2026-09-09 06:03:11.670313+00', '2026-09-09 06:03:11.670313+00', NULL);
 
 --
 -- TOC entry 3802 (class 0 OID 16653)
@@ -2567,8 +2558,6 @@ INSERT INTO public.sub_major_group (id, major_group_id, name, code, created_at, 
 INSERT INTO public.sub_major_group (id, major_group_id, name, code, created_at, updated_at, deleted_at) VALUES (40, 9, 'Street and Related Sales and Service Workers', '95', '2026-07-29 23:36:48.016369+00', '2026-07-29 23:36:48.016369+00', NULL);
 INSERT INTO public.sub_major_group (id, major_group_id, name, code, created_at, updated_at, deleted_at) VALUES (41, 9, 'Refuse Workers and Other Elementary Workers', '96', '2026-07-29 23:36:48.016369+00', '2026-07-29 23:36:48.016369+00', NULL);
 INSERT INTO public.sub_major_group (id, major_group_id, name, code, created_at, updated_at, deleted_at) VALUES (42, 10, 'Armed Forces Occupations', '01', '2026-07-29 23:36:48.016369+00', '2026-07-29 23:36:48.016369+00', NULL);
-INSERT INTO public.sub_major_group (id, major_group_id, name, code, created_at, updated_at, deleted_at) VALUES (43, 13, 'q1', '0980', '2026-09-09 06:23:21.930981+00', '2026-09-09 06:23:21.930981+00', NULL);
-INSERT INTO public.sub_major_group (id, major_group_id, name, code, created_at, updated_at, deleted_at) VALUES (44, 13, 'w1', '4234', '2026-09-09 07:20:48.336806+00', '2026-09-09 07:20:48.336806+00', '2026-09-09 08:28:21.920153+00');
 
 --
 -- TOC entry 3804 (class 0 OID 16667)
@@ -2711,7 +2700,6 @@ INSERT INTO public.minor_group (id, sub_major_group_id, name, code, created_at, 
 INSERT INTO public.minor_group (id, sub_major_group_id, name, code, created_at, updated_at, deleted_at) VALUES (133, 42, 'Commissioned Armed Forces Officers', '011', '2026-07-30 03:12:30.65737+00', '2026-07-30 03:12:30.65737+00', NULL);
 INSERT INTO public.minor_group (id, sub_major_group_id, name, code, created_at, updated_at, deleted_at) VALUES (134, 42, 'Non-commissioned Armed Forces Officers', '012', '2026-07-30 03:12:30.65737+00', '2026-07-30 03:12:30.65737+00', NULL);
 INSERT INTO public.minor_group (id, sub_major_group_id, name, code, created_at, updated_at, deleted_at) VALUES (135, 42, 'Armed Forces Occupations Other Ranks', '013', '2026-07-30 03:12:30.65737+00', '2026-07-30 03:12:30.65737+00', NULL);
-INSERT INTO public.minor_group (id, sub_major_group_id, name, code, created_at, updated_at, deleted_at) VALUES (137, 43, 'q2', '234243', '2026-09-09 06:23:43.251435+00', '2026-09-09 06:23:43.251435+00', NULL);
 
 --
 -- TOC entry 3806 (class 0 OID 16681)
@@ -3185,8 +3173,6 @@ INSERT INTO public.unit_group (id, minor_group_id, name, code, created_at, updat
 INSERT INTO public.unit_group (id, minor_group_id, name, code, created_at, updated_at, deleted_at) VALUES (464, 133, 'Commissioned Armed Forces Officers', '0110', '2026-07-30 03:21:18.166131+00', '2026-07-30 03:21:18.166131+00', NULL);
 INSERT INTO public.unit_group (id, minor_group_id, name, code, created_at, updated_at, deleted_at) VALUES (465, 134, 'Non-commissioned Armed Forces Officers', '0120', '2026-07-30 03:21:18.166131+00', '2026-07-30 03:21:18.166131+00', NULL);
 INSERT INTO public.unit_group (id, minor_group_id, name, code, created_at, updated_at, deleted_at) VALUES (466, 135, 'Armed Forces Occupations Other Ranks', '0130', '2026-07-30 03:21:18.166131+00', '2026-07-30 03:21:18.166131+00', NULL);
-INSERT INTO public.unit_group (id, minor_group_id, name, code, created_at, updated_at, deleted_at) VALUES (467, 137, 'q3', '64566', '2026-09-09 06:24:10.107284+00', '2026-09-09 06:24:10.107284+00', NULL);
-INSERT INTO public.unit_group (id, minor_group_id, name, code, created_at, updated_at, deleted_at) VALUES (468, 137, 'rrr', '123', '2026-09-09 07:44:37.255166+00', '2026-09-09 07:44:37.255166+00', '2026-09-09 08:22:13.377576+00');
 
 
 --
@@ -8072,7 +8058,6 @@ INSERT INTO public.vocational_education (id, level, created_at, updated_at, dele
 INSERT INTO public.vocational_education (id, level, created_at, updated_at, deleted_at) VALUES (6, 'National Diploma 6', '2026-07-30 04:53:09.075738+00', '2026-07-30 04:53:09.075738+00', NULL);
 INSERT INTO public.vocational_education (id, level, created_at, updated_at, deleted_at) VALUES (7, 'National Diploma (Bachelor’s Degree) 7', '2026-07-30 04:53:26.355866+00', '2026-07-30 04:53:26.355866+00', NULL);
 INSERT INTO public.vocational_education (id, level, created_at, updated_at, deleted_at) VALUES (8, 'Not Specified', '2026-07-30 04:53:39.146115+00', '2026-07-30 04:53:39.146115+00', NULL);
-INSERT INTO public.vocational_education (id, level, created_at, updated_at, deleted_at) VALUES (12, 'iii', '2026-09-09 10:30:22.299576+00', '2026-09-09 10:30:22.299576+00', NULL);
 
 
 

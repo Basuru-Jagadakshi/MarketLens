@@ -283,3 +283,7 @@ CREATE INDEX IF NOT EXISTS idx_lsh_bucket_radar
 CREATE INDEX IF NOT EXISTS idx_metadata_snapshot_reconcile
     ON meta_data (crawler_run_id, end_date)
     WHERE end_date IS NULL;
+
+CREATE INDEX CONCURRENTLY idx_metadata_posted_at ON meta_data (posted_at);
+CREATE INDEX CONCURRENTLY idx_metadata_occgroup_posted_at ON meta_data (occupation_group_id, posted_at);
+CREATE INDEX CONCURRENTLY idx_metadata_indsubclass_posted_at ON meta_data (industry_subclass_id, posted_at);
