@@ -41,10 +41,6 @@ func registerStatsTools(server *mcp.Server, repo *repositories.JobRepository) {
 		"Get current active job counts grouped by vocational education (NVQ) level.",
 		func() (any, error) { return repo.GetActiveJobCountByVocationalEducation() })
 
-	registerNoArgTool(server, "get_remote_vs_onsite",
-		"Get current active job counts split between remote and on-site.",
-		func() (any, error) { return repo.GetRemoteVsOnSiteCount() })
-
 	registerNoArgTool(server, "get_stats_by_job_type",
 		"Get current active job counts grouped by job type (Full Time, Part Time, Contract, Internship).",
 		func() (any, error) { return repo.GetActiveJobCountByJobType() })

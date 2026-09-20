@@ -46,7 +46,10 @@ func registerAnalysisTools(server *mcp.Server, repo *repositories.JobRepository)
 			return nil, nil, err
 		}
 		out, err := repo.GetTop15SkillsByOccupationLevel(in.Level, in.ID, from, to)
-		return nil, out, err
+		if err != nil {
+			return nil, nil, err
+		}
+		return nil, wrapIfList(out), nil
 	})
 
 	mcp.AddTool(server, &mcp.Tool{
@@ -89,7 +92,10 @@ func registerAnalysisTools(server *mcp.Server, repo *repositories.JobRepository)
 			return nil, nil, err
 		}
 		out, err := repo.GetTopHiringEmployersByOccupationLevel(in.Level, in.ID, from, to)
-		return nil, out, err
+		if err != nil {
+			return nil, nil, err
+		}
+		return nil, wrapIfList(out), nil
 	})
 
 	// Adaptive vacancy trend + total (national, not level-scoped) 
@@ -145,7 +151,10 @@ func registerAnalysisTools(server *mcp.Server, repo *repositories.JobRepository)
 			return nil, nil, err
 		}
 		out, err := repo.GetOccupationJobCountByDateRange(from, to)
-		return nil, out, err
+		if err != nil {
+			return nil, nil, err
+		}
+		return nil, wrapIfList(out), nil
 	})
 
 	mcp.AddTool(server, &mcp.Tool{
@@ -157,6 +166,9 @@ func registerAnalysisTools(server *mcp.Server, repo *repositories.JobRepository)
 			return nil, nil, err
 		}
 		out, err := repo.GetIndustryJobCountByDateRange(from, to)
-		return nil, out, err
+		if err != nil {
+			return nil, nil, err
+		}
+		return nil, wrapIfList(out), nil
 	})
 }

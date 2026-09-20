@@ -200,7 +200,10 @@ func registerLevelBreakdownTool(
 				return nil, nil, err
 			}
 			out, err := fn(in.Standard, in.Level, id, from, to)
-			return nil, out, err
+			if err != nil {
+				return nil, nil, err
+			}
+			return nil, wrapIfList(out), nil
 		},
 	)
 }
