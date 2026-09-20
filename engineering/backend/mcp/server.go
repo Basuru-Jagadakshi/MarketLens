@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"os"          
 	"strings"
+	"reflect"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
@@ -100,6 +101,21 @@ func StartHTTP(server *mcp.Server, addr string) error {
 	return http.ListenAndServe(addr, mux)
 }
 
+func wrapIfList(v any) any {
+	if v == nil {
+		return v
+	}
+	rv := reflect.ValueOf(v)
+	switch rv.Kind() {
+	case reflect.Slice, reflect.Array:
+		return map[string]any{"items": v}
+	case reflect.Map, reflect.Struct, reflect.Ptr:
+		return v 
+	default:
+		return map[string]any{"value": v} 
+	}
+}
+
 // emptyInput is used for tools that take no parameters at all.
 type emptyInput struct{}
 
@@ -107,9 +123,12 @@ type emptyInput struct{}
 // whatever the given repository call returns.
 func registerNoArgTool[T any](server *mcp.Server, name, description string, fn func() (T, error)) {
 	mcp.AddTool(server, &mcp.Tool{Name: name, Description: description},
-		func(_ context.Context, _ *mcp.CallToolRequest, _ emptyInput) (*mcp.CallToolResult, T, error) {
+		func(_ context.Context, _ *mcp.CallToolRequest, _ emptyInput) (*mcp.CallToolResult, any, error) {
 			out, err := fn()
-			return nil, out, err
+			if err != nil {
+				return nil, nil, err
+			}
+			return nil, wrapIfList(out), nil
 		},
 	)
 }
@@ -123,9 +142,12 @@ type idInput struct {
 // registerIDTool registers a tool that takes a single "id" parameter.
 func registerIDTool[T any](server *mcp.Server, name, description string, fn func(id uint) (T, error)) {
 	mcp.AddTool(server, &mcp.Tool{Name: name, Description: description},
-		func(_ context.Context, _ *mcp.CallToolRequest, in idInput) (*mcp.CallToolResult, T, error) {
+		func(_ context.Context, _ *mcp.CallToolRequest, in idInput) (*mcp.CallToolResult, any, error) {
 			out, err := fn(in.ID)
-			return nil, out, err
+			if err != nil {
+				return nil, nil, err
+			}
+			return nil, wrapIfList(out), nil
 		},
 	)
 }
