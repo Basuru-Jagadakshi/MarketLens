@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"marketlens-go-backend/models"
 	"marketlens-go-backend/repositories"
+	"marketlens-go-backend/crawler"
 	"net/http"
 	"strconv"
 	"time"
@@ -17,10 +18,11 @@ import (
 
 type JobController struct {
 	repo *repositories.JobRepository
+	ingestion *crawler.IngestionService
 }
 
-func NewJobController(repo *repositories.JobRepository) *JobController {
-	return &JobController{repo: repo}
+func NewJobController(repo *repositories.JobRepository, ingestion *crawler.IngestionService) *JobController {
+	return &JobController{repo: repo, ingestion: ingestion}
 }
 
 //This function confirms the process itself is up and responding to HTTP - used for Kubernetes liveness probes
@@ -1654,32 +1656,31 @@ func (ctrl *JobController) GetJobsByBucketKeysHandler(c *gin.Context) {
 }
 
 func (ctrl *JobController) BatchSaveJobsHandler(c *gin.Context) {
-	var payload models.BatchSavePayload
-	if err := c.ShouldBindJSON(&payload); err != nil {
+	var rawJobs []crawler.RawJobInput
+	if err := c.ShouldBindJSON(&rawJobs); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error":   "Invalid request body structural mapping",
 			"details": err.Error(),
 		})
 		return
 	}
-
-	if len(payload.NewJobs) == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "The new_jobs collection buffer cannot be empty"})
+ 
+	if len(rawJobs) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "The job batch cannot be empty"})
 		return
 	}
-
-	err := ctrl.repo.BatchSaveNewJobs(payload.NewJobs, payload.LshIndexes)
-	if err != nil {
+ 
+	if err := ctrl.ingestion.ProcessBatch(c.Request.Context(), rawJobs); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error":   "Bulk insertion transaction routine failed execution",
+			"error":   "Job batch ingestion pipeline failed execution",
 			"details": err.Error(),
 		})
 		return
 	}
-
+ 
 	c.JSON(http.StatusOK, gin.H{
-		"message":          "Successfully persisted unique job block chunk",
-		"inserted_records": len(payload.NewJobs),
+		"message":          "Successfully processed job batch",
+		"submitted_records": len(rawJobs),
 	})
 }
 
