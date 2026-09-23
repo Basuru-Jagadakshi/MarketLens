@@ -4,11 +4,14 @@ import (
 	"marketlens-go-backend/config"
 	"marketlens-go-backend/controllers"
 	"marketlens-go-backend/repositories"
+	"marketlens-go-backend/crawler"
 	"marketlens-go-backend/auth"
 	mcpserver "marketlens-go-backend/mcp"
 
 	"github.com/gin-gonic/gin"
 	"log"
+	"net/http"
+	"time"
 )
 
 
@@ -19,7 +22,10 @@ func main() {
 	r := gin.Default()
 
 	jobRepo := repositories.NewJobRepository(config.DB)
-	jobCtrl := controllers.NewJobController(jobRepo)
+	llmClient := crawler.NewDeepSeekClient(http.DefaultClient)
+	metaBuilder := crawler.NewMetadataBuilder(jobRepo, 30*time.Minute)
+	ingestionSvc := crawler.NewIngestionService(jobRepo, llmClient, metaBuilder, 0.65)
+	jobCtrl := controllers.NewJobController(jobRepo, ingestionSvc)
 
 	// Kubernetes liveness/readiness probes - unversioned, sit outside /api/v1
 	r.GET("/healthz", jobCtrl.HealthzHandler)
@@ -94,17 +100,20 @@ func main() {
 		v1.GET("/employment-sectors/yearly-trend", jobCtrl.GetYearlyTrendByEmploymentSectorHandler)
 
 		crawler := v1.Group("/crawler")
-		crawler.Use(auth.AuthRequired())
 		{
-			crawler.POST("/runs", auth.RequireScope("crawler:runs"), jobCtrl.StartCrawlerRunHandler)
-			crawler.POST("/runs/:id/complete", auth.RequireScope("crawler:complete"), jobCtrl.CompleteCrawlerRunHandler)
-
-			crawler.POST("/radar/lookup", auth.RequireScope("crawler:lookup"), jobCtrl.GetJobsByBucketKeysHandler)
-
-			crawler.POST("/jobs/batch-save", auth.RequireScope("crawler:batch-save"), jobCtrl.BatchSaveJobsHandler)
-			crawler.POST("/jobs/batch-update", auth.RequireScope("crawler:batch-update"), jobCtrl.BatchUpdateDuplicatesHandler)
-			crawler.POST("/jobs/reconcile", auth.RequireScope("crawler:reconcile"), jobCtrl.ReconcileStaleVacanciesHandler)
+			crawler.POST("/jobs/batch-save", jobCtrl.BatchSaveJobsHandler)
 		}
+		// crawler.Use(auth.AuthRequired())
+		// {
+		// 	crawler.POST("/runs", auth.RequireScope("crawler:runs"), jobCtrl.StartCrawlerRunHandler)
+		// 	crawler.POST("/runs/:id/complete", auth.RequireScope("crawler:complete"), jobCtrl.CompleteCrawlerRunHandler)
+
+		// 	crawler.POST("/radar/lookup", auth.RequireScope("crawler:lookup"), jobCtrl.GetJobsByBucketKeysHandler)
+
+		// 	crawler.POST("/jobs/batch-save", auth.RequireScope("crawler:batch-save"), jobCtrl.BatchSaveJobsHandler)
+		// 	crawler.POST("/jobs/batch-update", auth.RequireScope("crawler:batch-update"), jobCtrl.BatchUpdateDuplicatesHandler)
+		// 	crawler.POST("/jobs/reconcile", auth.RequireScope("crawler:reconcile"), jobCtrl.ReconcileStaleVacanciesHandler)
+		// }
 
 		geoData := v1.Group("/geo-data")
 		{
