@@ -1,23 +1,19 @@
-import os
 import asyncio
 import io
-import json
 import logging
 import re
 import pytesseract
 import httpx
 
-from typing import List, Dict, Any
+from typing import List
 from bs4 import BeautifulSoup
 from PIL import Image
 from playwright.async_api import async_playwright
-from crawl4ai import LLMExtractionStrategy, LLMConfig
+from pydantic import ValidationError
 from crawlers.base_crawler import BaseJobCrawler
-from utils.dedup_utils import JobDuplicationCheck
 from utils.thunder_id_client import ThunderIDClient 
 from parsers.topjobs_parser import TopJobsParser
-from utils.occupation_classifier import OccupationClassifier
-from utils.industry_classifier import IndustryClassifier
+from models.raw_job import RawJobInput
 from config import BACKEND_BASE_URL, BATCH_SIZE
 
 
@@ -37,7 +33,6 @@ class TopJobsCrawler(BaseJobCrawler):
 
     def __init__(self):
         self._parser = TopJobsParser()
-        self.duplication_checker = JobDuplicationCheck()
         self._thunder_client = ThunderIDClient() 
 
     async def _get_total_pages(self, html: str) -> int:
@@ -80,15 +75,13 @@ class TopJobsCrawler(BaseJobCrawler):
 
             await page.goto(f"{LISTING_URL}&pageNo=1", wait_until="networkidle")
             total_pages = await self._get_total_pages(await page.content())
-            #total_pages = 1
+            
             logger.info(f"Total pages detected: {total_pages}")
 
 
             all_jobs = []
             
             for page_num in range(1, total_pages + 1):
-                # log.info("Navigating to listings...")
-                # await page.goto(LISTING_URL, wait_until="networkidle")
 
                 logger.info(f"Scraping page {page_num} of {total_pages}...")
                 if page_num > 1:
@@ -99,10 +92,6 @@ class TopJobsCrawler(BaseJobCrawler):
                 logger.info(f"Found {len(jobs)} jobs. Starting popup processing...")
 
                 for i, job in enumerate(jobs):
-
-                    if len(all_jobs) >= 30:
-                        logger.info(f"Reached job limit for this page — stopping.")
-                        break
 
                     try:
                         logger.info(f"[{i+1}/{len(jobs)}] Processing {job['employer']}")
@@ -129,7 +118,6 @@ class TopJobsCrawler(BaseJobCrawler):
                             logger.error("Could not find a large advertisement image.")
                             await popup.close()
                             continue
-                            #raise Exception("Could not find a large advertisement image.")
 
                         await img_locator.wait_for(state="visible", timeout=POPUP_WAIT_TIMEOUT)
                         screenshot_bytes = await img_locator.screenshot()
@@ -142,7 +130,6 @@ class TopJobsCrawler(BaseJobCrawler):
                             image = image.resize((int(image.width * scale), int(image.height * scale)))
                         
                         image = image.point(lambda x: 0 if x < 180 else 255, '1')
-                        #job["ocr_text"] = pytesseract.image_to_string(image, lang=TESSERACT_LANG).strip()
                         job["ocr_text"] = " ".join(pytesseract.image_to_string(image, lang=TESSERACT_LANG).split())
 
                         all_jobs.append(job)
@@ -153,10 +140,6 @@ class TopJobsCrawler(BaseJobCrawler):
 
             await browser.close()
             
-            # with open("vacancies.json", "w", encoding="utf-8") as f:
-            #     json.dump(jobs, f, ensure_ascii=False, indent=2)
-            #print(all_jobs)
-            logger.info("Done! Data saved to vacancies.json")
             return all_jobs
 
 
@@ -165,109 +148,36 @@ class TopJobsCrawler(BaseJobCrawler):
         self,
         crawler_run_id: int,
         async_client: httpx.AsyncClient,
-        schema: dict,
-        instruction: str,
-        occupation_classifier: OccupationClassifier,
-        industry_classifier: IndustryClassifier,
     ) -> None:
-
+ 
         logger.info("Top jobs crawl started.")
-
+ 
         try:
             token = await self._thunder_client.get_access_token()
         except Exception as e:
             logger.error(f"Failed to obtain ThunderID access token: {e}")
             raise
         auth_headers = {"Authorization": f"Bearer {token}"}
-        
+ 
         job_data_list = await self._extract_complete_jobs_details()
-
-        new_jobs_buffer: List[Dict[str, Any]] = []
-        lsh_index_buffer: List[Dict[str, Any]] = []
-        updated_jobs_buffer: List[Dict[str, Any]] = []
-
-        detail_extraction_strategy = LLMExtractionStrategy(
-            llm_config=LLMConfig(
-                provider="deepseek/deepseek-chat",
-                api_token=os.getenv("DEEPSEEK_API_KEY"),
-            ),
-            instruction=instruction,
-            schema=json.dumps(schema),
-            extraction_type="schema", 
-            apply_chunking=False,          
-            extra_args={"base_url": "https://api.deepseek.com", "temperature": 0.0},
-        )
-
+ 
+        job_batch: List[RawJobInput] = []
+ 
         for result in job_data_list:
-
-            temp_payload = self._parser.parse_rule_based_fields(result)
-
-            raw_text = json.dumps(result)
-
-            minhash_sig, lsh_indexes = self.duplication_checker.generate_production_minhash_and_lsh(temp_payload)
-            is_duplicate, matched_id = await self.duplication_checker.check_duplicate_via_backend(
-                async_client,
-                BACKEND_BASE_URL,
-                lsh_indexes,
-                minhash_sig,
-                auth_headers,
-                incoming_location=temp_payload.get("location", ""),
-            )
-
-            if is_duplicate:
-                logger.info(f"Duplicate Match Found: Routing job reference {matched_id} to keep-alive updates.")
-                updated_jobs_buffer.append({
-                    "job_post_id": matched_id,
-                    "crawler_run_id": crawler_run_id,
-                })
-
-                if len(updated_jobs_buffer) >= BATCH_SIZE:
-                    await async_client.post(f"{BACKEND_BASE_URL}/jobs/batch-update", json={"duplicates": updated_jobs_buffer}, headers=auth_headers,)
-                    updated_jobs_buffer.clear()
-            else:
-                logger.info(f"Unique entry found. Calling LLM to parse entire schema")
-                llm_res = await asyncio.to_thread(
-                    detail_extraction_strategy.run, url="", sections=[raw_text]
-                )
-
-                if llm_res and isinstance(llm_res, list) and len(llm_res) > 0:
-                    try:
-                        extracted_job = llm_res[0]
-
-                        job_text = f"{extracted_job.get('job_role', '')} {extracted_job.get('job_description', '')}"
-                        occupation_group_id = await occupation_classifier.classify(job_text)
-                        industry_subclass_id = await industry_classifier.classify(job_text)
-
-                        extracted_job["meta_data"]["crawler_run_id"] = crawler_run_id
-                        extracted_job["meta_data"]["minhash_signature"] = minhash_sig
-                        extracted_job["meta_data"]["occupation_group_id"] = occupation_group_id
-                        extracted_job["meta_data"]["industry_subclass_id"] = industry_subclass_id
-                        extracted_job["meta_data"]["source"] = {"source": "TopJobs"}
-
-                        new_jobs_buffer.append(extracted_job)
-
-                        for idx_item in lsh_indexes:
-                            lsh_index_buffer.append(idx_item)
-
-                    except Exception as e:
-                        logger.error(f"Failed to unmarshal LLM response into schema format: {e}")
-
-                if len(new_jobs_buffer) >= BATCH_SIZE:
-                    payload = {"new_jobs": new_jobs_buffer, "lsh_indexes": lsh_index_buffer}
-                    await async_client.post(f"{BACKEND_BASE_URL}/jobs/batch-save", json=payload, headers=auth_headers,)
-                    new_jobs_buffer.clear()
-                    lsh_index_buffer.clear()
-
-        if updated_jobs_buffer:
-            logger.info(f"Flushing remaining {len(updated_jobs_buffer)} update records to backend.")
-            await async_client.post(f"{BACKEND_BASE_URL}/jobs/batch-update", json={"duplicates": updated_jobs_buffer}, headers=auth_headers,)
-            updated_jobs_buffer.clear()
-
-        if new_jobs_buffer:
-            logger.info(f"Flushing remaining {len(new_jobs_buffer)} insertion records to backend.")
-            payload = {"new_jobs": new_jobs_buffer, "lsh_indexes": lsh_index_buffer}
-            await async_client.post(f"{BACKEND_BASE_URL}/jobs/batch-save", json=payload, headers=auth_headers,)
-            new_jobs_buffer.clear()
-            lsh_index_buffer.clear()
-
-        logger.info("Top jobs crawl pass concluded.") 
+            try:
+                job_input = self._parser.parse_rule_based_fields(result, crawler_run_id)
+            except ValidationError as e:
+                logger.warning(f"Skipping malformed job: {e}")
+                continue
+ 
+            job_batch.append(job_input)
+ 
+            if len(job_batch) >= BATCH_SIZE:
+                logger.info(f"Flushing full batch of {len(job_batch)} job records to backend.")
+                await self._flush_batch(async_client, auth_headers, job_batch)
+ 
+        if job_batch:
+            logger.info(f"Flushing remaining {len(job_batch)} job records to backend.")
+            await self._flush_batch(async_client, auth_headers, job_batch)
+ 
+        logger.info("Top jobs crawl pass concluded.")

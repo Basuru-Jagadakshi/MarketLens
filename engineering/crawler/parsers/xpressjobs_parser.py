@@ -1,11 +1,14 @@
 from parsers.base_parser import BaseJobParser
+from models.raw_job import RawJobInput
 
 class XpressJobsParser(BaseJobParser):
 
-    def parse_rule_based_fields(self, job: dict) -> dict:
-        return {
-            "employer": job.get("employer"),
-            "job_role": job.get("job_title"),
-            "location": job.get("location"),
-            "description": job.get("description")
-        }
+    def parse_rule_based_fields(self, job: dict, crawler_run_id: int) -> RawJobInput:
+        return RawJobInput(
+            employer=job.get("employer") or "",
+            job_role=job.get("job_title") or "",
+            location=job.get("location") or "Sri Lanka",
+            description=job.get("description") or "",
+            crawler_run_id=crawler_run_id,
+            source="XpressJobs",
+        )

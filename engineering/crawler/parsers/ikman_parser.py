@@ -2,6 +2,7 @@ import re
 from datetime import datetime, timezone
 
 from parsers.base_parser import BaseJobParser
+from models.raw_job import RawJobInput
 
 class IkmanParser(BaseJobParser):
     
@@ -81,7 +82,7 @@ class IkmanParser(BaseJobParser):
         return ""
 
     #This function returns the employer, job role, location and description of the job
-    def parse_rule_based_fields(self, markdown: str) -> dict:
+    def parse_rule_based_fields(self, markdown: str, crawler_run_id: int) -> RawJobInput:
 
         employer   = self._extract_label(markdown, "Employer")
         job_role   = self._extract_label(markdown, "Role")
@@ -104,14 +105,15 @@ class IkmanParser(BaseJobParser):
                 location = dash.group(1).strip()
 
         location      = location or "Sri Lanka"
-        is_remote     = bool(re.search(r"\bremote\b|\bwork from home\b|\bwfh\b", markdown, re.IGNORECASE))
 
         description = self._extract_description(markdown)
         description = self._clean_noise(description)
 
-        return {
-            "employer":             employer,
-            "job_role":             job_role,
-            "location":             location,
-            "description":          description,
-        }
+        return RawJobInput(
+            employer=employer,
+            job_role=job_role,
+            location=location,
+            description=description,
+            crawler_run_id=crawler_run_id,
+            source="Ikman",
+        )

@@ -1,11 +1,14 @@
 from parsers.base_parser import BaseJobParser
+from models.raw_job import RawJobInput
 
 class TopJobsParser(BaseJobParser):
 
-    def parse_rule_based_fields(self, data: dict) -> dict:
-        return {
-            "employer": data.get("employer", "N/A"),
-            "job_role": data.get("title", "N/A"),
-            "location": data.get("location", "N/A"),
-            "description": data.get("ocr_text", "")
-        }
+    def parse_rule_based_fields(self, data: dict, crawler_run_id: int) -> RawJobInput:
+        return RawJobInput(
+            employer=data.get("employer", "N/A"),
+            job_role=data.get("title", "N/A"),
+            location=data.get("location", "N/A"),
+            description=data.get("ocr_text", ""),
+            crawler_run_id=crawler_run_id,
+            source="TopJobs",
+        )
