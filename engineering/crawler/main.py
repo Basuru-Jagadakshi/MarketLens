@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import sys
 
 from utils.crawler_run_manager import CrawlerManager
 
@@ -15,6 +16,8 @@ async def crawl_job():
         await manager.run_all_crawlers(concurrent=True)
     except Exception as e:
         logger.exception("CRITICAL ERROR encountered during execution lifecycle")
+        sys.exit(1)
+        
 
     logger.info("--- Crawling Completed ---")
 
@@ -23,3 +26,4 @@ if __name__ == "__main__":
         asyncio.run(crawl_job())
     except KeyboardInterrupt:
         logger.info("\nCrawling is stopped by user.")
+        sys.exit(1)
