@@ -99,21 +99,17 @@ func main() {
 		v1.GET("/industries/top-employers",       jobCtrl.GetTopHiringEmployersForIndustryAndYearHandler)
 		v1.GET("/employment-sectors/yearly-trend", jobCtrl.GetYearlyTrendByEmploymentSectorHandler)
 
-		crawler := v1.Group("/crawler")
+		crawler.Use(auth.AuthRequired())
 		{
-			crawler.POST("/jobs/batch-save", jobCtrl.BatchSaveJobsHandler)
+			crawler.POST("/runs", auth.RequireScope("crawler:runs"), jobCtrl.StartCrawlerRunHandler)
+			crawler.POST("/runs/:id/complete", auth.RequireScope("crawler:complete"), jobCtrl.CompleteCrawlerRunHandler)
+
+			crawler.POST("/radar/lookup", auth.RequireScope("crawler:lookup"), jobCtrl.GetJobsByBucketKeysHandler)
+
+			crawler.POST("/jobs/batch-save", auth.RequireScope("crawler:batch-save"), jobCtrl.BatchSaveJobsHandler)
+			crawler.POST("/jobs/batch-update", auth.RequireScope("crawler:batch-update"), jobCtrl.BatchUpdateDuplicatesHandler)
+			crawler.POST("/jobs/reconcile", auth.RequireScope("crawler:reconcile"), jobCtrl.ReconcileStaleVacanciesHandler)
 		}
-		// crawler.Use(auth.AuthRequired())
-		// {
-		// 	crawler.POST("/runs", auth.RequireScope("crawler:runs"), jobCtrl.StartCrawlerRunHandler)
-		// 	crawler.POST("/runs/:id/complete", auth.RequireScope("crawler:complete"), jobCtrl.CompleteCrawlerRunHandler)
-
-		// 	crawler.POST("/radar/lookup", auth.RequireScope("crawler:lookup"), jobCtrl.GetJobsByBucketKeysHandler)
-
-		// 	crawler.POST("/jobs/batch-save", auth.RequireScope("crawler:batch-save"), jobCtrl.BatchSaveJobsHandler)
-		// 	crawler.POST("/jobs/batch-update", auth.RequireScope("crawler:batch-update"), jobCtrl.BatchUpdateDuplicatesHandler)
-		// 	crawler.POST("/jobs/reconcile", auth.RequireScope("crawler:reconcile"), jobCtrl.ReconcileStaleVacanciesHandler)
-		// }
 
 		geoData := v1.Group("/geo-data")
 		{
