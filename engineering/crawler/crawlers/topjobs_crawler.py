@@ -26,8 +26,7 @@ TESSERACT_LANG = "eng+sin+tam"
 POPUP_WAIT_TIMEOUT = 15000 
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
-logger = logging.getLogger("topjobs_crawler")
+logger = logging.getLogger(__name__)
 
 class TopJobsCrawler(BaseJobCrawler):
 

@@ -11,10 +11,9 @@ from parsers.xpressjobs_parser import XpressJobsParser
 from models.raw_job import RawJobInput
 from config import BACKEND_BASE_URL, BATCH_SIZE
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
-logger = logging.getLogger("xpressjobs_crawler")
+logger = logging.getLogger(__name__)
 
-class XpresJobsCrawler(BaseJobCrawler):
+class XpressJobsCrawler(BaseJobCrawler):
 
     def __init__(self):
         self._parser = XpressJobsParser()

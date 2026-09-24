@@ -21,8 +21,7 @@ pytesseract.pytesseract.tesseract_cmd = "/usr/bin/tesseract"
 #Configuration variable setup
 TESSERACT_LANG = "eng+sin+tam"
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
-logger = logging.getLogger("goverementjobs_crawler")
+logger = logging.getLogger(__name__)
 
 class GoverementJobsCrawler(BaseJobCrawler):
 
