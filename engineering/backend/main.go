@@ -99,6 +99,7 @@ func main() {
 		v1.GET("/industries/top-employers",       jobCtrl.GetTopHiringEmployersForIndustryAndYearHandler)
 		v1.GET("/employment-sectors/yearly-trend", jobCtrl.GetYearlyTrendByEmploymentSectorHandler)
 
+		crawler := v1.Group("/crawler")
 		crawler.Use(auth.AuthRequired())
 		{
 			crawler.POST("/runs", auth.RequireScope("crawler:runs"), jobCtrl.StartCrawlerRunHandler)
