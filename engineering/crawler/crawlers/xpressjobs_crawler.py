@@ -9,7 +9,7 @@ from crawlers.base_crawler import BaseJobCrawler
 from utils.thunder_id_client import ThunderIDClient
 from parsers.xpressjobs_parser import XpressJobsParser
 from models.raw_job import RawJobInput
-from config import BACKEND_BASE_URL, BATCH_SIZE
+from config import BATCH_SIZE
 
 logger = logging.getLogger(__name__)
 

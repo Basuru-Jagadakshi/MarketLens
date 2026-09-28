@@ -5,7 +5,7 @@ import math
 from typing import List
 from pydantic import ValidationError
 from utils.thunder_id_client import ThunderIDClient  
-from config import BACKEND_BASE_URL, BATCH_SIZE
+from config import BATCH_SIZE
 
 from crawlers.base_crawler import BaseJobCrawler
 from parsers.rooster_parser import RoosterParser

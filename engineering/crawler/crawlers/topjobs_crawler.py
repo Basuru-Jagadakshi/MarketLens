@@ -14,7 +14,7 @@ from crawlers.base_crawler import BaseJobCrawler
 from utils.thunder_id_client import ThunderIDClient 
 from parsers.topjobs_parser import TopJobsParser
 from models.raw_job import RawJobInput
-from config import BACKEND_BASE_URL, BATCH_SIZE
+from config import BATCH_SIZE
 
 
 #pytesseract path setup in docker container
