@@ -23,24 +23,61 @@ class RoosterCrawler(BaseJobCrawler):
         base_url = "https://api.rooster.jobs/jobSearch/jobs/search"
         limit = 20
         all_jobs = []
-        
+
         # Initial call to get total count
         payload = {"query": [], "limit": limit, "page": 1, "filters": {"country": "Sri Lanka"}}
-        response = (await async_client.post(base_url, json=payload)).json()
-        total_jobs = response['body']['count']
+
+        try:
+            response = await async_client.post(base_url, json=payload)
+            response.raise_for_status()
+            response_json = response.json()
+        except httpx.RequestError as e:
+            logger.error(f"Request failed while fetching initial job page: {e}")
+            return all_jobs
+        except httpx.HTTPStatusError as e:
+            logger.error(f"Unexpected status {e.response.status_code} while fetching initial job page: {e}")
+            return all_jobs
+        except ValueError as e:
+            logger.error(f"Failed to decode JSON from initial job page response: {e}")
+            return all_jobs
+
+        try:
+            total_jobs = response_json['body']['count']
+        except (KeyError, TypeError) as e:
+            logger.error(f"Unexpected response structure, missing 'body.count': {e}")
+            return all_jobs
+
         total_pages = math.ceil(total_jobs / limit)
-        
         logger.info(f"Total jobs to fetch: {total_jobs} over {total_pages} pages.")
 
         for page in range(1, total_pages + 1):
             payload['page'] = page
-            response = (await async_client.post(base_url, json=payload)).json()
 
-            for job in response['body']['data']:
+            try:
+                response = await async_client.post(base_url, json=payload)
+                response.raise_for_status()
+                response_json = response.json()
+            except httpx.RequestError as e:
+                logger.error(f"Request failed on page {page}: {e}")
+                continue
+            except httpx.HTTPStatusError as e:
+                logger.error(f"Unexpected status {e.response.status_code} on page {page}: {e}")
+                continue
+            except ValueError as e:
+                logger.error(f"Failed to decode JSON on page {page}: {e}")
+                continue
+
+            try:
+                page_jobs = response_json['body']['data']
+            except (KeyError, TypeError) as e:
+                logger.warning(f"Missing 'body.data' on page {page}, skipping: {e}")
+                continue
+
+            for job in page_jobs:
                 all_jobs.append(job)
-                
+
             await asyncio.sleep(1)
-            
+
         return all_jobs
 
     #This funtion starts the crawler and save or update the job after checking whether job already exists or not

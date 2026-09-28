@@ -7,7 +7,7 @@ class XpressJobsParser(BaseJobParser):
         return RawJobInput(
             employer=job.get("employer") or "",
             job_role=job.get("job_title") or "",
-            location=job.get("location") or "Sri Lanka",
+            location=job.get("location") or "",
             description=job.get("description") or "",
             crawler_run_id=crawler_run_id,
             source="XpressJobs",

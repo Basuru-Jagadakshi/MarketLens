@@ -27,21 +27,34 @@ class XpressJobsCrawler(BaseJobCrawler):
         return soup.get_text(separator=" ").strip()
 
     async def _fetch_job_details(self, job_id):
+        url = f"https://xpress.jobs/api/jobs/publishedJob?jobId={job_id}"
+
         try:
-            url = f"https://xpress.jobs/api/jobs/publishedJob?jobId={job_id}"
             response = await self.async_client.get(url)
-            if response.status_code == 200:
-                data = response.json()
-                
-                return {
-                    "job_title": data.get("jobTitle"),
-                    "employer": data.get("jobItem", {}).get("organizationName"),
-                    "location": data.get("jobItem", {}).get("locations"),
-                    "description": self._clean_html(data.get("jobInfo", ""))
-                }
+        except httpx.RequestError as e:
+            logger.warning(f"Request failed while fetching job {job_id}: {e}")
             return None
-        except Exception as e:
-            logger.warning(f"Failed to fetch details for job {job_id}: {e}")
+
+        if response.status_code != 200:
+            logger.warning(f"Unexpected status {response.status_code} while fetching job {job_id}")
+            return None
+
+        try:
+            data = response.json()
+        except ValueError as e:
+            logger.warning(f"Failed to decode JSON for job {job_id}: {e}")
+            return None
+
+        try:
+            job_item = data.get("jobItem") or {}
+            return {
+                "job_title": data.get("jobTitle"),
+                "employer": job_item.get("organizationName"),
+                "location": job_item.get("locations"),
+                "description": self._clean_html(data.get("jobInfo", ""))
+            }
+        except AttributeError as e:
+            logger.warning(f"Unexpected response structure for job {job_id}: {e}")
             return None
 
     async def _process_all_jobs(self):

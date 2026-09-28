@@ -39,12 +39,13 @@ class CrawlerManager:
         try:
             token = await self._thunder_client.get_access_token()  
             init_res = await client.post(f"{BACKEND_BASE_URL}/runs", json=start_payload, headers={"Authorization": f"Bearer {token}"}, )
-            crawler_run_id = init_res.json().get("id", 1)
-            logger.info(f"Initialized Tracking Session Run ID: {crawler_run_id}")
+            init_res.raise_for_status()
+            crawler_run_id = init_res.json()["id"]
+            logger.info(f"Initialized Tracking Crawler Session Run ID: {crawler_run_id}")
             return crawler_run_id
         except Exception as e:
             logger.warning(f"Could not connect to tracking backend. Defaulting fallback to run sequence ID 1: {e}")
-            return 1
+            raise
 
     #This function sets the status of the current crawling session to "COMPLETED" 
     #and sets the end date of the jobs that are not equal to current crawler run id

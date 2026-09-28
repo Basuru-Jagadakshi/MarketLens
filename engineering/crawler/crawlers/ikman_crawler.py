@@ -1,5 +1,7 @@
 import httpx
 import logging
+import re
+import math
 from typing import List
 
 from crawlers.base_crawler import BaseJobCrawler
@@ -7,7 +9,7 @@ from parsers.ikman_parser import IkmanParser
 from utils.thunder_id_client import ThunderIDClient  
 from pydantic import ValidationError
 from models.raw_job import RawJobInput
-from config import BACKEND_BASE_URL, BATCH_SIZE
+from config import BATCH_SIZE
 
 from crawl4ai import (
     AsyncWebCrawler,
@@ -26,8 +28,6 @@ class IkmanCrawler(BaseJobCrawler):
 
     #This function returns the last page number from the site
     async def _get_last_page_from_text(self) -> int:
-        import re
-        import math
 
         async with AsyncWebCrawler() as crawler:
             result = await crawler.arun(url="https://ikman.lk/en/ads/sri-lanka/jobs")
@@ -69,7 +69,6 @@ class IkmanCrawler(BaseJobCrawler):
 
             for page in range(1, max_pages + 1):
                 url = f"https://ikman.lk/en/ads/sri-lanka/jobs?page={page}"
-                logger.info(f"Scanning Listing Page Index: {page}")
                 res = await crawler.arun(url=url, config=CrawlerRunConfig(cache_mode="BYPASS"))
                 if res.success:
                     links = [

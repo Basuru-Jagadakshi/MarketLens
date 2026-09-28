@@ -104,7 +104,7 @@ class IkmanParser(BaseJobParser):
             if dash:
                 location = dash.group(1).strip()
 
-        location      = location or "Sri Lanka"
+        location = location or ""
 
         description = self._extract_description(markdown)
         description = self._clean_noise(description)

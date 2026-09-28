@@ -1,4 +1,3 @@
-import asyncio
 import logging
 import pytesseract
 import httpx
@@ -10,8 +9,8 @@ from bs4 import BeautifulSoup
 from PIL import Image
 from crawlers.base_crawler import BaseJobCrawler
 from utils.thunder_id_client import ThunderIDClient 
-from parsers.goverementjobs_parser import GoverementJobsParser
-from config import BACKEND_BASE_URL, BATCH_SIZE
+from parsers.governmentjobs_parser import GovernmentJobsParser
+from config import BATCH_SIZE
 from pydantic import ValidationError
 from models.raw_job import RawJobInput
 
@@ -26,7 +25,7 @@ logger = logging.getLogger(__name__)
 class GoverementJobsCrawler(BaseJobCrawler):
 
     def __init__(self):
-        self._parser = GoverementJobsParser()
+        self._parser = GovernmentJobsParser()
         self.async_client = httpx.AsyncClient()
         self._thunder_client = ThunderIDClient() 
 
