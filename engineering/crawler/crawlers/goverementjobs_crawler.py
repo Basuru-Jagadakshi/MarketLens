@@ -94,7 +94,7 @@ class GoverementJobsCrawler(BaseJobCrawler):
                         })
                         
                     except Exception as e:
-                        logger.error(f"Error parsing job: {e}")
+                        logger.error(f"GovernmentJobs: Error parsing job: {e}")
                         continue
                 
         return jobs_data
@@ -106,12 +106,12 @@ class GoverementJobsCrawler(BaseJobCrawler):
         async_client: httpx.AsyncClient,
     ) -> None:
  
-        logger.info("Goverement jobs crawl started.")
+        logger.info("GovernmentJobs: Government jobs crawl started.")
  
         try:
             token = await self._thunder_client.get_access_token()
         except Exception as e:
-            logger.error(f"Failed to obtain ThunderID access token: {e}")
+            logger.error(f"GovernmentJobs: Failed to obtain ThunderID access token: {e}")
             raise
         auth_headers = {"Authorization": f"Bearer {token}"}
  
@@ -123,17 +123,17 @@ class GoverementJobsCrawler(BaseJobCrawler):
             try:
                 job_input = self._parser.parse_rule_based_fields(result, crawler_run_id)
             except ValidationError as e:
-                logger.warning(f"Skipping malformed job: {e}")
+                logger.warning(f"GovernmentJobs: Skipping malformed job: {e}")
                 continue
  
             job_batch.append(job_input)
  
             if len(job_batch) >= BATCH_SIZE:
-                logger.info(f"Flushing full batch of {len(job_batch)} job records to backend.")
+                logger.info(f"GovernmentJobs: Flushing full batch of {len(job_batch)} job records to backend.")
                 await self._flush_batch(async_client, auth_headers, job_batch)
  
         if job_batch:
-            logger.info(f"Flushing remaining {len(job_batch)} job records to backend.")
+            logger.info(f"GovernmentJobs: Flushing remaining {len(job_batch)} job records to backend.")
             await self._flush_batch(async_client, auth_headers, job_batch)
  
-        logger.info("Goverement jobs crawl pass concluded.")
+        logger.info("GovernmentJobs: Government jobs crawl pass concluded.")

@@ -37,10 +37,10 @@ class IkmanCrawler(BaseJobCrawler):
                 total_ads = int(match.group(1).replace(',', ''))
                 ads_per_page = 25
                 last_page = math.ceil(total_ads / ads_per_page)
-                logger.info(f"Total Ads: {total_ads}, Calculated Last Page: {last_page}")
+                logger.info(f"Ikman: Total Ads: {total_ads}, Calculated Last Page: {last_page}")
                 return last_page
             else:
-                logger.warning("Could not find the total ad count text.")
+                logger.warning("Ikman: Could not find the total ad count text.")
                 return 1
 
     #This funtion starts the crawler and save or update the job after checking whether job already exists or not
@@ -53,7 +53,7 @@ class IkmanCrawler(BaseJobCrawler):
         try:
             token = await self._thunder_client.get_access_token()
         except Exception as e:
-            logger.error(f"Failed to obtain ThunderID access token: {e}")
+            logger.error(f"Ikman: Failed to obtain ThunderID access token: {e}")
             raise
         auth_headers = {"Authorization": f"Bearer {token}"}   
 
@@ -78,7 +78,7 @@ class IkmanCrawler(BaseJobCrawler):
                     all_detail_urls.extend(links)
 
             unique_urls = list(set(all_detail_urls))
-            logger.info(f"Processing structural extraction queue for {len(unique_urls)} links.")
+            logger.info(f"Ikman: Processing structural extraction queue for {len(unique_urls)} links.")
 
             detail_config = CrawlerRunConfig(cache_mode="BYPASS", stream=True)
             results_generator = await crawler.arun_many(urls=unique_urls, config=detail_config, dispatcher=dispatcher)
@@ -94,7 +94,7 @@ class IkmanCrawler(BaseJobCrawler):
                         crawler_run_id=crawler_run_id,
                     )
                 except ValidationError as e:
-                    logger.warning(f"Skipping malformed job at {result.url}: {e}")
+                    logger.warning(f"Ikman: Skipping malformed job at {result.url}: {e}")
                     continue
 
                 job_batch.append(job_input)
@@ -105,4 +105,4 @@ class IkmanCrawler(BaseJobCrawler):
             if job_batch:
                 await self._flush_batch(async_client, auth_headers, job_batch)
 
-        logger.info("ikman.lk crawl pass concluded.")
+        logger.info("Ikman: ikman.lk crawl pass concluded.")
