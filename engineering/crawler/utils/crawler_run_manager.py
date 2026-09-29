@@ -16,6 +16,8 @@ from utils.thunder_id_client import ThunderIDClient
 
 logger = logging.getLogger(__name__)
 
+HTTP_CLIENT_TIMEOUT_SECONDS = 300.0
+
 class CrawlerManager:
 
     def __init__(self):
@@ -94,7 +96,7 @@ class CrawlerManager:
     ) -> None:
         names = crawler_names or list(self._registry.keys())
 
-        async with httpx.AsyncClient(timeout=300.0) as client:
+        async with httpx.AsyncClient(timeout=HTTP_CLIENT_TIMEOUT_SECONDS) as client:
             crawler_run_id = await self._start_run(client)
             
             tasks = [self._run_crawler(name, crawler_run_id, client) for name in names if name in self._registry]
