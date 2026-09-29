@@ -5,9 +5,9 @@ class TopJobsParser(BaseJobParser):
 
     def parse_rule_based_fields(self, data: dict, crawler_run_id: int) -> RawJobInput:
         return RawJobInput(
-            employer=data.get("employer", "N/A"),
-            job_role=data.get("title", "N/A"),
-            location=data.get("location", "N/A"),
+            employer=data.get("employer", ""),
+            job_role=data.get("title", ""),
+            location=data.get("location", ""),
             description=data.get("ocr_text", ""),
             crawler_run_id=crawler_run_id,
             source="TopJobs",

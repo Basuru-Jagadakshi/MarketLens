@@ -7,7 +7,7 @@ class RoosterParser(BaseJobParser):
         return RawJobInput(
             employer=job.get("company_name") or "",
             job_role=job.get("title") or "",
-            location=job.get("location") or "Sri Lanka",
+            location=job.get("location") or "",
             description=job.get("description") or "",
             crawler_run_id=crawler_run_id,
             source="Rooster",
