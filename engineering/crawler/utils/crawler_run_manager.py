@@ -11,7 +11,7 @@ from crawlers.ikman_crawler import IkmanCrawler
 from crawlers.xpressjobs_crawler import XpressJobsCrawler
 from crawlers.topjobs_crawler import TopJobsCrawler
 from crawlers.rooster_crawler import RoosterCrawler
-from crawlers.goverementjobs_crawler import GoverementJobsCrawler
+from crawlers.governmentjobs_crawler import GovernmentJobsCrawler
 from utils.thunder_id_client import ThunderIDClient
 
 logger = logging.getLogger(__name__)
@@ -25,7 +25,7 @@ class CrawlerManager:
             "rooster": RoosterCrawler,
             "xpress": XpressJobsCrawler,
             "topjobs": TopJobsCrawler,
-            "govermentjobs": GoverementJobsCrawler,
+            "govermentjobs": GovernmentJobsCrawler,
             "ikman": IkmanCrawler,
         }
         self._thunder_client = ThunderIDClient() 
@@ -42,7 +42,12 @@ class CrawlerManager:
             token = await self._thunder_client.get_access_token()  
             init_res = await client.post(f"{BACKEND_BASE_URL}/runs", json=start_payload, headers={"Authorization": f"Bearer {token}"}, )
             init_res.raise_for_status()
-            crawler_run_id = init_res.json()["id"]
+            response_data = init_res.json()
+            crawler_run_id = response_data.get("id")
+
+            if crawler_run_id is None:
+                raise ValueError(f"'id' missing in /runs response: {response_data}")
+            
             logger.info(f"Initialized Tracking Crawler Session Run ID: {crawler_run_id}")
             return crawler_run_id
         except Exception as e:

@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 class IkmanCrawler(BaseJobCrawler):
 
     def __init__(self):
-        self.parser = IkmanParser()
+        self._parser = IkmanParser()
         self._thunder_client = ThunderIDClient() 
 
     #This function returns the last page number from the site
@@ -49,6 +49,8 @@ class IkmanCrawler(BaseJobCrawler):
         crawler_run_id: int,
         async_client: httpx.AsyncClient
     ) -> None:
+
+        logger.info("Ikman: Ikman crawl started.")
 
         try:
             token = await self._thunder_client.get_access_token()
@@ -89,7 +91,7 @@ class IkmanCrawler(BaseJobCrawler):
                     continue
 
                 try:
-                    job_input = self.parser.parse_rule_based_fields(
+                    job_input = self._parser.parse_rule_based_fields(
                         markdown=result.markdown.raw_markdown,
                         crawler_run_id=crawler_run_id,
                     )
@@ -105,4 +107,4 @@ class IkmanCrawler(BaseJobCrawler):
             if job_batch:
                 await self._flush_batch(async_client, auth_headers, job_batch)
 
-        logger.info("Ikman: ikman.lk crawl pass concluded.")
+        logger.info("Ikman: Ikman crawl pass concluded.")

@@ -75,25 +75,24 @@ class TopJobsCrawler(BaseJobCrawler):
             await page.goto(f"{LISTING_URL}&pageNo=1", wait_until="networkidle")
             total_pages = await self._get_total_pages(await page.content())
             
-            logger.info(f"Total pages detected: {total_pages}")
+            logger.info(f"TopJobs: Total pages detected: {total_pages}")
 
 
             all_jobs = []
             
             for page_num in range(1, total_pages + 1):
 
-                logger.info(f"Scraping page {page_num} of {total_pages}...")
+                logger.info(f"TopJobs: Scraping page {page_num} of {total_pages}...")
                 if page_num > 1:
                     await page.goto(f"{LISTING_URL}&pageNo={page_num}", wait_until="networkidle")
                 
                 content = await page.content()
                 jobs = await self._parse_listing_html(content)
-                logger.info(f"Found {len(jobs)} jobs. Starting popup processing...")
+                logger.info(f"TopJobs: Found {len(jobs)} jobs. Starting popup processing...")
 
                 for i, job in enumerate(jobs):
 
                     try:
-                        logger.info(f"[{i+1}/{len(jobs)}] Processing {job['employer']}")
 
                         await asyncio.sleep(3)
                         
@@ -114,7 +113,7 @@ class TopJobsCrawler(BaseJobCrawler):
                                 break
                         
                         if not img_locator:
-                            logger.error("Could not find a large advertisement image.")
+                            logger.error("TopJobs: Could not find a large advertisement image.")
                             await popup.close()
                             continue
 
@@ -134,7 +133,7 @@ class TopJobsCrawler(BaseJobCrawler):
                         all_jobs.append(job)
                         
                     except Exception as e:
-                        logger.error(f"Failed to process {job['row_id']}: {e}")
+                        logger.error(f"TopJobs: Failed to process {job['row_id']}: {e}")
                         job["error"] = str(e)
 
             await browser.close()
@@ -142,19 +141,18 @@ class TopJobsCrawler(BaseJobCrawler):
             return all_jobs
 
 
-    #This funtion starts the crawler and save or update the job after checking whether job already exists or not
     async def crawl_jobs(
         self,
         crawler_run_id: int,
         async_client: httpx.AsyncClient,
     ) -> None:
  
-        logger.info("Top jobs crawl started.")
+        logger.info("TopJobs: Top jobs crawl started.")
  
         try:
             token = await self._thunder_client.get_access_token()
         except Exception as e:
-            logger.error(f"Failed to obtain ThunderID access token: {e}")
+            logger.error(f"TopJobs: Failed to obtain ThunderID access token: {e}")
             raise
         auth_headers = {"Authorization": f"Bearer {token}"}
  
@@ -166,17 +164,17 @@ class TopJobsCrawler(BaseJobCrawler):
             try:
                 job_input = self._parser.parse_rule_based_fields(result, crawler_run_id)
             except ValidationError as e:
-                logger.warning(f"Skipping malformed job: {e}")
+                logger.warning(f"TopJobs: Skipping malformed job: {e}")
                 continue
  
             job_batch.append(job_input)
  
             if len(job_batch) >= BATCH_SIZE:
-                logger.info(f"Flushing full batch of {len(job_batch)} job records to backend.")
+                logger.info(f"TopJobs: Flushing full batch of {len(job_batch)} job records to backend.")
                 await self._flush_batch(async_client, auth_headers, job_batch)
  
         if job_batch:
-            logger.info(f"Flushing remaining {len(job_batch)} job records to backend.")
+            logger.info(f"TopJobs: Flushing remaining {len(job_batch)} job records to backend.")
             await self._flush_batch(async_client, auth_headers, job_batch)
  
-        logger.info("Top jobs crawl pass concluded.")
+        logger.info("TopJobs: Top jobs crawl pass concluded.")

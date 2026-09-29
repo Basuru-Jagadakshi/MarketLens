@@ -17,7 +17,6 @@ class XpressJobsCrawler(BaseJobCrawler):
 
     def __init__(self):
         self._parser = XpressJobsParser()
-        self.async_client = httpx.AsyncClient(timeout=30.0)
         self._thunder_client = ThunderIDClient() 
 
     def _clean_html(self, html_content):
@@ -26,11 +25,11 @@ class XpressJobsCrawler(BaseJobCrawler):
         soup = BeautifulSoup(html_content, "html.parser")
         return soup.get_text(separator=" ").strip()
 
-    async def _fetch_job_details(self, job_id):
+    async def _fetch_job_details(self, async_client: httpx.AsyncClient, job_id):
         url = f"https://xpress.jobs/api/jobs/publishedJob?jobId={job_id}"
 
         try:
-            response = await self.async_client.get(url)
+            response = await async_client.get(url)
         except httpx.RequestError as e:
             logger.warning(f"Request failed while fetching job {job_id}: {e}")
             return None
@@ -57,34 +56,34 @@ class XpressJobsCrawler(BaseJobCrawler):
             logger.warning(f"Unexpected response structure for job {job_id}: {e}")
             return None
 
-    async def _process_all_jobs(self):
+    async def _process_all_jobs(self, async_client: httpx.AsyncClient):
         final_data = []
         page = 1
         
         while True:
-            logger.info(f"--- Fetching page {page} ---")
+            logger.info(f"XpressJobs: --- Fetching page {page} ---")
             
             # Build the URL with the current page
             list_url = f"https://xpress.jobs/api/jobs/searchJobs?page={page}&pageSize=20&keyword=&locations=&sectors=&jobTypes=&careerLevels=&sortBy=SortedCreateDate+DESC&byCVLess=false&byWalkIn=false"
             
             try:
-                response = await self.async_client.get(list_url, timeout=10)
+                response = await async_client.get(list_url, timeout=10)
                 jobs_list = response.json()
             except Exception as e:
-                logger.error(f"Error fetching page {page}: {e}")
+                logger.error(f"XpressJobs: Error fetching page {page}: {e}")
                 break
                 
             # Break the loop if the list is empty
             if not jobs_list:
-                logger.info("No more jobs found. Finishing.")
+                logger.info("XpressJobs: No more jobs found. Finishing.")
                 break
             
             # Process each job on the current page
             for job_summary in jobs_list:
                 job_id = job_summary['jobId']
-                logger.info(f"Processing job {job_id}: {job_summary['jobTitle']}")
+                logger.info(f"XpressJobs: Processing job {job_id}: {job_summary['jobTitle']}")
                 
-                details = await self._fetch_job_details(job_id)
+                details = await self._fetch_job_details(job_id, async_client)
                 if details:
                     final_data.append(details)
                 
@@ -104,16 +103,16 @@ class XpressJobsCrawler(BaseJobCrawler):
         async_client: httpx.AsyncClient,
     ) -> None:
  
-        logger.info("Xpress jobs crawl started.")
+        logger.info("XpressJobs: Xpress jobs crawl started.")
  
         try:
             token = await self._thunder_client.get_access_token()
         except Exception as e:
-            logger.error(f"Failed to obtain ThunderID access token: {e}")
+            logger.error(f"XpressJobs: Failed to obtain ThunderID access token: {e}")
             raise
         auth_headers = {"Authorization": f"Bearer {token}"} 
         
-        job_data_list = await self._process_all_jobs()
+        job_data_list = await self._process_all_jobs(async_client)
  
         job_batch: List[RawJobInput] = []
  
@@ -121,17 +120,17 @@ class XpressJobsCrawler(BaseJobCrawler):
             try:
                 job_input = self._parser.parse_rule_based_fields(result, crawler_run_id)
             except ValidationError as e:
-                logger.warning(f"Skipping malformed job: {e}")
+                logger.warning(f"XpressJobs: Skipping malformed job: {e}")
                 continue
  
             job_batch.append(job_input)
  
             if len(job_batch) >= BATCH_SIZE:
-                logger.info(f"Flushing full batch of {len(job_batch)} job records to backend.")
+                logger.info(f"XpressJobs: Flushing full batch of {len(job_batch)} job records to backend.")
                 await self._flush_batch(async_client, auth_headers, job_batch)
  
         if job_batch:
-            logger.info(f"Flushing remaining {len(job_batch)} job records to backend.")
+            logger.info(f"XpressJobs: Flushing remaining {len(job_batch)} job records to backend.")
             await self._flush_batch(async_client, auth_headers, job_batch)
  
-        logger.info("Xpress jobs crawl pass concluded.")
+        logger.info("XpressJobs: Xpress jobs crawl pass concluded.")

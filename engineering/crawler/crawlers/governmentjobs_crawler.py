@@ -22,26 +22,25 @@ TESSERACT_LANG = "eng+sin+tam"
 
 logger = logging.getLogger(__name__)
 
-class GoverementJobsCrawler(BaseJobCrawler):
+class GovernmentJobsCrawler(BaseJobCrawler):
 
     def __init__(self):
         self._parser = GovernmentJobsParser()
-        self.async_client = httpx.AsyncClient()
         self._thunder_client = ThunderIDClient() 
 
     def _remove_sinhala_control_chars(self, text):
         cleaned_text = text.replace('\u200c', '').replace('\u200d', '')
         return cleaned_text
 
-    async def _perform_ocr(self, image_url):
+    async def _perform_ocr(self, async_client: httpx.AsyncClient, image_url):
         try:
-            response = await self.async_client.get(image_url, timeout=10)
+            response = await async_client.get(image_url, timeout=10)
             img = Image.open(BytesIO(response.content)).convert('L') # Convert to grayscale for better OCR
             return " ".join(pytesseract.image_to_string(img, lang=TESSERACT_LANG).split())
         except Exception as e:
             return f"OCR Error: {e}"
 
-    async def _fetch_job_details(self):
+    async def _fetch_job_details(self, async_client: httpx.AsyncClient):
         base_url = "https://governmentjobs.lk/index.php?page={}&ipp=25&"
         jobs_data = []
         
@@ -82,7 +81,7 @@ class GoverementJobsCrawler(BaseJobCrawler):
                         for img_tag in img_tags:
                             src = img_tag.get('src')
                             if src and "amazonaws.com/mytutor.lk/vacancy" in src:
-                                description = description + await self._perform_ocr(src)
+                                description = description + await self._perform_ocr(async_client, src)
 
                         description = self._remove_sinhala_control_chars(description)
                         
@@ -115,7 +114,7 @@ class GoverementJobsCrawler(BaseJobCrawler):
             raise
         auth_headers = {"Authorization": f"Bearer {token}"}
  
-        job_data_list = await self._fetch_job_details()
+        job_data_list = await self._fetch_job_details(async_client)
  
         job_batch: List[RawJobInput] = []
  
