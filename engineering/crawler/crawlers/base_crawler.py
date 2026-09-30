@@ -10,7 +10,7 @@ from models.raw_job import RawJobInput
 logger = logging.getLogger(__name__)
 
 MAX_RETRIES = 3
-RETRYABLE_STATUS_CODES = {500, 502, 503, 504, 429}
+RETRYABLE_STATUS_CODES = {500, 502, 503, 504, 429, 408}
 
 
 class BaseJobCrawler(ABC):
