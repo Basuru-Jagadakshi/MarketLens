@@ -19,6 +19,7 @@ pytesseract.pytesseract.tesseract_cmd = "/usr/bin/tesseract"
 
 #Configuration variable setup
 TESSERACT_LANG = "eng+sin+tam"
+IMAGE_URL = "amazonaws.com/mytutor.lk/vacancy"
 
 logger = logging.getLogger(__name__)
 
@@ -80,7 +81,7 @@ class GovernmentJobsCrawler(BaseJobCrawler):
                         description = ""
                         for img_tag in img_tags:
                             src = img_tag.get('src')
-                            if src and "amazonaws.com/mytutor.lk/vacancy" in src:
+                            if src and IMAGE_URL in src:
                                 description = description + await self._perform_ocr(async_client, src)
 
                         description = self._remove_sinhala_control_chars(description)
