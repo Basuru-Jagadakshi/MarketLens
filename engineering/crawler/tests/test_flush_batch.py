@@ -1,49 +1,11 @@
-"""
-Tests for BaseJobCrawler._flush_batch.
-
-_flush_batch is the single point where crawled jobs leave the crawler and
-reach the backend. It now retries failures INTERNALLY, up to MAX_RETRIES
-total attempts, before giving up — there is no more "leave it in job_batch
-for the next external flush call" behavior. By the time _flush_batch
-returns, job_batch is always empty: either everything made it (saved or
-duplicate), or whatever didn't make it after MAX_RETRIES attempts was
-logged and dropped.
-
-A silent regression here (e.g. giving up too early, retrying something
-that should be dropped immediately, or crashing on a malformed response)
-would lose data quietly in production with no visible error, so it's
-covered in isolation from the rest of the crawl loop.
-
-Run with:
-    pytest tests/test_flush_batch.py -v
-"""
 import json
 from unittest.mock import AsyncMock, MagicMock
 
 import httpx
 import pytest
 
-from crawlers.base_crawler import BaseJobCrawler, MAX_RETRIES, RETRYABLE_STATUS_CODES
+from crawlers.base_crawler import MAX_RETRIES, RETRYABLE_STATUS_CODES
 from models.raw_job import RawJobInput
-
-
-class _ConcreteCrawler(BaseJobCrawler):
-    """BaseJobCrawler is abstract; _flush_batch is what we're testing and
-    doesn't need a real crawl_jobs implementation behind it."""
-
-    async def crawl_jobs(self, crawler_run_id, async_client):
-        raise NotImplementedError
-
-
-@pytest.fixture
-def crawler():
-    return _ConcreteCrawler()
-
-
-@pytest.fixture
-def auth_headers():
-    return {"Authorization": "Bearer test-token"}
-
 
 def make_job(job_id: str = "job-1", crawler_run_id: int = 1) -> RawJobInput:
     return RawJobInput(
