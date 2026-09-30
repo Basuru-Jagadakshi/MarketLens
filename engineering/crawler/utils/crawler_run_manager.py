@@ -2,32 +2,30 @@ import logging
 import asyncio
 import httpx
 from datetime import datetime, timezone
-from typing import Callable, Awaitable, Dict, List, Optional, Type
+from typing import Dict, List, Optional, Type
 
 from config import BACKEND_BASE_URL
 
 from crawlers.base_crawler import BaseJobCrawler
 from crawlers.ikman_crawler import IkmanCrawler
-from crawlers.xpressjobs_crawler import XpresJobsCrawler
+from crawlers.xpressjobs_crawler import XpressJobsCrawler
 from crawlers.topjobs_crawler import TopJobsCrawler
 from crawlers.rooster_crawler import RoosterCrawler
-from crawlers.goverementjobs_crawler import GoverementJobsCrawler
-from utils.schema_builder import MetadataSchemaBuilder
-from utils.occupation_classifier import OccupationClassifier
-from utils.industry_classifier import IndustryClassifier
+from crawlers.governmentjobs_crawler import GovernmentJobsCrawler
 from utils.thunder_id_client import ThunderIDClient
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
+
+HTTP_CLIENT_TIMEOUT_SECONDS = 300.0
 
 class CrawlerManager:
 
     def __init__(self):
         self._registry: Dict[str, Type[BaseJobCrawler]] = {
             "rooster": RoosterCrawler,
-            "xpress": XpresJobsCrawler,
+            "xpress": XpressJobsCrawler,
             "topjobs": TopJobsCrawler,
-            "govermentjobs": GoverementJobsCrawler,
+            "governmentjobs": GovernmentJobsCrawler,
             "ikman": IkmanCrawler,
         }
         self._thunder_client = ThunderIDClient() 
@@ -43,12 +41,18 @@ class CrawlerManager:
         try:
             token = await self._thunder_client.get_access_token()  
             init_res = await client.post(f"{BACKEND_BASE_URL}/runs", json=start_payload, headers={"Authorization": f"Bearer {token}"}, )
-            crawler_run_id = init_res.json().get("id", 1)
-            logger.info(f"Initialized Tracking Session Run ID: {crawler_run_id}")
+            init_res.raise_for_status()
+            response_data = init_res.json()
+            crawler_run_id = response_data.get("id")
+
+            if crawler_run_id is None:
+                raise ValueError(f"'id' missing in /runs response: {response_data}")
+            
+            logger.info(f"Initialized Tracking Crawler Session Run ID: {crawler_run_id}")
             return crawler_run_id
         except Exception as e:
             logger.warning(f"Could not connect to tracking backend. Defaulting fallback to run sequence ID 1: {e}")
-            return 1
+            raise
 
     #This function sets the status of the current crawling session to "COMPLETED" 
     #and sets the end date of the jobs that are not equal to current crawler run id
@@ -72,10 +76,6 @@ class CrawlerManager:
         name: str,
         crawler_run_id: int,
         client: httpx.AsyncClient,
-        schema: dict,
-        instruction: str,
-        occupation_classifier: OccupationClassifier,
-        industry_classifier: IndustryClassifier,
     ) -> None:
         crawler_class = self._registry.get(name)
         if not crawler_class:
@@ -88,10 +88,6 @@ class CrawlerManager:
             await crawler_instance.crawl_jobs(
                 crawler_run_id=crawler_run_id, 
                 async_client=client,
-                schema=schema,
-                instruction=instruction,
-                occupation_classifier=occupation_classifier,
-                industry_classifier=industry_classifier,
             )
             logger.info(f"--- Finished crawler: {name} ---")
         except Exception as e:
@@ -105,17 +101,10 @@ class CrawlerManager:
     ) -> None:
         names = crawler_names or list(self._registry.keys())
 
-        async with httpx.AsyncClient(timeout=30.0) as client:
+        async with httpx.AsyncClient(timeout=HTTP_CLIENT_TIMEOUT_SECONDS) as client:
             crawler_run_id = await self._start_run(client)
-
-            schema_builder = MetadataSchemaBuilder(client)
-            schema, instruction = await schema_builder.build()
-            logger.info(f"Schema is created")
-
-            occupation_classifier = OccupationClassifier(client)
-            industry_classifier = IndustryClassifier(client)
             
-            tasks = [self._run_crawler(name, crawler_run_id, client, schema, instruction, occupation_classifier, industry_classifier) for name in names if name in self._registry]
+            tasks = [self._run_crawler(name, crawler_run_id, client) for name in names if name in self._registry]
             
             if concurrent:
                 await asyncio.gather(*tasks, return_exceptions=True)
