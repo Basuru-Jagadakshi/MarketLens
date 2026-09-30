@@ -252,6 +252,40 @@ class TestNonRetryableFailures:
         assert job_batch == []
         assert client.post.await_count == 1
 
+    @pytest.mark.asyncio
+    async def test_429_rate_limit_is_treated_as_retryable(self, crawler, auth_headers):
+        """429 is in RETRYABLE_STATUS_CODES — a rate-limited job is the
+        backend's problem, not the job's, so it should get another chance
+        rather than being dropped."""
+        job_batch = [make_job("a")]
+        client = AsyncMock()
+        client.post.side_effect = [
+            make_ok_response([failure("a", 429, "rate limited")]),
+            make_ok_response([]),  # succeeds once the limit clears
+        ]
+
+        await crawler._flush_batch(client, auth_headers, job_batch)
+
+        assert client.post.await_count == 2
+        assert job_batch == []
+
+    @pytest.mark.asyncio
+    async def test_408_request_timeout_is_treated_as_retryable(self, crawler, auth_headers):
+        """408 is in RETRYABLE_STATUS_CODES — a job failing because the
+        request timed out server-side should get another chance rather
+        than being dropped."""
+        job_batch = [make_job("a")]
+        client = AsyncMock()
+        client.post.side_effect = [
+            make_ok_response([failure("a", 408, "request timeout")]),
+            make_ok_response([]),  # succeeds on retry
+        ]
+
+        await crawler._flush_batch(client, auth_headers, job_batch)
+
+        assert client.post.await_count == 2
+        assert job_batch == []
+
 
 # ---------------------------------------------------------------------------
 # Retry exhaustion (poison-pill protection) — all within one call now
@@ -449,3 +483,35 @@ class TestTransportFailures:
 
         assert job_batch == []
         assert client.post.await_count == 1
+
+    @pytest.mark.asyncio
+    async def test_whole_request_429_is_retried_internally_then_dropped(
+        self, crawler, auth_headers
+    ):
+        """A 429 at the whole-request level (the backend itself is
+        rate-limiting the batch endpoint, not rejecting a specific job)
+        must be retried like a 5xx, not dropped like a generic 4xx."""
+        job_batch = [make_job("a"), make_job("b")]
+        client = AsyncMock()
+        client.post.return_value = make_error_response(429, text="rate limited")
+
+        await crawler._flush_batch(client, auth_headers, job_batch)
+
+        assert client.post.await_count == MAX_RETRIES
+        assert job_batch == []
+
+    @pytest.mark.asyncio
+    async def test_whole_request_429_recovers_if_a_later_attempt_succeeds(
+        self, crawler, auth_headers
+    ):
+        job_batch = [make_job("a")]
+        client = AsyncMock()
+        client.post.side_effect = [
+            make_error_response(429, text="rate limited"),
+            make_ok_response([]),
+        ]
+
+        await crawler._flush_batch(client, auth_headers, job_batch)
+
+        assert client.post.await_count == 2
+        assert job_batch == []
