@@ -2,11 +2,17 @@
 Tests for BaseJobCrawler._flush_batch.
 
 _flush_batch is the single point where crawled jobs leave the crawler and
-reach the backend, and it owns the retry/drop decision for anything that
-fails. A silent regression here (e.g. clearing jobs that should be retried,
-or retrying jobs that should be dropped) would lose data quietly in
-production with no visible error, so it's covered in isolation from the
-rest of the crawl loop.
+reach the backend. It now retries failures INTERNALLY, up to MAX_RETRIES
+total attempts, before giving up — there is no more "leave it in job_batch
+for the next external flush call" behavior. By the time _flush_batch
+returns, job_batch is always empty: either everything made it (saved or
+duplicate), or whatever didn't make it after MAX_RETRIES attempts was
+logged and dropped.
+
+A silent regression here (e.g. giving up too early, retrying something
+that should be dropped immediately, or crashing on a malformed response)
+would lose data quietly in production with no visible error, so it's
+covered in isolation from the rest of the crawl loop.
 
 Run with:
     pytest tests/test_flush_batch.py -v
@@ -17,7 +23,7 @@ from unittest.mock import AsyncMock, MagicMock
 import httpx
 import pytest
 
-from crawlers.base_crawler import BaseJobCrawler, MAX_RETRIES
+from crawlers.base_crawler import BaseJobCrawler, MAX_RETRIES, RETRYABLE_STATUS_CODES
 from models.raw_job import RawJobInput
 
 
@@ -51,45 +57,60 @@ def make_job(job_id: str = "job-1", crawler_run_id: int = 1) -> RawJobInput:
     )
 
 
-def make_response(status_code: int, json_body: dict | None = None, text: str = ""):
-    """Builds a mock httpx.Response-like object whose raise_for_status()
-    behaves like the real thing, so the except blocks in _flush_batch are
-    exercised exactly as they would be against a live response."""
+def make_ok_response(failed: list | None = None):
+    """A 200 response reporting the given failures (job_id/status_code/error
+    dicts). An empty/None list means every job in the request succeeded."""
     response = MagicMock(spec=httpx.Response)
-    response.status_code = status_code
-    response.text = text if not json_body else json.dumps(json_body)
-
-    if json_body is not None:
-        response.json.return_value = json_body
-    else:
-        response.json.side_effect = json.JSONDecodeError("bad json", "", 0)
-
-    if status_code >= 400:
-        request = httpx.Request("POST", "https://api.example.com/jobs/batch-save")
-        response.raise_for_status.side_effect = httpx.HTTPStatusError(
-            f"{status_code} error", request=request, response=response
-        )
-    else:
-        response.raise_for_status.return_value = None
-
+    response.status_code = 200
+    response.raise_for_status.return_value = None
+    response.json.return_value = {"failed_jobs": failed or []}
     return response
 
 
+def make_bad_json_response():
+    """A 200 whose body isn't valid JSON (e.g. a proxy error page)."""
+    response = MagicMock(spec=httpx.Response)
+    response.status_code = 200
+    response.raise_for_status.return_value = None
+    response.json.side_effect = json.JSONDecodeError("bad json", "", 0)
+    return response
+
+
+def make_error_response(status_code: int, text: str = "error"):
+    """A response whose raise_for_status() raises, mirroring a real
+    non-2xx httpx.Response."""
+    response = MagicMock(spec=httpx.Response)
+    response.status_code = status_code
+    response.text = text
+    request = httpx.Request("POST", "https://api.example.com/jobs/batch-save")
+    response.raise_for_status.side_effect = httpx.HTTPStatusError(
+        f"{status_code} error", request=request, response=response
+    )
+    return response
+
+
+def failure(job_id: str, status_code: int = 503, error: str = "error"):
+    return {"job_id": job_id, "status_code": status_code, "error": error}
+
+
 # ---------------------------------------------------------------------------
-# All jobs saved successfully
+# All jobs saved successfully — single attempt, no retries needed
 # ---------------------------------------------------------------------------
 
 class TestAllSucceeded:
 
     @pytest.mark.asyncio
-    async def test_empty_failed_jobs_list_clears_batch(self, crawler, auth_headers):
+    async def test_empty_failed_jobs_list_clears_batch_in_one_call(
+        self, crawler, auth_headers
+    ):
         job_batch = [make_job("a"), make_job("b")]
         client = AsyncMock()
-        client.post.return_value = make_response(200, {"failed_jobs": []})
+        client.post.return_value = make_ok_response()
 
         await crawler._flush_batch(client, auth_headers, job_batch)
 
         assert job_batch == []
+        assert client.post.await_count == 1
 
     @pytest.mark.asyncio
     async def test_missing_failed_jobs_key_clears_batch(self, crawler, auth_headers):
@@ -97,21 +118,24 @@ class TestAllSucceeded:
         same as an explicit empty list — .get() must treat them the same."""
         job_batch = [make_job("a")]
         client = AsyncMock()
-        client.post.return_value = make_response(200, {"message": "ok"})
+        response = MagicMock(spec=httpx.Response)
+        response.status_code = 200
+        response.raise_for_status.return_value = None
+        response.json.return_value = {"message": "ok"}  # no failed_jobs key
+        client.post.return_value = response
 
         await crawler._flush_batch(client, auth_headers, job_batch)
 
         assert job_batch == []
+        assert client.post.await_count == 1
 
     @pytest.mark.asyncio
     async def test_sends_correct_payload_shape(self, crawler, auth_headers):
-        """retry_count must never be sent to the backend, and the batch
-        must be posted to the batch-save endpoint with auth headers."""
+        """retry_count must never be sent to the backend."""
         job = make_job("a")
-        job.retry_count = 2
         job_batch = [job]
         client = AsyncMock()
-        client.post.return_value = make_response(200, {"failed_jobs": []})
+        client.post.return_value = make_ok_response()
 
         await crawler._flush_batch(client, auth_headers, job_batch)
 
@@ -124,242 +148,360 @@ class TestAllSucceeded:
 
 
 # ---------------------------------------------------------------------------
-# Partial failures: retryable vs non-retryable
+# Internal retries: a failure on attempt N is retried within the SAME call
 # ---------------------------------------------------------------------------
 
-class TestPartialFailures:
+class TestInternalRetrySucceeds:
 
     @pytest.mark.asyncio
-    async def test_retryable_failure_kept_in_batch_with_incremented_retry_count(
+    async def test_retryable_failure_recovers_on_second_attempt(
         self, crawler, auth_headers
     ):
+        """A job that fails with a retryable status on attempt 1 and
+        succeeds on attempt 2 should end up saved, with no external call
+        needed — both attempts happen inside this one _flush_batch call."""
         job = make_job("a")
         job_batch = [job]
         client = AsyncMock()
-        client.post.return_value = make_response(
-            200,
-            {"failed_jobs": [{"job_id": "a", "status_code": 503, "error": "db down"}]},
-        )
-
-        await crawler._flush_batch(client, auth_headers, job_batch)
-
-        assert job_batch == [job]
-        assert job.retry_count == 1
-
-    @pytest.mark.asyncio
-    async def test_non_retryable_failure_dropped_from_batch(self, crawler, auth_headers):
-        job = make_job("a")
-        job_batch = [job]
-        client = AsyncMock()
-        client.post.return_value = make_response(
-            200,
-            {"failed_jobs": [{"job_id": "a", "status_code": 422, "error": "bad province"}]},
-        )
+        client.post.side_effect = [
+            make_ok_response([failure("a", 503)]),
+            make_ok_response([]),  # succeeds on retry
+        ]
 
         await crawler._flush_batch(client, auth_headers, job_batch)
 
         assert job_batch == []
+        assert client.post.await_count == 2
 
     @pytest.mark.asyncio
-    async def test_mixed_batch_only_keeps_the_retryable_failure(self, crawler, auth_headers):
+    async def test_shrinking_batch_matches_the_documented_scenario(
+        self, crawler, auth_headers
+    ):
+        """Mirrors the exact walkthrough this design was built for: send
+        10, 5 fail -> retry those 5, 3 fail -> retry those 3, and confirm
+        each retry only re-sends the jobs still outstanding, not the ones
+        that already succeeded."""
+        jobs = [make_job(f"job-{i}") for i in range(10)]
+        job_batch = list(jobs)
+        client = AsyncMock()
+        client.post.side_effect = [
+            make_ok_response([failure(f"job-{i}") for i in range(5)]),   # 10 -> 5 fail
+            make_ok_response([failure(f"job-{i}") for i in range(3)]),   # 5 -> 3 fail
+            make_ok_response([]),                                        # 3 -> all succeed
+        ]
+
+        await crawler._flush_batch(client, auth_headers, job_batch)
+
+        assert job_batch == []
+        assert client.post.await_count == 3
+
+        sent_ids_per_call = [
+            [j["job_id"] for j in call.kwargs["json"]]
+            for call in client.post.call_args_list
+        ]
+        assert len(sent_ids_per_call[0]) == 10
+        assert sent_ids_per_call[1] == [f"job-{i}" for i in range(5)]
+        assert sent_ids_per_call[2] == [f"job-{i}" for i in range(3)]
+
+    @pytest.mark.asyncio
+    async def test_jobs_that_already_succeeded_are_not_resent_on_retry(
+        self, crawler, auth_headers
+    ):
+        saved = make_job("saved")
+        retryable = make_job("retryable")
+        job_batch = [saved, retryable]
+        client = AsyncMock()
+        client.post.side_effect = [
+            make_ok_response([failure("retryable", 503)]),
+            make_ok_response([]),
+        ]
+
+        await crawler._flush_batch(client, auth_headers, job_batch)
+
+        second_call_ids = [
+            j["job_id"] for j in client.post.call_args_list[1].kwargs["json"]
+        ]
+        assert second_call_ids == ["retryable"]
+        assert job_batch == []
+
+
+# ---------------------------------------------------------------------------
+# Non-retryable failures: dropped immediately, no extra attempts spent
+# ---------------------------------------------------------------------------
+
+class TestNonRetryableFailures:
+
+    @pytest.mark.asyncio
+    async def test_non_retryable_failure_dropped_without_retrying(
+        self, crawler, auth_headers
+    ):
+        job_batch = [make_job("a")]
+        client = AsyncMock()
+        client.post.return_value = make_ok_response([failure("a", 422, "bad province")])
+
+        await crawler._flush_batch(client, auth_headers, job_batch)
+
+        assert job_batch == []
+        assert client.post.await_count == 1  # no point retrying a 422
+
+    @pytest.mark.asyncio
+    async def test_mixed_batch_only_retries_the_retryable_one(
+        self, crawler, auth_headers
+    ):
         saved = make_job("saved")
         retryable = make_job("retryable")
         permanent = make_job("permanent")
         job_batch = [saved, retryable, permanent]
 
         client = AsyncMock()
-        client.post.return_value = make_response(
-            200,
-            {
-                "failed_jobs": [
-                    {"job_id": "retryable", "status_code": 503, "error": "timeout"},
-                    {"job_id": "permanent", "status_code": 422, "error": "bad data"},
-                ]
-            },
-        )
+        client.post.side_effect = [
+            make_ok_response([failure("retryable", 503), failure("permanent", 422)]),
+            make_ok_response([]),  # retryable succeeds on 2nd attempt
+        ]
 
         await crawler._flush_batch(client, auth_headers, job_batch)
 
-        assert job_batch == [retryable]
-        assert retryable.retry_count == 1
+        assert job_batch == []
+        assert client.post.await_count == 2
+        second_call_ids = [
+            j["job_id"] for j in client.post.call_args_list[1].kwargs["json"]
+        ]
+        assert second_call_ids == ["retryable"]  # permanent was dropped, not retried
 
     @pytest.mark.asyncio
     async def test_matching_is_by_job_id_not_position(self, crawler, auth_headers):
         """Guards against a regression back to positional zip() matching:
-        put the failure for the *last* job first in the response list and
-        confirm the right job is the one kept."""
+        the failure list order doesn't match job_batch order, and the
+        right job must still be the one retried."""
         first = make_job("first")
         second = make_job("second")
         job_batch = [first, second]
 
         client = AsyncMock()
-        client.post.return_value = make_response(
-            200,
-            {"failed_jobs": [{"job_id": "second", "status_code": 503, "error": "x"}]},
-        )
+        client.post.side_effect = [
+            make_ok_response([failure("second", 503)]),
+            make_ok_response([]),
+        ]
 
         await crawler._flush_batch(client, auth_headers, job_batch)
 
-        assert job_batch == [second]
-        assert second.retry_count == 1
-        assert first.retry_count == 0
+        second_call_ids = [
+            j["job_id"] for j in client.post.call_args_list[1].kwargs["json"]
+        ]
+        assert second_call_ids == ["second"]
+        assert job_batch == []
 
     @pytest.mark.asyncio
-    async def test_unknown_status_code_treated_as_non_retryable(self, crawler, auth_headers):
-        """Any status code outside RETRYABLE_STATUS_CODES should be dropped,
-        not just 422 specifically — this is the safer default for a code
-        the crawler doesn't recognize."""
-        job = make_job("a")
-        job_batch = [job]
+    async def test_unknown_status_code_treated_as_non_retryable(
+        self, crawler, auth_headers
+    ):
+        """Any status code outside RETRYABLE_STATUS_CODES should be dropped
+        immediately, not just 422 specifically — the safer default for a
+        code the crawler doesn't recognize."""
+        assert 418 not in RETRYABLE_STATUS_CODES  # sanity check on the fixture itself
+        job_batch = [make_job("a")]
         client = AsyncMock()
-        client.post.return_value = make_response(
-            200,
-            {"failed_jobs": [{"job_id": "a", "status_code": 418, "error": "teapot"}]},
-        )
+        client.post.return_value = make_ok_response([failure("a", 418, "teapot")])
 
         await crawler._flush_batch(client, auth_headers, job_batch)
 
         assert job_batch == []
+        assert client.post.await_count == 1
 
 
 # ---------------------------------------------------------------------------
-# Retry exhaustion (poison-pill protection)
+# Retry exhaustion (poison-pill protection) — all within one call now
 # ---------------------------------------------------------------------------
 
 class TestRetryExhaustion:
 
     @pytest.mark.asyncio
-    async def test_job_dropped_once_max_retries_reached(self, crawler, auth_headers):
-        job = make_job("a")
-        job.retry_count = MAX_RETRIES - 1  # one more failure should exhaust it
-        job_batch = [job]
-        client = AsyncMock()
-        client.post.return_value = make_response(
-            200,
-            {"failed_jobs": [{"job_id": "a", "status_code": 503, "error": "still down"}]},
-        )
-
-        await crawler._flush_batch(client, auth_headers, job_batch)
-
-        assert job_batch == []
-
-    @pytest.mark.asyncio
-    async def test_job_survives_up_to_but_not_including_max_retries(
+    async def test_job_dropped_after_max_retries_and_batch_still_clears(
         self, crawler, auth_headers
     ):
-        job = make_job("a")
-        job.retry_count = MAX_RETRIES - 2
-        job_batch = [job]
+        """A job that fails on every attempt should be tried exactly
+        MAX_RETRIES times, then dropped and logged — job_batch must still
+        end up empty rather than holding onto it forever."""
+        job_batch = [make_job("a")]
         client = AsyncMock()
-        client.post.return_value = make_response(
-            200,
-            {"failed_jobs": [{"job_id": "a", "status_code": 503, "error": "still down"}]},
-        )
+        client.post.return_value = make_ok_response([failure("a", 503, "still down")])
 
         await crawler._flush_batch(client, auth_headers, job_batch)
-
-        assert job_batch == [job]
-        assert job.retry_count == MAX_RETRIES - 1
-
-    @pytest.mark.asyncio
-    async def test_repeated_flushes_eventually_drop_a_permanently_failing_job(
-        self, crawler, auth_headers
-    ):
-        """Simulates the real failure mode this design fixes: a job that
-        always 503s should be retried a bounded number of times, then
-        dropped — never resent forever, never silently kept growing."""
-        job = make_job("a")
-        job_batch = [job]
-        client = AsyncMock()
-        client.post.return_value = make_response(
-            200,
-            {"failed_jobs": [{"job_id": "a", "status_code": 503, "error": "still down"}]},
-        )
-
-        for _ in range(MAX_RETRIES):
-            await crawler._flush_batch(client, auth_headers, job_batch)
 
         assert job_batch == []
         assert client.post.await_count == MAX_RETRIES
 
+    @pytest.mark.asyncio
+    async def test_does_not_exceed_max_retries_attempts(self, crawler, auth_headers):
+        """Even if the backend would keep failing forever, _flush_batch
+        must not call the backend more than MAX_RETRIES times in one go."""
+        job_batch = [make_job("a")]
+        client = AsyncMock()
+        client.post.return_value = make_ok_response([failure("a", 503)])
+
+        await crawler._flush_batch(client, auth_headers, job_batch)
+
+        assert client.post.await_count == MAX_RETRIES
+        assert job_batch == []
+
+    @pytest.mark.asyncio
+    async def test_logs_the_dropped_job_ids_on_final_giveup(
+        self, crawler, auth_headers, caplog
+    ):
+        job_batch = [make_job("stubborn-job")]
+        client = AsyncMock()
+        client.post.return_value = make_ok_response([failure("stubborn-job", 503)])
+
+        with caplog.at_level("ERROR"):
+            await crawler._flush_batch(client, auth_headers, job_batch)
+
+        assert any("stubborn-job" in record.message for record in caplog.records)
+
 
 # ---------------------------------------------------------------------------
-# Transport-level failures (request never got a usable response)
+# Transport-level failures (no usable response at all)
 # ---------------------------------------------------------------------------
 
 class TestTransportFailures:
 
     @pytest.mark.asyncio
-    async def test_timeout_keeps_entire_batch_buffered(self, crawler, auth_headers):
+    async def test_timeout_is_retried_internally_then_dropped(
+        self, crawler, auth_headers
+    ):
+        """A persistent timeout should consume retry attempts like any
+        other retryable failure, and the batch must still end up empty
+        rather than being left buffered forever for an external caller."""
         job_batch = [make_job("a"), make_job("b")]
         client = AsyncMock()
         client.post.side_effect = httpx.TimeoutException("timed out")
 
         await crawler._flush_batch(client, auth_headers, job_batch)
 
-        assert len(job_batch) == 2
+        assert client.post.await_count == MAX_RETRIES
+        assert job_batch == []
 
     @pytest.mark.asyncio
-    async def test_connection_error_keeps_entire_batch_buffered(self, crawler, auth_headers):
-        job_batch = [make_job("a"), make_job("b")]
+    async def test_timeout_recovers_if_a_later_attempt_succeeds(
+        self, crawler, auth_headers
+    ):
+        job_batch = [make_job("a")]
+        client = AsyncMock()
+        client.post.side_effect = [
+            httpx.TimeoutException("timed out"),
+            make_ok_response([]),
+        ]
+
+        await crawler._flush_batch(client, auth_headers, job_batch)
+
+        assert client.post.await_count == 2
+        assert job_batch == []
+
+    @pytest.mark.asyncio
+    async def test_connection_error_is_retried_internally_then_dropped(
+        self, crawler, auth_headers
+    ):
+        job_batch = [make_job("a")]
         client = AsyncMock()
         client.post.side_effect = httpx.ConnectError("connection refused")
 
         await crawler._flush_batch(client, auth_headers, job_batch)
 
-        assert len(job_batch) == 2
+        assert client.post.await_count == MAX_RETRIES
+        assert job_batch == []
 
     @pytest.mark.asyncio
-    async def test_server_error_status_keeps_entire_batch_buffered(self, crawler, auth_headers):
+    async def test_server_error_status_is_retried_internally_then_dropped(
+        self, crawler, auth_headers
+    ):
         job_batch = [make_job("a"), make_job("b")]
         client = AsyncMock()
-        client.post.return_value = make_response(503, text="upstream down")
+        client.post.return_value = make_error_response(503, text="upstream down")
 
         await crawler._flush_batch(client, auth_headers, job_batch)
 
-        assert len(job_batch) == 2
+        assert client.post.await_count == MAX_RETRIES
+        assert job_batch == []
 
     @pytest.mark.asyncio
-    async def test_client_error_status_drops_entire_batch(self, crawler, auth_headers):
+    async def test_server_error_recovers_if_a_later_attempt_succeeds(
+        self, crawler, auth_headers
+    ):
+        job_batch = [make_job("a")]
+        client = AsyncMock()
+        client.post.side_effect = [
+            make_error_response(503),
+            make_ok_response([]),
+        ]
+
+        await crawler._flush_batch(client, auth_headers, job_batch)
+
+        assert client.post.await_count == 2
+        assert job_batch == []
+
+    @pytest.mark.asyncio
+    async def test_client_error_status_drops_entire_batch_on_first_attempt(
+        self, crawler, auth_headers
+    ):
         """A 4xx at the whole-request level (bad auth, malformed array) is
-        not a per-job failure — the same request would fail again, so the
-        whole batch is dropped rather than retried forever."""
+        not a per-job failure — the identical request would fail again, so
+        the whole batch is dropped on the first attempt, no retries spent."""
         job_batch = [make_job("a"), make_job("b")]
         client = AsyncMock()
-        client.post.return_value = make_response(401, text="unauthorized")
+        client.post.return_value = make_error_response(401, text="unauthorized")
 
         await crawler._flush_batch(client, auth_headers, job_batch)
 
         assert job_batch == []
+        assert client.post.await_count == 1
 
     @pytest.mark.asyncio
-    async def test_malformed_json_body_on_200_keeps_batch_buffered(self, crawler, auth_headers):
+    async def test_malformed_json_body_on_200_is_retried_then_dropped(
+        self, crawler, auth_headers
+    ):
         """A 200 with a body that isn't valid JSON (e.g. a proxy error page)
-        must not crash the crawl loop, and must not be treated as success."""
+        must not crash the crawl loop. It should be treated as a retryable
+        failure, and eventually dropped if it never becomes valid JSON."""
         job_batch = [make_job("a")]
         client = AsyncMock()
-        client.post.return_value = make_response(200, json_body=None, text="<html>502</html>")
+        client.post.return_value = make_bad_json_response()
 
         await crawler._flush_batch(client, auth_headers, job_batch)
 
-        assert len(job_batch) == 1
+        assert client.post.await_count == MAX_RETRIES
+        assert job_batch == []
+
+    @pytest.mark.asyncio
+    async def test_malformed_json_recovers_if_a_later_attempt_is_valid(
+        self, crawler, auth_headers
+    ):
+        job_batch = [make_job("a")]
+        client = AsyncMock()
+        client.post.side_effect = [
+            make_bad_json_response(),
+            make_ok_response([]),
+        ]
+
+        await crawler._flush_batch(client, auth_headers, job_batch)
+
+        assert client.post.await_count == 2
+        assert job_batch == []
 
     @pytest.mark.asyncio
     async def test_failed_job_entry_missing_job_id_is_ignored_not_crashed(
         self, crawler, auth_headers
     ):
         """Defensive contract check: a malformed failed_jobs entry from the
-        backend (missing job_id) should be skipped, not raise KeyError."""
-        job = make_job("a")
-        job_batch = [job]
+        backend (missing job_id) should be skipped, not raise KeyError.
+        Since it can't be matched to any job, that job is treated as if it
+        succeeded (not present in the usable failures) and the batch clears
+        on the very first attempt."""
+        job_batch = [make_job("a")]
         client = AsyncMock()
-        client.post.return_value = make_response(
-            200,
-            {"failed_jobs": [{"status_code": 503, "error": "missing job_id field"}]},
+        client.post.return_value = make_ok_response(
+            [{"status_code": 503, "error": "missing job_id field"}]
         )
 
         await crawler._flush_batch(client, auth_headers, job_batch)
 
-        # the malformed entry can't be matched to any job, so from the
-        # crawler's point of view no known job failed -> batch clears
         assert job_batch == []
+        assert client.post.await_count == 1

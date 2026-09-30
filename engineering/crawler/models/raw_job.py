@@ -11,5 +11,3 @@ class RawJobInput(BaseModel):
     description: str = Field(default= "")
     crawler_run_id: int = Field(gt=0)
     source: str = Field(pattern=r"\S")
-
-    retry_count: int = Field(default=0, exclude=True)
