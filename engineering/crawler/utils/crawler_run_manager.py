@@ -104,6 +104,7 @@ class CrawlerManager:
             await crawler_instance.crawl_jobs(
                 crawler_run_id=crawler_run_id,
                 async_client=client,
+                thunder_client=self._thunder_client
             )
             logger.info(f"--- Finished crawler: {name} ---")
         except Exception as e:

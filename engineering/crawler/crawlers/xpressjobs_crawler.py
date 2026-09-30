@@ -17,7 +17,6 @@ logger = logging.getLogger(__name__)
 class XpressJobsCrawler(BaseJobCrawler):
     def __init__(self):
         self._parser = XpressJobsParser()
-        self._thunder_client = ThunderIDClient()
 
     def _clean_html(self, html_content):
         if not html_content:
@@ -109,17 +108,11 @@ class XpressJobsCrawler(BaseJobCrawler):
         self,
         crawler_run_id: int,
         async_client: httpx.AsyncClient,
+        thunder_client: ThunderIDClient,
     ) -> None:
 
         logger.info("XpressJobs: Xpress jobs crawl started.")
-
-        try:
-            token = await self._thunder_client.get_access_token()
-        except Exception as e:
-            logger.error(f"XpressJobs: Failed to obtain ThunderID access token: {e}")
-            raise
-        auth_headers = {"Authorization": f"Bearer {token}"}
-
+        
         job_data_list = await self._process_all_jobs(async_client)
 
         job_batch: List[RawJobInput] = []
@@ -134,15 +127,11 @@ class XpressJobsCrawler(BaseJobCrawler):
             job_batch.append(job_input)
 
             if len(job_batch) >= BATCH_SIZE:
-                logger.info(
-                    f"XpressJobs: Flushing full batch of {len(job_batch)} job records to backend."
-                )
-                await self._flush_batch(async_client, auth_headers, job_batch)
-
+                logger.info(f"XpressJobs: Flushing full batch of {len(job_batch)} job records to backend.")
+                await self._flush_batch(async_client, thunder_client, job_batch)
+ 
         if job_batch:
-            logger.info(
-                f"XpressJobs: Flushing remaining {len(job_batch)} job records to backend."
-            )
-            await self._flush_batch(async_client, auth_headers, job_batch)
-
+            logger.info(f"XpressJobs: Flushing remaining {len(job_batch)} job records to backend.")
+            await self._flush_batch(async_client, thunder_client, job_batch)
+ 
         logger.info("XpressJobs: Xpress jobs crawl pass concluded.")

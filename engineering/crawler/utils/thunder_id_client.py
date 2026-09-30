@@ -1,4 +1,6 @@
+import asyncio
 import logging
+import time
 
 import httpx
 
@@ -12,9 +14,35 @@ from config import (
 
 logger = logging.getLogger(__name__)
 
+TOKEN_TTL_SECONDS = 3600
+TOKEN_REFRESH_BUFFER_SECONDS = 60
+
 
 class ThunderIDClient:
+    def __init__(self):
+        self._cached_token: str | None = None
+        self._cached_token_expiry: float = 0
+        self._lock = asyncio.Lock()
+
     async def get_access_token(self):
+        if self._is_cached_token_valid():
+            return self._cached_token
+
+        async with self._lock:
+            if self._is_cached_token_valid():
+                return self._cached_token
+
+            token = await self._fetch_access_token()
+            self._cached_token = token
+            self._cached_token_expiry = (
+                time.monotonic() + TOKEN_TTL_SECONDS - TOKEN_REFRESH_BUFFER_SECONDS
+            )
+            return token
+
+    def _is_cached_token_valid(self):
+        return self._cached_token is not None and time.monotonic() < self._cached_token_expiry
+
+    async def _fetch_access_token(self):
         async with httpx.AsyncClient(verify=THUNDER_VERIFY_TLS) as client:
             response = await client.post(
                 f"{THUNDER_BASE_URL}/oauth2/token",
@@ -27,5 +55,5 @@ class ThunderIDClient:
                 },
             )
             token = response.json()["access_token"]
-            logger.info("Access token: %s", token)
+            logger.info("Fetched new ThunderID access token")
             return token

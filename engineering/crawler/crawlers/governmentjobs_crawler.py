@@ -116,19 +116,11 @@ class GovernmentJobsCrawler(BaseJobCrawler):
         self,
         crawler_run_id: int,
         async_client: httpx.AsyncClient,
+        thunder_client: ThunderIDClient,
     ) -> None:
 
         logger.info("GovernmentJobs: Government jobs crawl started.")
-
-        try:
-            token = await self._thunder_client.get_access_token()
-        except Exception as e:
-            logger.error(
-                f"GovernmentJobs: Failed to obtain ThunderID access token: {e}"
-            )
-            raise
-        auth_headers = {"Authorization": f"Bearer {token}"}
-
+ 
         job_data_list = await self._fetch_job_details(async_client)
 
         job_batch: List[RawJobInput] = []
@@ -143,15 +135,11 @@ class GovernmentJobsCrawler(BaseJobCrawler):
             job_batch.append(job_input)
 
             if len(job_batch) >= BATCH_SIZE:
-                logger.info(
-                    f"GovernmentJobs: Flushing full batch of {len(job_batch)} job records to backend."
-                )
-                await self._flush_batch(async_client, auth_headers, job_batch)
-
+                logger.info(f"GovernmentJobs: Flushing full batch of {len(job_batch)} job records to backend.")
+                await self._flush_batch(async_client, thunder_client, job_batch)
+ 
         if job_batch:
-            logger.info(
-                f"GovernmentJobs: Flushing remaining {len(job_batch)} job records to backend."
-            )
-            await self._flush_batch(async_client, auth_headers, job_batch)
-
+            logger.info(f"GovernmentJobs: Flushing remaining {len(job_batch)} job records to backend.")
+            await self._flush_batch(async_client, thunder_client, job_batch)
+ 
         logger.info("GovernmentJobs: Government jobs crawl pass concluded.")
