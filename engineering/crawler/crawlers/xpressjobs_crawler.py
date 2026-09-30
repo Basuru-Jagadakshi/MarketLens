@@ -30,21 +30,13 @@ class XpressJobsCrawler(BaseJobCrawler):
 
         try:
             response = await async_client.get(url)
-        except httpx.RequestError as e:
-            logger.warning(f"Request failed while fetching job {job_id}: {e}")
-            return None
 
-        if response.status_code != 200:
-            logger.warning(f"Unexpected status {response.status_code} while fetching job {job_id}")
-            return None
+            if response.status_code != 200:
+                logger.warning(f"Unexpected status {response.status_code} while fetching job {job_id}")
+                return None
 
-        try:
             data = response.json()
-        except ValueError as e:
-            logger.warning(f"Failed to decode JSON for job {job_id}: {e}")
-            return None
 
-        try:
             job_item = data.get("jobItem") or {}
             return {
                 "job_title": data.get("jobTitle"),
@@ -52,6 +44,13 @@ class XpressJobsCrawler(BaseJobCrawler):
                 "location": job_item.get("locations"),
                 "description": self._clean_html(data.get("jobInfo", ""))
             }
+
+        except httpx.RequestError as e:
+            logger.warning(f"Request failed while fetching job {job_id}: {e}")
+            return None
+        except ValueError as e:
+            logger.warning(f"Failed to decode JSON for job {job_id}: {e}")
+            return None
         except AttributeError as e:
             logger.warning(f"Unexpected response structure for job {job_id}: {e}")
             return None
