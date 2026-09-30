@@ -98,7 +98,6 @@ class GovernmentJobsCrawler(BaseJobCrawler):
                 
         return jobs_data
 
-    #This funtion starts the crawler and save or update the job after checking whether job already exists or not
     async def crawl_jobs(
         self,
         crawler_run_id: int,

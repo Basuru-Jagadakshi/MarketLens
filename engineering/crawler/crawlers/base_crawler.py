@@ -9,6 +9,9 @@ from models.raw_job import RawJobInput
 
 logger = logging.getLogger(__name__)
 
+MAX_RETRIES = 3
+RETRYABLE_STATUS_CODES = {500, 502, 503, 504, 429}
+
 
 class BaseJobCrawler(ABC):
 
@@ -62,4 +65,44 @@ class BaseJobCrawler(ABC):
                 job_batch.clear()
             return
 
-        job_batch.clear()
+        try:
+            body = response.json()
+        except ValueError as e:
+            logger.error(
+                f"Batch POST returned 200 but body wasn't valid JSON "
+                f"({len(job_batch)} jobs pending) — keeping batch buffered: {e}"
+            )
+            return
+        failed_jobs = {
+            f["job_id"]: f
+            for f in body.get("failed_jobs", [])
+            if "job_id" in f
+        }
+
+        if not failed_jobs:
+            job_batch.clear()
+            return
+
+        still_pending = []
+        for job in job_batch:
+            failure = failed_jobs.get(job.job_id)
+            if failure is None:
+                continue
+
+            if failure["status_code"] not in RETRYABLE_STATUS_CODES:
+                logger.error(
+                    f"Dropping job {job.job_id} — non-retryable status "
+                    f"{failure['status_code']}: {failure.get('error')}"
+                )
+                continue
+
+            job.retry_count += 1
+            if job.retry_count < MAX_RETRIES:
+                still_pending.append(job)
+            else:
+                logger.error(
+                    f"Dropping job {job.job_id} after {MAX_RETRIES} attempts — "
+                    f"last error ({failure['status_code']}): {failure.get('error')}"
+                )
+
+        job_batch[:] = still_pending

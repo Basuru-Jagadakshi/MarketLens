@@ -83,7 +83,7 @@ class XpressJobsCrawler(BaseJobCrawler):
                 job_id = job_summary['jobId']
                 logger.info(f"XpressJobs: Processing job {job_id}: {job_summary['jobTitle']}")
                 
-                details = await self._fetch_job_details(job_id, async_client)
+                details = await self._fetch_job_details(async_client, job_id)
                 if details:
                     final_data.append(details)
                 
@@ -96,7 +96,6 @@ class XpressJobsCrawler(BaseJobCrawler):
                 
         return final_data
 
-    #This funtion starts the crawler and save or update the job after checking whether job already exists or not
     async def crawl_jobs(
         self,
         crawler_run_id: int,

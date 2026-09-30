@@ -43,7 +43,6 @@ class IkmanCrawler(BaseJobCrawler):
                 logger.warning("Ikman: Could not find the total ad count text.")
                 return 1
 
-    #This funtion starts the crawler and save or update the job after checking whether job already exists or not
     async def crawl_jobs(
         self,
         crawler_run_id: int,
