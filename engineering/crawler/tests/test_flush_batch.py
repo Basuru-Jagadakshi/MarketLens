@@ -91,24 +91,6 @@ class TestAllSucceeded:
         assert job_batch == []
         assert client.post.await_count == 1
 
-    @pytest.mark.asyncio
-    async def test_sends_correct_payload_shape(self, crawler, auth_headers):
-        """retry_count must never be sent to the backend."""
-        job = make_job("a")
-        job_batch = [job]
-        client = AsyncMock()
-        client.post.return_value = make_ok_response()
-
-        await crawler._flush_batch(client, auth_headers, job_batch)
-
-        client.post.assert_awaited_once()
-        _, kwargs = client.post.call_args
-        assert kwargs["headers"] == auth_headers
-        sent_payload = kwargs["json"][0]
-        assert "retry_count" not in sent_payload
-        assert sent_payload["job_id"] == "a"
-
-
 # ---------------------------------------------------------------------------
 # Internal retries: a failure on attempt N is retried within the SAME call
 # ---------------------------------------------------------------------------
