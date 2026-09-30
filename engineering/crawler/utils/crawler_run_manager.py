@@ -25,7 +25,7 @@ class CrawlerManager:
             "rooster": RoosterCrawler,
             "xpress": XpressJobsCrawler,
             "topjobs": TopJobsCrawler,
-            "govermentjobs": GovernmentJobsCrawler,
+            "governmentjobs": GovernmentJobsCrawler,
             "ikman": IkmanCrawler,
         }
         self._thunder_client = ThunderIDClient() 
