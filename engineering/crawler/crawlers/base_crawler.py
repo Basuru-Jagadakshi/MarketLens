@@ -95,7 +95,8 @@ class BaseJobCrawler(ABC):
                 if failure is None:
                     continue
 
-                if failure["status_code"] not in RETRYABLE_STATUS_CODES:
+                status_code = failure.get("status_code")
+                if status_code and status_code not in RETRYABLE_STATUS_CODES:
                     logger.error(
                         f"Dropping job {job.job_id} — non-retryable status "
                         f"{failure['status_code']}: {failure.get('error')}"
