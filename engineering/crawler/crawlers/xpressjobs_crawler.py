@@ -30,6 +30,7 @@ class XpressJobsCrawler(BaseJobCrawler):
 
         try:
             response = await async_client.get(url)
+            response.raise_for_status()
 
             if response.status_code != 200:
                 logger.warning(f"Unexpected status {response.status_code} while fetching job {job_id}")
@@ -45,6 +46,9 @@ class XpressJobsCrawler(BaseJobCrawler):
                 "description": self._clean_html(data.get("jobInfo", ""))
             }
 
+        except httpx.HTTPStatusError as e:
+            logger.warning(f"Unexpected status {e.response.status_code} while fetching job {job_id}")
+            return None
         except httpx.RequestError as e:
             logger.warning(f"Request failed while fetching job {job_id}: {e}")
             return None
