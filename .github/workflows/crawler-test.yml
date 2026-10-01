@@ -47,6 +47,8 @@ jobs:
         run: ruff format --check .
 
       - name: Run tests
+        env:
+          THUNDER_INSECURE_TLS: "true"
         run: pytest -v
 
       - name: Set up Docker Buildx
