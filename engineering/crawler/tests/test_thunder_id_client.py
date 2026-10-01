@@ -174,6 +174,45 @@ class TestIsCachedTokenValid:
 
 
 # ---------------------------------------------------------------------------
+# invalidate_token: forces the next get_access_token() to refetch
+# ---------------------------------------------------------------------------
+
+class TestInvalidateToken:
+
+    def test_clears_cached_token_and_expiry(self, client):
+        client._cached_token = "stale-token"
+        client._cached_token_expiry = 9999999.0
+
+        client.invalidate_token()
+
+        assert client._cached_token is None
+        assert client._is_cached_token_valid() is False
+
+    @pytest.mark.asyncio
+    async def test_next_get_access_token_call_fetches_a_new_token(self, client):
+        """The scenario this exists for: the backend rejects a cached token
+        with a 401 well before our local TTL thinks it's expired — the next
+        get_access_token() call must not just hand back the same stale
+        token."""
+        clock = FakeClock(start=0.0)
+        patcher, mock_client = patch_async_client(
+            post_side_effect=[
+                make_token_response("stale-token"),
+                make_token_response("fresh-token"),
+            ]
+        )
+
+        with patcher, patch("utils.thunder_id_client.time.monotonic", clock):
+            first = await client.get_access_token()
+            client.invalidate_token()
+            second = await client.get_access_token()
+
+        assert first == "stale-token"
+        assert second == "fresh-token"
+        assert mock_client.post.await_count == 2
+
+
+# ---------------------------------------------------------------------------
 # get_access_token: caching + refresh behavior
 # ---------------------------------------------------------------------------
 

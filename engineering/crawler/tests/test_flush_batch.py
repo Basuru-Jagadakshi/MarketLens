@@ -439,17 +439,70 @@ class TestTransportFailures:
     async def test_client_error_status_drops_entire_batch_on_first_attempt(
         self, crawler, thunder_client
     ):
-        """A 4xx at the whole-request level (bad auth, malformed array) is
-        not a per-job failure — the identical request would fail again, so
-        the whole batch is dropped on the first attempt, no retries spent."""
+        """A 4xx at the whole-request level (malformed array, bad resource)
+        is not a per-job failure — the identical request would fail again,
+        so the whole batch is dropped on the first attempt, no retries
+        spent. 401 is deliberately excluded from this: it gets its own
+        invalidate-and-retry handling, covered in TestTokenRefreshOn401."""
         job_batch = [make_job("a"), make_job("b")]
         client = AsyncMock()
-        client.post.return_value = make_error_response(401, text="unauthorized")
+        client.post.return_value = make_error_response(400, text="malformed request")
 
         await crawler._flush_batch(client, thunder_client, job_batch)
 
         assert job_batch == []
         assert client.post.await_count == 1
+
+
+# ---------------------------------------------------------------------------
+# 401: the cached ThunderID token was rejected, not the batch itself
+# ---------------------------------------------------------------------------
+
+class TestTokenRefreshOn401:
+
+    @pytest.mark.asyncio
+    async def test_401_invalidates_token_and_retries_with_a_fresh_one(
+        self, crawler, thunder_client
+    ):
+        """A 401 means the token was bad, not the jobs — it must invalidate
+        the cached token, fetch a new one, and retry the same batch rather
+        than dropping it."""
+        job_batch = [make_job("a")]
+        client = AsyncMock()
+        client.post.side_effect = [
+            make_error_response(401, text="token expired"),
+            make_ok_response([]),
+        ]
+        thunder_client.get_access_token.side_effect = ["stale-token", "fresh-token"]
+
+        await crawler._flush_batch(client, thunder_client, job_batch)
+
+        assert job_batch == []
+        assert client.post.await_count == 2
+        thunder_client.invalidate_token.assert_called_once()
+        assert thunder_client.get_access_token.await_count == 2
+
+        first_headers = client.post.call_args_list[0].kwargs["headers"]
+        second_headers = client.post.call_args_list[1].kwargs["headers"]
+        assert first_headers == {"Authorization": "Bearer stale-token"}
+        assert second_headers == {"Authorization": "Bearer fresh-token"}
+
+    @pytest.mark.asyncio
+    async def test_persistent_401_is_retried_up_to_max_retries_then_dropped(
+        self, crawler, thunder_client
+    ):
+        """If every attempt gets a 401 (e.g. the client credentials are
+        themselves revoked, not just the cached token), it must still give
+        up after MAX_RETRIES instead of looping forever."""
+        job_batch = [make_job("a")]
+        client = AsyncMock()
+        client.post.return_value = make_error_response(401, text="token expired")
+
+        await crawler._flush_batch(client, thunder_client, job_batch)
+
+        assert job_batch == []
+        assert client.post.await_count == MAX_RETRIES
+        assert thunder_client.invalidate_token.call_count == MAX_RETRIES
 
     @pytest.mark.asyncio
     async def test_malformed_json_body_on_200_is_retried_then_dropped(

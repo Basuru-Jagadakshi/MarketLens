@@ -6,7 +6,7 @@ import httpx
 
 from config import BACKEND_BASE_URL
 from models.raw_job import RawJobInput
-from utils.thunder_id_client import ThunderIDClient 
+from utils.thunder_id_client import ThunderIDClient, get_auth_headers
 
 logger = logging.getLogger(__name__)
 
@@ -31,12 +31,7 @@ class BaseJobCrawler(ABC):
         job_batch: List[RawJobInput],
     ) -> None:
 
-        try:
-            token = await thunder_client.get_access_token()
-        except Exception as e:
-            logger.error(f"Failed to obtain ThunderID access token: {e}")
-            raise
-        auth_headers = {"Authorization": f"Bearer {token}"}
+        auth_headers = await get_auth_headers(thunder_client)
 
         try:
             pending = list(job_batch)
@@ -107,6 +102,14 @@ class BaseJobCrawler(ABC):
                             f"on attempt {attempt}/{MAX_RETRIES} ({len(pending)} jobs "
                             f"pending): {e.response.text}"
                         )
+                        continue
+                    if status == 401:
+                        logger.warning(
+                            f"Batch POST rejected with 401 on attempt {attempt}/{MAX_RETRIES} — "
+                            "invalidating cached ThunderID token and retrying with a fresh one"
+                        )
+                        thunder_client.invalidate_token()
+                        auth_headers = await get_auth_headers(thunder_client)
                         continue
                     logger.error(
                         f"Batch POST rejected by backend with client error {status} — "

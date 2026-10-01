@@ -1,4 +1,4 @@
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -26,11 +26,14 @@ def auth_headers():
 
 @pytest.fixture
 def thunder_client():
-    """A stand-in for ThunderIDClient used by _flush_batch — these tests are
-    about batch/retry behavior, not token caching, so a mock that always
-    hands back the same token is enough."""
-    mock = AsyncMock()
-    mock.get_access_token.return_value = "test-token"
+    """A stand-in for ThunderIDClient used by _flush_batch and
+    crawler_run_manager — these tests are about batch/retry/finalize
+    behavior, not token caching, so a mock that always hands back the same
+    token is enough. get_access_token is async like the real client;
+    invalidate_token is left as a plain (sync) MagicMock call, since
+    ThunderIDClient.invalidate_token() is never awaited by callers."""
+    mock = MagicMock()
+    mock.get_access_token = AsyncMock(return_value="test-token")
     return mock
 
 
