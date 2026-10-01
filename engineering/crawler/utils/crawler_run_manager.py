@@ -70,7 +70,7 @@ class CrawlerManager:
             return crawler_run_id
         except Exception as e:
             logger.warning(
-                f"Could not connect to tracking backend. Defaulting fallback to run sequence ID 1: {e}"
+                f"Crawler: Could not connect to tracking backend."
             )
             raise
 
@@ -78,7 +78,7 @@ class CrawlerManager:
     #and sets the end date of the jobs that are not equal to current crawler run id
     async def _finalize_run(self, client: httpx.AsyncClient, crawler_run_id: int) -> None:
         try:
-            logger.info("Executing pipeline reconciliation. Retiring dead listings from active pool.")
+            logger.info("Crawler: Executing pipeline reconciliation.")
             await self._post_with_token_retry(
                 client, f"{BACKEND_BASE_URL}/jobs/reconcile", {"crawler_run_id": crawler_run_id}
             )
@@ -88,7 +88,7 @@ class CrawlerManager:
                 {"id": crawler_run_id, "status": "COMPLETED"},
             )
         except Exception as e:
-            logger.error(f"Failed to finalize crawler run {crawler_run_id}: {e}")
+            logger.error(f"Crawler: Failed to finalize crawler run {crawler_run_id}: {e}")
 
     # This function calls the relevant crawlers
     async def _run_crawler(
