@@ -99,12 +99,33 @@ class TestFetchAccessToken:
 
     @pytest.mark.asyncio
     async def test_malformed_response_missing_access_token_raises(self, client):
+        """A 200 with no 'access_token' field must fail loudly and clearly —
+        not with a None token that gets cached and silently sent as
+        'Bearer None' on every subsequent request."""
         bad_response = MagicMock()
         bad_response.json.return_value = {"unexpected": "shape"}
         patcher, _ = patch_async_client(post_return_value=bad_response)
 
         with patcher:
-            with pytest.raises(KeyError):
+            with pytest.raises(ValueError, match="access_token"):
+                await client._fetch_access_token()
+
+    @pytest.mark.asyncio
+    async def test_non_2xx_status_raises_before_reading_body(self, client):
+        """A rejected request (bad credentials, 5xx, ...) must surface as an
+        HTTPStatusError with the real status/body, not a confusing KeyError
+        from trying to parse an error payload as a token response."""
+        error_response = MagicMock(spec=httpx.Response)
+        error_response.status_code = 401
+        error_response.text = "invalid_client"
+        request = httpx.Request("POST", "https://thunder.test/oauth2/token")
+        error_response.raise_for_status.side_effect = httpx.HTTPStatusError(
+            "401 error", request=request, response=error_response
+        )
+        patcher, _ = patch_async_client(post_return_value=error_response)
+
+        with patcher:
+            with pytest.raises(httpx.HTTPStatusError):
                 await client._fetch_access_token()
 
     @pytest.mark.asyncio

@@ -54,6 +54,11 @@ class ThunderIDClient:
                     "resource": THUNDER_RESOURCE,
                 },
             )
-            token = response.json()["access_token"]
+            response.raise_for_status()
+            body = response.json()
+            token = body.get("access_token")
+            if not token:
+                raise ValueError(f"ThunderID token response missing 'access_token': {body}")
+
             logger.info("Fetched new ThunderID access token")
             return token
