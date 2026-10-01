@@ -4,14 +4,15 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 import pytest
 
-from utils.thunder_id_client import TOKEN_REFRESH_BUFFER_SECONDS, TOKEN_TTL_SECONDS
+from utils.thunder_id_client import DEFAULT_TOKEN_TTL_SECONDS, TOKEN_REFRESH_BUFFER_SECONDS
 
-EFFECTIVE_TTL = TOKEN_TTL_SECONDS - TOKEN_REFRESH_BUFFER_SECONDS
+DEFAULT_EXPIRES_IN = 3600
+EFFECTIVE_TTL = DEFAULT_EXPIRES_IN - TOKEN_REFRESH_BUFFER_SECONDS
 
 
-def make_token_response(token: str = "test-token"):
+def make_token_response(token: str = "test-token", expires_in: int = DEFAULT_EXPIRES_IN):
     response = MagicMock()
-    response.json.return_value = {"access_token": token}
+    response.json.return_value = {"access_token": token, "expires_in": expires_in}
     return response
 
 
@@ -54,13 +55,31 @@ class FakeClock:
 class TestFetchAccessToken:
 
     @pytest.mark.asyncio
-    async def test_returns_access_token_from_response(self, client):
-        patcher, _ = patch_async_client(post_return_value=make_token_response("abc123"))
+    async def test_returns_access_token_and_expires_in_from_response(self, client):
+        patcher, _ = patch_async_client(
+            post_return_value=make_token_response("abc123", expires_in=1800)
+        )
 
         with patcher:
-            token = await client._fetch_access_token()
+            token, expires_in = await client._fetch_access_token()
 
         assert token == "abc123"
+        assert expires_in == 1800
+
+    @pytest.mark.asyncio
+    async def test_missing_expires_in_falls_back_to_default_ttl(self, client):
+        """The real Thunder ID response always includes expires_in, but if
+        it's ever absent we shouldn't crash — fall back to a sane default
+        instead of caching the token with an unknown lifetime."""
+        response = MagicMock()
+        response.json.return_value = {"access_token": "abc123"}
+        patcher, _ = patch_async_client(post_return_value=response)
+
+        with patcher:
+            token, expires_in = await client._fetch_access_token()
+
+        assert token == "abc123"
+        assert expires_in == DEFAULT_TOKEN_TTL_SECONDS
 
     @pytest.mark.asyncio
     async def test_posts_with_correct_url_auth_headers_and_payload(self, client, monkeypatch):
@@ -232,6 +251,36 @@ class TestGetAccessTokenCaching:
         assert client._cached_token == "first-token"
         assert client._cached_token_expiry == EFFECTIVE_TTL
         mock_client.post.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_cache_expiry_is_derived_from_the_response_expires_in(self, client):
+        """The whole point of reading expires_in: a token with a shorter (or
+        longer) lifetime than the usual 3600s must be cached for exactly
+        that long, not a hardcoded duration."""
+        clock = FakeClock(start=0.0)
+        patcher, _ = patch_async_client(
+            post_return_value=make_token_response("short-lived", expires_in=120)
+        )
+
+        with patcher, patch("utils.thunder_id_client.time.monotonic", clock):
+            await client.get_access_token()
+
+        assert client._cached_token_expiry == 120 - TOKEN_REFRESH_BUFFER_SECONDS
+
+    @pytest.mark.asyncio
+    async def test_expires_in_shorter_than_buffer_clamps_to_zero(self, client):
+        """A token whose expires_in is smaller than our refresh buffer must
+        not produce a negative expiry — it should just be treated as due
+        for an immediate refresh on the very next call."""
+        clock = FakeClock(start=0.0)
+        patcher, _ = patch_async_client(
+            post_return_value=make_token_response("very-short-lived", expires_in=30)
+        )
+
+        with patcher, patch("utils.thunder_id_client.time.monotonic", clock):
+            await client.get_access_token()
+
+        assert client._cached_token_expiry == 0
 
     @pytest.mark.asyncio
     async def test_returns_cached_token_without_refetching_while_valid(self, client):

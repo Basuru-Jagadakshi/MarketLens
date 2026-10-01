@@ -14,7 +14,7 @@ from config import (
 
 logger = logging.getLogger(__name__)
 
-TOKEN_TTL_SECONDS = 3600
+DEFAULT_TOKEN_TTL_SECONDS = 3600  # fallback only, if a response ever omits expires_in
 TOKEN_REFRESH_BUFFER_SECONDS = 60
 
 
@@ -32,10 +32,10 @@ class ThunderIDClient:
             if self._is_cached_token_valid():
                 return self._cached_token
 
-            token = await self._fetch_access_token()
+            token, expires_in = await self._fetch_access_token()
             self._cached_token = token
-            self._cached_token_expiry = (
-                time.monotonic() + TOKEN_TTL_SECONDS - TOKEN_REFRESH_BUFFER_SECONDS
+            self._cached_token_expiry = time.monotonic() + max(
+                expires_in - TOKEN_REFRESH_BUFFER_SECONDS, 0
             )
             return token
 
@@ -67,8 +67,10 @@ class ThunderIDClient:
             if not token:
                 raise ValueError(f"ThunderID token response missing 'access_token': {body}")
 
+            expires_in = body.get("expires_in", DEFAULT_TOKEN_TTL_SECONDS)
+
             logger.info("Fetched new ThunderID access token")
-            return token
+            return token, expires_in
 
 
 async def get_auth_headers(thunder_client: ThunderIDClient) -> dict:
