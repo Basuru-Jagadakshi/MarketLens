@@ -27,7 +27,6 @@ logger = logging.getLogger(__name__)
 class GovernmentJobsCrawler(BaseJobCrawler):
     def __init__(self):
         self._parser = GovernmentJobsParser()
-        self._thunder_client = ThunderIDClient()
 
     def _remove_sinhala_control_chars(self, text):
         cleaned_text = text.replace("\u200c", "").replace("\u200d", "")
