@@ -18,6 +18,10 @@ DEFAULT_TOKEN_TTL_SECONDS = 3600  # fallback only, if a response ever omits expi
 TOKEN_REFRESH_BUFFER_SECONDS = 60
 
 
+class ThunderTokenError(Exception):
+    """Raised when a ThunderID access token could not be obtained."""
+
+
 class ThunderIDClient:
     def __init__(self):
         self._cached_token: str | None = None
@@ -39,12 +43,18 @@ class ThunderIDClient:
             )
             return token
 
-    def invalidate_token(self):
+    def invalidate_token(self, token: str):
         """Forces the next get_access_token() call to fetch a fresh token,
         e.g. after the backend rejects the cached one with a 401 — our local
-        TTL has no way of knowing the token died earlier than expected."""
-        self._cached_token = None
-        self._cached_token_expiry = 0
+        TTL has no way of knowing the token died earlier than expected.
+
+        Only clears the cache if it still holds the given (now-known-bad)
+        token: two crawlers can share this client and race a 401 against a
+        concurrent refresh, and we must not let a stale invalidation wipe
+        out a token someone else already renewed."""
+        if self._cached_token == token:
+            self._cached_token = None
+            self._cached_token_expiry = 0
 
     def _is_cached_token_valid(self):
         return self._cached_token is not None and time.monotonic() < self._cached_token_expiry
@@ -73,13 +83,36 @@ class ThunderIDClient:
             return token, expires_in
 
 
-async def get_auth_headers(thunder_client: ThunderIDClient) -> dict:
-    """Shared by every call site that needs a Bearer header: fetches the
-    (possibly cached) token and logs clearly if that fails, instead of each
-    caller repeating the same try/except around get_access_token()."""
-    try:
-        token = await thunder_client.get_access_token()
-    except Exception as e:
-        logger.error(f"Failed to obtain ThunderID access token: {e}")
-        raise
-    return {"Authorization": f"Bearer {token}"}
+class ThunderAuth(httpx.Auth):
+    """Attaches a ThunderID Bearer token to a request and, if the backend
+    rejects it with a 401, invalidates the cached token and retries once
+    with a fresh one — centralizes auth so call sites never need to touch
+    headers or status codes themselves. Pass this as `auth=` on individual
+    requests to BACKEND_BASE_URL only — never as a client-wide default,
+    since the shared httpx.AsyncClient in this codebase is also used to
+    call third-party job sites, which must never see this token."""
+
+    def __init__(self, thunder_client: ThunderIDClient):
+        self._thunder_client = thunder_client
+
+    async def async_auth_flow(self, request):
+        token = await self._get_token()
+        request.headers["Authorization"] = f"Bearer {token}"
+        response = yield request
+
+        if response.status_code == 401:
+            logger.warning(
+                f"{request.method} {request.url} rejected with 401 — "
+                "invalidating cached ThunderID token and retrying with a fresh one"
+            )
+            self._thunder_client.invalidate_token(token)
+            token = await self._get_token()
+            request.headers["Authorization"] = f"Bearer {token}"
+            yield request
+
+    async def _get_token(self) -> str:
+        try:
+            return await self._thunder_client.get_access_token()
+        except Exception as e:
+            logger.error(f"Failed to obtain ThunderID access token: {e}")
+            raise ThunderTokenError(str(e)) from e

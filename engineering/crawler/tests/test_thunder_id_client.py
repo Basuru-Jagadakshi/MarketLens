@@ -4,7 +4,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 import pytest
 
-from utils.thunder_id_client import DEFAULT_TOKEN_TTL_SECONDS, TOKEN_REFRESH_BUFFER_SECONDS
+from utils.thunder_id_client import (
+    DEFAULT_TOKEN_TTL_SECONDS,
+    TOKEN_REFRESH_BUFFER_SECONDS,
+    ThunderAuth,
+    ThunderTokenError,
+)
 
 DEFAULT_EXPIRES_IN = 3600
 EFFECTIVE_TTL = DEFAULT_EXPIRES_IN - TOKEN_REFRESH_BUFFER_SECONDS
@@ -198,14 +203,27 @@ class TestIsCachedTokenValid:
 
 class TestInvalidateToken:
 
-    def test_clears_cached_token_and_expiry(self, client):
+    def test_clears_cached_token_and_expiry_when_token_matches(self, client):
         client._cached_token = "stale-token"
         client._cached_token_expiry = 9999999.0
 
-        client.invalidate_token()
+        client.invalidate_token("stale-token")
 
         assert client._cached_token is None
         assert client._is_cached_token_valid() is False
+
+    def test_does_not_clear_a_newer_token_that_no_longer_matches(self, client):
+        """Race-safety: a caller holding a since-superseded token must not be
+        able to wipe out a token someone else already refreshed to. Only an
+        invalidate_token() call naming the *current* cached token takes
+        effect."""
+        client._cached_token = "fresh-token"
+        client._cached_token_expiry = 9999999.0
+
+        client.invalidate_token("stale-token")
+
+        assert client._cached_token == "fresh-token"
+        assert client._is_cached_token_valid() is True
 
     @pytest.mark.asyncio
     async def test_next_get_access_token_call_fetches_a_new_token(self, client):
@@ -223,7 +241,7 @@ class TestInvalidateToken:
 
         with patcher, patch("utils.thunder_id_client.time.monotonic", clock):
             first = await client.get_access_token()
-            client.invalidate_token()
+            client.invalidate_token(first)
             second = await client.get_access_token()
 
         assert first == "stale-token"
@@ -364,3 +382,126 @@ class TestGetAccessTokenConcurrency:
         assert token_a == "shared-token"
         assert token_b == "shared-token"
         mock_client.post.assert_awaited_once()
+
+
+# ---------------------------------------------------------------------------
+# ThunderAuth: attaches the Bearer token and retries once on a 401
+#
+# These drive a real httpx.AsyncClient over an httpx.MockTransport, rather
+# than calling async_auth_flow() by hand, so the test exercises httpx's
+# actual generator-based auth protocol (the thing that decides whether a
+# second yielded request really gets sent) instead of just our own
+# assumptions about it.
+# ---------------------------------------------------------------------------
+
+def make_thunder_client_mock(token: str = "test-token"):
+    mock = MagicMock()
+    mock.get_access_token = AsyncMock(return_value=token)
+    return mock
+
+
+class TestThunderAuth:
+
+    @pytest.mark.asyncio
+    async def test_attaches_bearer_token_to_the_request(self):
+        thunder_client = make_thunder_client_mock("good-token")
+        seen_requests = []
+
+        async def handler(request):
+            seen_requests.append(request)
+            return httpx.Response(200, json={"ok": True})
+
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http_client:
+            response = await http_client.get(
+                "https://backend.test/thing", auth=ThunderAuth(thunder_client)
+            )
+
+        assert response.status_code == 200
+        assert seen_requests[0].headers["Authorization"] == "Bearer good-token"
+
+    @pytest.mark.asyncio
+    async def test_401_invalidates_the_stale_token_and_retries_once(self):
+        """A 401 means the token was bad, not the request — it must
+        invalidate exactly the token that was rejected, fetch a fresh one,
+        and retry with that, rather than giving up."""
+        thunder_client = make_thunder_client_mock()
+        thunder_client.get_access_token.side_effect = ["stale-token", "fresh-token"]
+        seen_auth_headers = []
+
+        async def handler(request):
+            # Snapshot the header value now — async_auth_flow mutates and
+            # re-yields the SAME Request object on retry, so storing the
+            # object itself would make every entry reflect its final state.
+            seen_auth_headers.append(request.headers["Authorization"])
+            if len(seen_auth_headers) == 1:
+                return httpx.Response(401, json={"error": "invalid_token"})
+            return httpx.Response(200, json={"ok": True})
+
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http_client:
+            response = await http_client.get(
+                "https://backend.test/thing", auth=ThunderAuth(thunder_client)
+            )
+
+        assert response.status_code == 200
+        assert seen_auth_headers == ["Bearer stale-token", "Bearer fresh-token"]
+        thunder_client.invalidate_token.assert_called_once_with("stale-token")
+        assert thunder_client.get_access_token.await_count == 2
+
+    @pytest.mark.asyncio
+    async def test_gives_up_after_one_retry_if_still_401(self):
+        """Only one retry is attempted — a credential that's genuinely
+        invalid (not just stale) must not loop forever."""
+        thunder_client = make_thunder_client_mock("bad-token")
+        call_count = 0
+
+        async def handler(request):
+            nonlocal call_count
+            call_count += 1
+            return httpx.Response(401, json={"error": "invalid_token"})
+
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http_client:
+            response = await http_client.get(
+                "https://backend.test/thing", auth=ThunderAuth(thunder_client)
+            )
+
+        assert response.status_code == 401
+        assert call_count == 2
+        thunder_client.invalidate_token.assert_called_once_with("bad-token")
+
+    @pytest.mark.asyncio
+    async def test_does_not_retry_on_non_401_errors(self):
+        thunder_client = make_thunder_client_mock()
+        call_count = 0
+
+        async def handler(request):
+            nonlocal call_count
+            call_count += 1
+            return httpx.Response(500)
+
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http_client:
+            response = await http_client.get(
+                "https://backend.test/thing", auth=ThunderAuth(thunder_client)
+            )
+
+        assert response.status_code == 500
+        assert call_count == 1
+        thunder_client.invalidate_token.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_token_fetch_failure_raises_thunder_token_error(self):
+        """If we can't get a token at all, the request must never even reach
+        the transport, and the failure must be a ThunderTokenError — not an
+        arbitrary exception a caller might not know to catch."""
+        thunder_client = MagicMock()
+        thunder_client.get_access_token = AsyncMock(
+            side_effect=httpx.ConnectError("refused")
+        )
+
+        async def handler(request):
+            raise AssertionError("should never reach the transport")
+
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http_client:
+            with pytest.raises(ThunderTokenError):
+                await http_client.get(
+                    "https://backend.test/thing", auth=ThunderAuth(thunder_client)
+                )

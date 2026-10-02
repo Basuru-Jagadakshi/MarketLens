@@ -6,7 +6,7 @@ import httpx
 
 from config import BACKEND_BASE_URL
 from models.raw_job import RawJobInput
-from utils.thunder_id_client import ThunderIDClient, get_auth_headers
+from utils.thunder_id_client import ThunderAuth
 
 logger = logging.getLogger(__name__)
 
@@ -20,18 +20,16 @@ class BaseJobCrawler(ABC):
         self,
         crawler_run_id: int,
         async_client: httpx.AsyncClient,
-        thunder_client: ThunderIDClient,
+        thunder_auth: ThunderAuth,
     ) -> None:
         pass
 
     async def _flush_batch(
         self,
         async_client: httpx.AsyncClient,
-        thunder_client: ThunderIDClient,
+        thunder_auth: ThunderAuth,
         job_batch: List[RawJobInput],
     ) -> None:
-
-        auth_headers = await get_auth_headers(thunder_client)
 
         try:
             pending = list(job_batch)
@@ -40,12 +38,12 @@ class BaseJobCrawler(ABC):
             while pending and attempt < MAX_RETRIES:
                 attempt += 1
 
-                try: 
+                try:
 
                     response = await async_client.post(
                         f"{BACKEND_BASE_URL}/jobs/batch-save",
                         json=[job.model_dump() for job in pending],
-                        headers=auth_headers,
+                        auth=thunder_auth,
                     )
                     response.raise_for_status()
                     body = response.json()
@@ -102,14 +100,6 @@ class BaseJobCrawler(ABC):
                             f"on attempt {attempt}/{MAX_RETRIES} ({len(pending)} jobs "
                             f"pending): {e.response.text}"
                         )
-                        continue
-                    if status == 401:
-                        logger.warning(
-                            f"Batch POST rejected with 401 on attempt {attempt}/{MAX_RETRIES} — "
-                            "invalidating cached ThunderID token and retrying with a fresh one"
-                        )
-                        thunder_client.invalidate_token()
-                        auth_headers = await get_auth_headers(thunder_client)
                         continue
                     logger.error(
                         f"Batch POST rejected by backend with client error {status} — "

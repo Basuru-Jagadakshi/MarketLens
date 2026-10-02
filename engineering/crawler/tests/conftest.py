@@ -1,4 +1,4 @@
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -10,7 +10,7 @@ class _ConcreteCrawler(BaseJobCrawler):
     """BaseJobCrawler is abstract; _flush_batch is what we're testing and
     doesn't need a real crawl_jobs implementation behind it."""
 
-    async def crawl_jobs(self, crawler_run_id, async_client, thunder_client):
+    async def crawl_jobs(self, crawler_run_id, async_client, thunder_auth):
         raise NotImplementedError
 
 
@@ -20,21 +20,12 @@ def crawler():
 
 
 @pytest.fixture
-def auth_headers():
-    return {"Authorization": "Bearer test-token"}
-
-
-@pytest.fixture
-def thunder_client():
-    """A stand-in for ThunderIDClient used by _flush_batch and
-    crawler_run_manager — these tests are about batch/retry/finalize
-    behavior, not token caching, so a mock that always hands back the same
-    token is enough. get_access_token is async like the real client;
-    invalidate_token is left as a plain (sync) MagicMock call, since
-    ThunderIDClient.invalidate_token() is never awaited by callers."""
-    mock = MagicMock()
-    mock.get_access_token = AsyncMock(return_value="test-token")
-    return mock
+def thunder_auth():
+    """A stand-in for the ThunderAuth passed into _flush_batch. Auth is now
+    centralized inside ThunderAuth itself (token fetch, header attach, 401
+    retry) — _flush_batch just forwards this opaquely as `auth=` on the
+    request, so a plain sentinel is enough; it's never called directly."""
+    return MagicMock()
 
 
 @pytest.fixture

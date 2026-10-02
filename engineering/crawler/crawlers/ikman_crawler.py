@@ -6,7 +6,7 @@ from typing import List
 
 from crawlers.base_crawler import BaseJobCrawler
 from parsers.ikman_parser import IkmanParser
-from utils.thunder_id_client import ThunderIDClient
+from utils.thunder_id_client import ThunderAuth
 from pydantic import ValidationError
 from models.raw_job import RawJobInput
 from config import BATCH_SIZE
@@ -48,7 +48,7 @@ class IkmanCrawler(BaseJobCrawler):
         self,
         crawler_run_id: int,
         async_client: httpx.AsyncClient,
-        thunder_client: ThunderIDClient,
+        thunder_auth: ThunderAuth,
     ) -> None:
 
         logger.info("Ikman: Ikman crawl started.")
@@ -110,9 +110,9 @@ class IkmanCrawler(BaseJobCrawler):
                 job_batch.append(job_input)
 
                 if len(job_batch) >= BATCH_SIZE:
-                    await self._flush_batch(async_client, thunder_client, job_batch)
+                    await self._flush_batch(async_client, thunder_auth, job_batch)
 
             if job_batch:
-                await self._flush_batch(async_client, thunder_client, job_batch)
+                await self._flush_batch(async_client, thunder_auth, job_batch)
 
         logger.info("Ikman: Ikman crawl pass concluded.")

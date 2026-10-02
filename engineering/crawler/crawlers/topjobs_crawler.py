@@ -11,7 +11,7 @@ from PIL import Image
 from playwright.async_api import async_playwright
 from pydantic import ValidationError
 from crawlers.base_crawler import BaseJobCrawler
-from utils.thunder_id_client import ThunderIDClient
+from utils.thunder_id_client import ThunderAuth
 from parsers.topjobs_parser import TopJobsParser
 from models.raw_job import RawJobInput
 from config import BATCH_SIZE
@@ -166,7 +166,7 @@ class TopJobsCrawler(BaseJobCrawler):
         self,
         crawler_run_id: int,
         async_client: httpx.AsyncClient,
-        thunder_client: ThunderIDClient,
+        thunder_auth: ThunderAuth,
     ) -> None:
 
         logger.info("TopJobs: Top jobs crawl started.")
@@ -186,10 +186,10 @@ class TopJobsCrawler(BaseJobCrawler):
 
             if len(job_batch) >= BATCH_SIZE:
                 logger.info(f"TopJobs: Flushing full batch of {len(job_batch)} job records to backend.")
-                await self._flush_batch(async_client, thunder_client, job_batch)
+                await self._flush_batch(async_client, thunder_auth, job_batch)
  
         if job_batch:
             logger.info(f"TopJobs: Flushing remaining {len(job_batch)} job records to backend.")
-            await self._flush_batch(async_client, thunder_client, job_batch)
+            await self._flush_batch(async_client, thunder_auth, job_batch)
  
         logger.info("TopJobs: Top jobs crawl pass concluded.")

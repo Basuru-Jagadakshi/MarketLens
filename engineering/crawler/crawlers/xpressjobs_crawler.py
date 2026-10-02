@@ -6,7 +6,7 @@ from typing import List
 from bs4 import BeautifulSoup
 from pydantic import ValidationError
 from crawlers.base_crawler import BaseJobCrawler
-from utils.thunder_id_client import ThunderIDClient
+from utils.thunder_id_client import ThunderAuth
 from parsers.xpressjobs_parser import XpressJobsParser
 from models.raw_job import RawJobInput
 from config import BATCH_SIZE
@@ -108,7 +108,7 @@ class XpressJobsCrawler(BaseJobCrawler):
         self,
         crawler_run_id: int,
         async_client: httpx.AsyncClient,
-        thunder_client: ThunderIDClient,
+        thunder_auth: ThunderAuth,
     ) -> None:
 
         logger.info("XpressJobs: Xpress jobs crawl started.")
@@ -128,10 +128,10 @@ class XpressJobsCrawler(BaseJobCrawler):
 
             if len(job_batch) >= BATCH_SIZE:
                 logger.info(f"XpressJobs: Flushing full batch of {len(job_batch)} job records to backend.")
-                await self._flush_batch(async_client, thunder_client, job_batch)
+                await self._flush_batch(async_client, thunder_auth, job_batch)
  
         if job_batch:
             logger.info(f"XpressJobs: Flushing remaining {len(job_batch)} job records to backend.")
-            await self._flush_batch(async_client, thunder_client, job_batch)
+            await self._flush_batch(async_client, thunder_auth, job_batch)
  
         logger.info("XpressJobs: Xpress jobs crawl pass concluded.")

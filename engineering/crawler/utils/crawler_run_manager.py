@@ -12,7 +12,7 @@ from crawlers.xpressjobs_crawler import XpressJobsCrawler
 from crawlers.topjobs_crawler import TopJobsCrawler
 from crawlers.rooster_crawler import RoosterCrawler
 from crawlers.governmentjobs_crawler import GovernmentJobsCrawler
-from utils.thunder_id_client import ThunderIDClient, get_auth_headers
+from utils.thunder_id_client import ThunderAuth, ThunderIDClient
 
 logger = logging.getLogger(__name__)
 
@@ -29,24 +29,7 @@ class CrawlerManager:
             "ikman": IkmanCrawler,
         }
         self._thunder_client = ThunderIDClient()
-
-    #Posts to the tracking backend, retrying once with a fresh ThunderID
-    #token if the cached one gets rejected with a 401
-    async def _post_with_token_retry(self, client: httpx.AsyncClient, url: str, json: dict) -> httpx.Response:
-        auth_headers = await get_auth_headers(self._thunder_client)
-        response = await client.post(url, json=json, headers=auth_headers)
-
-        if response.status_code == 401:
-            logger.warning(
-                f"POST {url} rejected with 401 — invalidating cached ThunderID "
-                "token and retrying with a fresh one"
-            )
-            self._thunder_client.invalidate_token()
-            auth_headers = await get_auth_headers(self._thunder_client)
-            response = await client.post(url, json=json, headers=auth_headers)
-
-        response.raise_for_status()
-        return response
+        self._thunder_auth = ThunderAuth(self._thunder_client)
 
     # This function created the new crawler session and return the new crawler run id
     async def _start_run(self, client: httpx.AsyncClient) -> int:
@@ -57,7 +40,12 @@ class CrawlerManager:
             "status": "RUNNING",
         }
         try:
-            init_res = await self._post_with_token_retry(client, f"{BACKEND_BASE_URL}/runs", start_payload)
+            init_res = await client.post(
+                f"{BACKEND_BASE_URL}/runs",
+                json=start_payload,
+                auth=self._thunder_auth,
+            )
+            init_res.raise_for_status()
             response_data = init_res.json()
             crawler_run_id = response_data.get("id")
 
@@ -79,14 +67,20 @@ class CrawlerManager:
     async def _finalize_run(self, client: httpx.AsyncClient, crawler_run_id: int) -> None:
         try:
             logger.info("Crawler: Executing pipeline reconciliation.")
-            await self._post_with_token_retry(
-                client, f"{BACKEND_BASE_URL}/jobs/reconcile", {"crawler_run_id": crawler_run_id}
+
+            reconcile_res = await client.post(
+                f"{BACKEND_BASE_URL}/jobs/reconcile",
+                json={"crawler_run_id": crawler_run_id},
+                auth=self._thunder_auth,
             )
-            await self._post_with_token_retry(
-                client,
+            reconcile_res.raise_for_status()
+
+            complete_res = await client.post(
                 f"{BACKEND_BASE_URL}/runs/{crawler_run_id}/complete",
-                {"id": crawler_run_id, "status": "COMPLETED"},
+                json={"id": crawler_run_id, "status": "COMPLETED"},
+                auth=self._thunder_auth,
             )
+            complete_res.raise_for_status()
         except Exception as e:
             logger.error(f"Crawler: Failed to finalize crawler run {crawler_run_id}: {e}")
 
@@ -108,7 +102,7 @@ class CrawlerManager:
             await crawler_instance.crawl_jobs(
                 crawler_run_id=crawler_run_id,
                 async_client=client,
-                thunder_client=self._thunder_client
+                thunder_auth=self._thunder_auth
             )
             logger.info(f"--- Finished crawler: {name} ---")
         except Exception as e:

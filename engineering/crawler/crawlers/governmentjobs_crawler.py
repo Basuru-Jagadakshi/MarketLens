@@ -8,7 +8,7 @@ from crawl4ai import AsyncWebCrawler
 from bs4 import BeautifulSoup
 from PIL import Image
 from crawlers.base_crawler import BaseJobCrawler
-from utils.thunder_id_client import ThunderIDClient
+from utils.thunder_id_client import ThunderAuth
 from parsers.governmentjobs_parser import GovernmentJobsParser
 from config import BATCH_SIZE
 from pydantic import ValidationError
@@ -115,7 +115,7 @@ class GovernmentJobsCrawler(BaseJobCrawler):
         self,
         crawler_run_id: int,
         async_client: httpx.AsyncClient,
-        thunder_client: ThunderIDClient,
+        thunder_auth: ThunderAuth,
     ) -> None:
 
         logger.info("GovernmentJobs: Government jobs crawl started.")
@@ -135,10 +135,10 @@ class GovernmentJobsCrawler(BaseJobCrawler):
 
             if len(job_batch) >= BATCH_SIZE:
                 logger.info(f"GovernmentJobs: Flushing full batch of {len(job_batch)} job records to backend.")
-                await self._flush_batch(async_client, thunder_client, job_batch)
+                await self._flush_batch(async_client, thunder_auth, job_batch)
  
         if job_batch:
             logger.info(f"GovernmentJobs: Flushing remaining {len(job_batch)} job records to backend.")
-            await self._flush_batch(async_client, thunder_client, job_batch)
+            await self._flush_batch(async_client, thunder_auth, job_batch)
  
         logger.info("GovernmentJobs: Government jobs crawl pass concluded.")
