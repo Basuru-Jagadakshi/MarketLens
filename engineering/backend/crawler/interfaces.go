@@ -42,7 +42,7 @@ type MetadataRepository interface {
 }
 
 // Repository is the full set of data access IngestionService needs: all
-// of the above, plus the two batch write operations. This is the only
+// of the above, plus the per-job write operations. This is the only
 // interface main.go needs to know about — everything else is internal
 // wiring.
 type Repository interface {
@@ -51,6 +51,6 @@ type Repository interface {
 	OccupationRepository
 	MetadataRepository
 
-	BatchSaveNewJobs(jobs []models.JobPost, lshIndexRecords []models.LshIndex) error
-	BatchUpdateDuplicateJobs(updates []models.JobMetaData) error
+	SaveOneJob(job *models.JobPost, lshIndexRecords []models.LshIndex) error
+	UpdateDuplicateJob(jobPostID uint, crawlerRunID uint) error
 }

@@ -14,9 +14,9 @@ import (
 // Reference lists (formalities, genders, industry/occupation hierarchy)
 // come pre-seeded with a small realistic sample; override them via the
 // exported fields before use if a test needs different data. Writes
-// (BatchSaveNewJobs, BatchUpdateDuplicateJobs) are captured into
-// SavedJobs / SavedLSH / UpdatedDuplicates so tests can assert on
-// exactly what the code under test tried to persist.
+// (SaveOneJob, UpdateDuplicateJob) are captured into SavedJobs /
+// SavedLSH / UpdatedDuplicates so tests can assert on exactly what the
+// code under test tried to persist.
 type MockRepository struct {
 	mu sync.Mutex
 
@@ -30,6 +30,14 @@ type MockRepository struct {
 	SavedJobs         []models.JobPost
 	SavedLSH          []models.LshIndex
 	UpdatedDuplicates []models.JobMetaData
+
+	// Error injection hooks for tests exercising ProcessBatch's failure
+	// handling — nil (the default) means "succeed normally." Set to force
+	// SaveOneJob/UpdateDuplicateJob to fail, e.g. wrapping
+	// repositories.ErrPermanentSaveFailure to simulate a permanent save
+	// error, or a plain error to simulate a transient one.
+	SaveOneJobErr      func(job *models.JobPost) error
+	UpdateDuplicateErr func(jobPostID uint) error
 
 	// Reference data returned by the metadata/classifier Get* methods.
 	// Pre-seeded with a small sample; replace before use for different
@@ -156,41 +164,48 @@ func (r *MockRepository) GetJobsByBucketKeys(bucketKeys []string) ([]models.JobP
 	return out, nil
 }
 
-func (r *MockRepository) BatchSaveNewJobs(jobs []models.JobPost, lshIndexRecords []models.LshIndex) error {
+func (r *MockRepository) SaveOneJob(job *models.JobPost, lshIndexRecords []models.LshIndex) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	generatedIDs := make(map[int]uint)
-	for i := range jobs {
-		r.nextID++
-		jobs[i].ID = r.nextID
-		jobCopy := jobs[i]
-		r.jobs[jobCopy.ID] = &jobCopy
-		generatedIDs[i] = jobCopy.ID
+	if r.SaveOneJobErr != nil {
+		if err := r.SaveOneJobErr(job); err != nil {
+			return err
+		}
 	}
 
-	for idx := range lshIndexRecords {
-		jobGroupIndex := idx / 8 // mirrors the real BatchSaveNewJobs's hardcoded band count
-		trueID := generatedIDs[jobGroupIndex]
-		lshIndexRecords[idx].JobPostID = trueID
-		r.lsh[lshIndexRecords[idx].BucketKey] = append(r.lsh[lshIndexRecords[idx].BucketKey], trueID)
+	r.nextID++
+	job.ID = r.nextID
+	jobCopy := *job
+	r.jobs[job.ID] = &jobCopy
+
+	for i := range lshIndexRecords {
+		lshIndexRecords[i].JobPostID = job.ID
+		r.lsh[lshIndexRecords[i].BucketKey] = append(r.lsh[lshIndexRecords[i].BucketKey], job.ID)
 	}
 
-	r.SavedJobs = append(r.SavedJobs, jobs...)
+	r.SavedJobs = append(r.SavedJobs, jobCopy)
 	r.SavedLSH = append(r.SavedLSH, lshIndexRecords...)
 	return nil
 }
 
-func (r *MockRepository) BatchUpdateDuplicateJobs(updates []models.JobMetaData) error {
+func (r *MockRepository) UpdateDuplicateJob(jobPostID uint, crawlerRunID uint) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	for _, up := range updates {
-		if job, ok := r.jobs[up.JobPostID]; ok {
-			job.MetaData.CrawlerRunID = up.CrawlerRunID
+	if r.UpdateDuplicateErr != nil {
+		if err := r.UpdateDuplicateErr(jobPostID); err != nil {
+			return err
 		}
 	}
-	r.UpdatedDuplicates = append(r.UpdatedDuplicates, updates...)
+
+	if job, ok := r.jobs[jobPostID]; ok {
+		job.MetaData.CrawlerRunID = &crawlerRunID
+	}
+	r.UpdatedDuplicates = append(r.UpdatedDuplicates, models.JobMetaData{
+		JobPostID:    jobPostID,
+		CrawlerRunID: &crawlerRunID,
+	})
 	return nil
 }
 

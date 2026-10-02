@@ -1670,47 +1670,13 @@ func (ctrl *JobController) BatchSaveJobsHandler(c *gin.Context) {
 		return
 	}
  
-	if err := ctrl.ingestion.ProcessBatch(c.Request.Context(), rawJobs); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error":   "Job batch ingestion pipeline failed execution",
-			"details": err.Error(),
-		})
-		return
-	}
- 
-	c.JSON(http.StatusOK, gin.H{
-		"message":          "Successfully processed job batch",
-		"submitted_records": len(rawJobs),
-	})
-}
-
-func (ctrl *JobController) BatchUpdateDuplicatesHandler(c *gin.Context) {
-	var payload models.BatchUpdatePayload
-	if err := c.ShouldBindJSON(&payload); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error":   "Invalid request payload configuration mapping",
-			"details": err.Error(),
-		})
-		return
-	}
-
-	if len(payload.Duplicates) == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "The duplicates reference buffer cannot be empty"})
-		return
-	}
-
-	err := ctrl.repo.BatchUpdateDuplicateJobs(payload.Duplicates)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error":   "Bulk update checkpoint modifications failed execution",
-			"details": err.Error(),
-		})
-		return
-	}
+	failedJobs := ctrl.ingestion.ProcessBatch(c.Request.Context(), rawJobs)
 
 	c.JSON(http.StatusOK, gin.H{
-		"message":           "Successfully refreshed duplicate job keep-alive markers",
-		"refreshed_records": len(payload.Duplicates),
+		"message":      "Batch processed",
+		"submitted":    len(rawJobs),
+		"failed_count": len(failedJobs),
+		"failed_jobs":  failedJobs,
 	})
 }
 
