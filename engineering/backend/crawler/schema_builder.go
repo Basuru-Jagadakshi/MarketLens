@@ -244,27 +244,27 @@ func (b *MetadataBuilder) getOptions() (*optionSet, error) {
 func (b *MetadataBuilder) refresh() (*optionSet, error) {
 	formalities, err := b.repo.GetAllFormalities()
 	if err != nil {
-		return nil, fmt.Errorf("fetching formalities: %w", err)
+		return nil, fmt.Errorf("%w: fetching formalities: %v", ErrTransientExtractionFailure, err)
 	}
 	genders, err := b.repo.GetAllGenders()
 	if err != nil {
-		return nil, fmt.Errorf("fetching genders: %w", err)
+		return nil, fmt.Errorf("%w: fetching genders: %v", ErrTransientExtractionFailure, err)
 	}
 	vocationalEducations, err := b.repo.GetAllVocationalEducations()
 	if err != nil {
-		return nil, fmt.Errorf("fetching vocational educations: %w", err)
+		return nil, fmt.Errorf("%w: fetching vocational educations: %v", ErrTransientExtractionFailure, err)
 	}
 	employmentSectors, err := b.repo.GetAllEmploymentSectors()
 	if err != nil {
-		return nil, fmt.Errorf("fetching employment sectors: %w", err)
+		return nil, fmt.Errorf("%w: fetching employment sectors: %v", ErrTransientExtractionFailure, err)
 	}
 	educationLevels, err := b.repo.GetAllEducationLevels()
 	if err != nil {
-		return nil, fmt.Errorf("fetching education levels: %w", err)
+		return nil, fmt.Errorf("%w: fetching education levels: %v", ErrTransientExtractionFailure, err)
 	}
 	experiences, err := b.repo.GetAllExperiences()
 	if err != nil {
-		return nil, fmt.Errorf("fetching experiences: %w", err)
+		return nil, fmt.Errorf("%w: fetching experiences: %v", ErrTransientExtractionFailure, err)
 	}
 
 	options := &optionSet{

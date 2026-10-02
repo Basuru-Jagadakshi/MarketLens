@@ -3,15 +3,19 @@ package crawler
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"net/http"
 	"time"
 
 	"marketlens-go-backend/models"
+	"marketlens-go-backend/repositories"
 )
 
 // RawJobInput is one crawled job as it arrives in a batch request:
-// {"employer":, "job_role":, "location":, "description":, "crawler_run_id":, "source":}
+// {"job_id":, "employer":, "job_role":, "location":, "description":, "crawler_run_id":, "source":}
 type RawJobInput struct {
+	JobID        string `json:"job_id"`
 	Employer     string `json:"employer"`
 	JobRole      string `json:"job_role"`
 	Location     string `json:"location"`
@@ -20,10 +24,18 @@ type RawJobInput struct {
 	Source       string `json:"source"`
 }
 
+// FailedJob reports one job's save failure, keyed by the crawler-generated
+// job_id. A job not present in a ProcessBatch response's failures either
+// saved successfully or was a duplicate that got its crawler_run_id updated.
+type FailedJob struct {
+	JobID      string `json:"job_id"`
+	StatusCode int    `json:"status_code"`
+	Error      string `json:"error"`
+}
+
 // IngestionService processes a batch of crawled jobs end to end: MinHash
-// + duplicate check for every job, a single batched update for
-// duplicates found, and a single batched insert for jobs that are
-// genuinely new (each extracted + classified first).
+// + duplicate check for every job, then a per-job save or duplicate
+// update (each new job extracted + classified first).
 type IngestionService struct {
 	repo                 Repository
 	llm                  *DeepSeekClient
@@ -38,10 +50,6 @@ type IngestionService struct {
 
 // NewIngestionService wires dedup, classification, and metadata
 // together with the repository.
-//
-// numBands is fixed at 8, not configurable: BatchSaveNewJobs hardcodes
-// `idx / 8` when mapping LSH rows back to the job that generated them,
-// so any other band count silently corrupts that mapping with no error.
 func NewIngestionService(
 	repo Repository,
 	llm *DeepSeekClient,
@@ -63,11 +71,13 @@ func NewIngestionService(
 	}
 }
 
-// ProcessBatch runs the full pipeline for one crawl batch.
-func (s *IngestionService) ProcessBatch(ctx context.Context, rawJobs []RawJobInput) error {
-	var newJobs []models.JobPost
-	var newJobLSH []models.LshIndex
-	var duplicateUpdates []models.JobMetaData
+// ProcessBatch runs the full pipeline for one crawl batch. Every job is
+// attempted, sequentially and in its own DB transaction, regardless of
+// whether earlier jobs in the batch failed. Only failures are returned;
+// a job not present in the result saved successfully or was a duplicate
+// that got its crawler_run_id updated.
+func (s *IngestionService) ProcessBatch(ctx context.Context, rawJobs []RawJobInput) []FailedJob {
+	var failures []FailedJob
 
 	for _, raw := range rawJobs {
 		jobData := JobData{
@@ -80,41 +90,52 @@ func (s *IngestionService) ProcessBatch(ctx context.Context, rawJobs []RawJobInp
 
 		isDuplicate, matchedJobID := CheckDuplicate(s.repo, lshIndexes, sig, raw.Location, s.jaccardThreshold)
 		if isDuplicate {
-			crawlerRunID := raw.CrawlerRunID
-			duplicateUpdates = append(duplicateUpdates, models.JobMetaData{
-				JobPostID:    uint(matchedJobID),
-				CrawlerRunID: &crawlerRunID,
-			})
+			if err := s.repo.UpdateDuplicateJob(uint(matchedJobID), raw.CrawlerRunID); err != nil {
+				failures = append(failures, FailedJob{
+					JobID:      raw.JobID,
+					StatusCode: http.StatusServiceUnavailable,
+					Error:      fmt.Sprintf("updating duplicate job: %v", err),
+				})
+			}
 			continue
 		}
 
 		jobPost, err := s.extractAndClassify(ctx, raw, sig)
 		if err != nil {
-			return fmt.Errorf("job %q at %q: %w", raw.JobRole, raw.Employer, err)
+			statusCode := http.StatusUnprocessableEntity
+			if errors.Is(err, ErrTransientExtractionFailure) {
+				statusCode = http.StatusServiceUnavailable
+			}
+			failures = append(failures, FailedJob{
+				JobID:      raw.JobID,
+				StatusCode: statusCode,
+				Error:      fmt.Sprintf("job %q at %q: %v", raw.JobRole, raw.Employer, err),
+			})
+			continue
 		}
 
-		newJobs = append(newJobs, jobPost)
+		lshRecords := make([]models.LshIndex, 0, len(lshIndexes))
 		for _, idx := range lshIndexes {
-			newJobLSH = append(newJobLSH, models.LshIndex{
+			lshRecords = append(lshRecords, models.LshIndex{
 				BandNo:    idx.BandNo,
 				BucketKey: idx.BucketKey,
 			})
 		}
-	}
 
-	if len(duplicateUpdates) > 0 {
-		if err := s.repo.BatchUpdateDuplicateJobs(duplicateUpdates); err != nil {
-			return fmt.Errorf("updating duplicate jobs: %w", err)
+		if err := s.repo.SaveOneJob(&jobPost, lshRecords); err != nil {
+			statusCode := http.StatusServiceUnavailable
+			if errors.Is(err, repositories.ErrPermanentSaveFailure) {
+				statusCode = http.StatusUnprocessableEntity
+			}
+			failures = append(failures, FailedJob{
+				JobID:      raw.JobID,
+				StatusCode: statusCode,
+				Error:      err.Error(),
+			})
 		}
 	}
 
-	if len(newJobs) > 0 {
-		if err := s.repo.BatchSaveNewJobs(newJobs, newJobLSH); err != nil {
-			return fmt.Errorf("saving new jobs: %w", err)
-		}
-	}
-
-	return nil
+	return failures
 }
 
 // extractedJob is the shape DeepSeek is asked to return, matching Schema.
@@ -175,7 +196,7 @@ func (s *IngestionService) extractAndClassify(ctx context.Context, raw RawJobInp
 
 	var extracted extractedJob
 	if err := json.Unmarshal([]byte(stripJSONFences(content)), &extracted); err != nil {
-		return models.JobPost{}, fmt.Errorf("parsing deepseek extraction response: %w", err)
+		return models.JobPost{}, fmt.Errorf("%w: parsing deepseek extraction response: %v", ErrTransientExtractionFailure, err)
 	}
 
 	industrySubclassID, err := s.industryClassifier.Classify(ctx, jobText)

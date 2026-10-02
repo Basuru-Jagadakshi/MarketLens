@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -12,6 +13,14 @@ import (
 )
 
 const deepSeekAPIURL = "https://api.deepseek.com/chat/completions"
+
+// ErrTransientExtractionFailure marks a failure in the extract/classify
+// pipeline as retryable: a network problem, DeepSeek timing out (408) or
+// rate limiting (429) or erroring (5xx), DeepSeek responding with
+// unparseable/empty content, or a DB read failing while fetching
+// reference data. None of these are about the job's own content — a
+// retry later should succeed.
+var ErrTransientExtractionFailure = errors.New("transient extraction failure")
 
 // Option is the common (id, name) shape every hierarchy level's rows are
 // converted into before being shown to the LLM.
@@ -113,20 +122,23 @@ func (c *DeepSeekClient) Chat(ctx context.Context, prompt string) (string, error
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("calling deepseek: %w", err)
+		return "", fmt.Errorf("%w: calling deepseek: %v", ErrTransientExtractionFailure, err)
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode == http.StatusRequestTimeout || resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode >= 500 {
+		return "", fmt.Errorf("%w: deepseek returned status %d", ErrTransientExtractionFailure, resp.StatusCode)
+	}
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("deepseek returned status %d", resp.StatusCode)
 	}
 
 	var parsed deepSeekResponse
 	if err := json.NewDecoder(resp.Body).Decode(&parsed); err != nil {
-		return "", fmt.Errorf("decoding deepseek response: %w", err)
+		return "", fmt.Errorf("%w: decoding deepseek response: %v", ErrTransientExtractionFailure, err)
 	}
 	if len(parsed.Choices) == 0 {
-		return "", fmt.Errorf("deepseek response had no choices")
+		return "", fmt.Errorf("%w: deepseek response had no choices", ErrTransientExtractionFailure)
 	}
 
 	return parsed.Choices[0].Message.Content, nil
@@ -181,7 +193,7 @@ func (c *DeepSeekClient) AskToPick(ctx context.Context, jobText string, options 
 
 	var result pickResult
 	if err := json.Unmarshal([]byte(stripJSONFences(content)), &result); err != nil {
-		return 0, fmt.Errorf("parsing chosen id from deepseek content: %w", err)
+		return 0, fmt.Errorf("%w: parsing chosen id from deepseek content: %v", ErrTransientExtractionFailure, err)
 	}
 
 	for _, o := range options {
@@ -217,7 +229,7 @@ func Walk(ctx context.Context, llm *DeepSeekClient, jobText string, levels []Lev
 	for _, level := range levels {
 		options, err := level.Fetch(parentID)
 		if err != nil {
-			return 0, fmt.Errorf("fetching %s options: %w", level.Name, err)
+			return 0, fmt.Errorf("%w: fetching %s options: %v", ErrTransientExtractionFailure, level.Name, err)
 		}
 
 		id, err := llm.AskToPick(ctx, jobText, options, level.Name)

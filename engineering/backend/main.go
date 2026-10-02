@@ -66,11 +66,7 @@ func main() {
 		{
 			crawler.POST("/runs", auth.RequireScope("crawler:runs"), jobCtrl.StartCrawlerRunHandler)
 			crawler.POST("/runs/:id/complete", auth.RequireScope("crawler:complete"), jobCtrl.CompleteCrawlerRunHandler)
-
-			crawler.POST("/radar/lookup", auth.RequireScope("crawler:lookup"), jobCtrl.GetJobsByBucketKeysHandler)
-
 			crawler.POST("/jobs/batch-save", auth.RequireScope("crawler:batch-save"), jobCtrl.BatchSaveJobsHandler)
-			crawler.POST("/jobs/batch-update", auth.RequireScope("crawler:batch-update"), jobCtrl.BatchUpdateDuplicatesHandler)
 			crawler.POST("/jobs/reconcile", auth.RequireScope("crawler:reconcile"), jobCtrl.ReconcileStaleVacanciesHandler)
 		}
 

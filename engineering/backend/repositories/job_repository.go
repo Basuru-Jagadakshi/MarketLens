@@ -4,10 +4,39 @@ import (
 	"errors"
 	"fmt"
 	"marketlens-go-backend/models"
+	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	"gorm.io/gorm"
 )
+
+// ErrPermanentSaveFailure marks a job save failure as non-retryable: a
+// missing/invalid foreign key (e.g. a province not registered in
+// geo_data) or a Postgres integrity-constraint violation (SQLSTATE class
+// 23: foreign key, unique, not-null, check). Retrying the identical save
+// will fail the same way every time.
+var ErrPermanentSaveFailure = errors.New("permanent save failure")
+
+// isPermanentDBError reports whether err is a Postgres integrity-
+// constraint violation, as surfaced by gorm's postgres driver
+// (jackc/pgx) via *pgconn.PgError.Code (SQLSTATE).
+func isPermanentDBError(err error) bool {
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) {
+		return strings.HasPrefix(pgErr.Code, "23")
+	}
+	return false
+}
+
+// wrapSaveErr classifies err as permanent (constraint violation) or
+// transient (anything else — connection issues, deadlocks, etc.).
+func wrapSaveErr(err error, msg string) error {
+	if isPermanentDBError(err) {
+		return fmt.Errorf("%w: %s: %v", ErrPermanentSaveFailure, msg, err)
+	}
+	return fmt.Errorf("%s: %w", msg, err)
+}
 
 
 
@@ -978,108 +1007,97 @@ func (r *JobRepository) GetJobsByBucketKeys(bucketKeys []string) ([]models.JobPo
 	return jobs, nil
 }
 
-func (r *JobRepository) BatchSaveNewJobs(jobs []models.JobPost, lshIndexRecords []models.LshIndex) error {
+// SaveOneJob persists a single new job — employer/job_type/skills
+// FirstOrCreate lookups, a geo lookup, source/ai_version FirstOrCreate,
+// the job itself, then its LSH records keyed off the job's real DB id —
+// in its own transaction, isolated from every other job in the batch.
+func (r *JobRepository) SaveOneJob(job *models.JobPost, lshIndexRecords []models.LshIndex) error {
 	return r.db.Transaction(func(tx *gorm.DB) error {
-		generatedJobIDs := make(map[int]uint)
-
-		for i := range jobs {
-			job := &jobs[i]
-
-			// Employer (FirstOrCreate)
-			if job.Employer != nil && job.Employer.Name != "" {
-				var employer models.Employer
-				if err := tx.Where(models.Employer{Name: job.Employer.Name}).
-					FirstOrCreate(&employer).Error; err != nil {
-					return fmt.Errorf("job[%d] employer lookup failed: %w", i, err)
-				}
-				job.EmployerID = &employer.ID
-				job.Employer = nil
+		// Employer (FirstOrCreate)
+		if job.Employer != nil && job.Employer.Name != "" {
+			var employer models.Employer
+			if err := tx.Where(models.Employer{Name: job.Employer.Name}).
+				FirstOrCreate(&employer).Error; err != nil {
+				return wrapSaveErr(err, "employer lookup failed")
 			}
-
-			// JobType (FirstOrCreate)
-			if job.JobType != nil && job.JobType.Type != "" {
-				var jt models.JobType
-				if err := tx.Where(models.JobType{Type: job.JobType.Type}).
-					FirstOrCreate(&jt).Error; err != nil {
-					return fmt.Errorf("job[%d] job_type lookup failed: %w", i, err)
-				}
-				job.JobTypeID = &jt.ID
-				job.JobType = nil
-			}
-
-			// Skills (FirstOrCreate per skill)
-			var linkedSkills []models.Skill
-			for _, s := range job.Skills {
-				if s.Skill == "" {
-					continue
-				}
-				var skill models.Skill
-				if err := tx.Where(models.Skill{Skill: s.Skill}).
-					FirstOrCreate(&skill).Error; err != nil {
-					return fmt.Errorf("job[%d] skill '%s' lookup failed: %w", i, s.Skill, err)
-				}
-				linkedSkills = append(linkedSkills, skill)
-			}
-			job.Skills = linkedSkills
-
-			// Geo (lookup only, no create)
-			if job.MetaData.GeoData != nil && job.MetaData.GeoData.Province != "" {
-				var geo models.GeoData
-				err := tx.Where("province = ?", job.MetaData.GeoData.Province).
-					First(&geo).Error
-				if errors.Is(err, gorm.ErrRecordNotFound) {
-					return fmt.Errorf("job[%d] province '%s' not registered in geo_data",
-						i, job.MetaData.GeoData.Province)
-				} else if err != nil {
-					return fmt.Errorf("job[%d] geo lookup failed: %w", i, err)
-				}
-				job.MetaData.GeoDataID = &geo.ID
-				job.MetaData.GeoData = nil
-			}
-
-			// Source (FirstOrCreate)
-			if job.MetaData.Source != nil && job.MetaData.Source.Source != "" {
-				var source models.Source
-				if err := tx.Where(models.Source{Source: job.MetaData.Source.Source}).
-					FirstOrCreate(&source).Error; err != nil {
-					return fmt.Errorf("job[%d] source lookup failed: %w", i, err)
-				}
-				job.MetaData.SourceID = &source.ID
-				job.MetaData.Source = nil
-			}
-
-			// AiVersion (FirstOrCreate)
-			if job.MetaData.AiVersion != nil && job.MetaData.AiVersion.Version != "" {
-				var av models.AiVersion
-				if err := tx.Where(models.AiVersion{Version: job.MetaData.AiVersion.Version}).
-					FirstOrCreate(&av).Error; err != nil {
-					return fmt.Errorf("job[%d] ai_version lookup failed: %w", i, err)
-				}
-				job.MetaData.AiVersionID = &av.ID
-				job.MetaData.AiVersion = nil
-			}
-
-			// Save JobPost (cascades MetaData + join table)
-			if err := tx.Create(job).Error; err != nil {
-				return fmt.Errorf("job[%d] insert failed: %w", i, err)
-			}
-			generatedJobIDs[i] = job.ID
+			job.EmployerID = &employer.ID
+			job.Employer = nil
 		}
 
-		// Map true DB IDs onto LSH records
-		for idx := range lshIndexRecords {
-			jobGroupIndex := idx / 8
-			trueID, exists := generatedJobIDs[jobGroupIndex]
-			if !exists {
-				return fmt.Errorf("lsh_index[%d] has no matching generated job ID", idx)
+		// JobType (FirstOrCreate)
+		if job.JobType != nil && job.JobType.Type != "" {
+			var jt models.JobType
+			if err := tx.Where(models.JobType{Type: job.JobType.Type}).
+				FirstOrCreate(&jt).Error; err != nil {
+				return wrapSaveErr(err, "job_type lookup failed")
 			}
-			lshIndexRecords[idx].JobPostID = trueID
+			job.JobTypeID = &jt.ID
+			job.JobType = nil
 		}
 
-		// Bulk insert LSH records
+		// Skills (FirstOrCreate per skill)
+		var linkedSkills []models.Skill
+		for _, s := range job.Skills {
+			if s.Skill == "" {
+				continue
+			}
+			var skill models.Skill
+			if err := tx.Where(models.Skill{Skill: s.Skill}).
+				FirstOrCreate(&skill).Error; err != nil {
+				return wrapSaveErr(err, fmt.Sprintf("skill '%s' lookup failed", s.Skill))
+			}
+			linkedSkills = append(linkedSkills, skill)
+		}
+		job.Skills = linkedSkills
+
+		// Geo (lookup only, no create)
+		if job.MetaData.GeoData != nil && job.MetaData.GeoData.Province != "" {
+			var geo models.GeoData
+			err := tx.Where("province = ?", job.MetaData.GeoData.Province).
+				First(&geo).Error
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return fmt.Errorf("%w: province '%s' not registered in geo_data",
+					ErrPermanentSaveFailure, job.MetaData.GeoData.Province)
+			} else if err != nil {
+				return wrapSaveErr(err, "geo lookup failed")
+			}
+			job.MetaData.GeoDataID = &geo.ID
+			job.MetaData.GeoData = nil
+		}
+
+		// Source (FirstOrCreate)
+		if job.MetaData.Source != nil && job.MetaData.Source.Source != "" {
+			var source models.Source
+			if err := tx.Where(models.Source{Source: job.MetaData.Source.Source}).
+				FirstOrCreate(&source).Error; err != nil {
+				return wrapSaveErr(err, "source lookup failed")
+			}
+			job.MetaData.SourceID = &source.ID
+			job.MetaData.Source = nil
+		}
+
+		// AiVersion (FirstOrCreate)
+		if job.MetaData.AiVersion != nil && job.MetaData.AiVersion.Version != "" {
+			var av models.AiVersion
+			if err := tx.Where(models.AiVersion{Version: job.MetaData.AiVersion.Version}).
+				FirstOrCreate(&av).Error; err != nil {
+				return wrapSaveErr(err, "ai_version lookup failed")
+			}
+			job.MetaData.AiVersionID = &av.ID
+			job.MetaData.AiVersion = nil
+		}
+
+		// Save JobPost (cascades MetaData + join table)
+		if err := tx.Create(job).Error; err != nil {
+			return wrapSaveErr(err, "job insert failed")
+		}
+
+		for i := range lshIndexRecords {
+			lshIndexRecords[i].JobPostID = job.ID
+		}
 		if len(lshIndexRecords) > 0 {
-			if err := tx.Omit("JobPost").CreateInBatches(&lshIndexRecords, 500).Error; err != nil {
-				return fmt.Errorf("lsh_index bulk insert failed: %w", err)
+			if err := tx.Omit("JobPost").Create(&lshIndexRecords).Error; err != nil {
+				return wrapSaveErr(err, "lsh_index insert failed")
 			}
 		}
 
@@ -1087,18 +1105,13 @@ func (r *JobRepository) BatchSaveNewJobs(jobs []models.JobPost, lshIndexRecords 
 	})
 }
 
-func (r *JobRepository) BatchUpdateDuplicateJobs(updates []models.JobMetaData) error {
+// UpdateDuplicateJob records that an already-saved job was seen again in
+// crawlerRunID, in its own transaction.
+func (r *JobRepository) UpdateDuplicateJob(jobPostID uint, crawlerRunID uint) error {
 	return r.db.Transaction(func(tx *gorm.DB) error {
-		for _, up := range updates {
-			err := tx.Table("meta_data").
-				Where("job_post_id = ?", up.JobPostID).
-				Update("crawler_run_id", up.CrawlerRunID).Error
-				
-			if err != nil {
-				return err
-			}
-		}
-		return nil
+		return tx.Table("meta_data").
+			Where("job_post_id = ?", jobPostID).
+			Update("crawler_run_id", crawlerRunID).Error
 	})
 }
 
