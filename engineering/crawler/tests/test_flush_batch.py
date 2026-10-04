@@ -6,6 +6,7 @@ import pytest
 
 from crawlers.base_crawler import MAX_RETRIES, RETRYABLE_STATUS_CODES
 from models.raw_job import RawJobInput
+from utils.thunder_id_client import ThunderTokenError
 
 
 def make_job(job_id: str = "job-1", crawler_run_id: int = 1) -> RawJobInput:
@@ -387,6 +388,40 @@ class TestTransportFailures:
         client = AsyncMock()
         client.post.side_effect = [
             httpx.TimeoutException("timed out"),
+            make_ok_response([]),
+        ]
+
+        await crawler._flush_batch(client, thunder_auth, job_batch)
+
+        assert client.post.await_count == 2
+        assert job_batch == []
+
+    @pytest.mark.asyncio
+    async def test_persistent_token_fetch_failure_is_retried_then_dropped(
+        self, crawler, thunder_auth
+    ):
+        """ThunderAuth raises ThunderTokenError (via the mocked client.post,
+        standing in for the real auth flow) when it can't obtain a token at
+        all — e.g. Thunder ID itself is down. That should be treated like
+        any other transient transport failure: consume retry attempts, then
+        give up gracefully, not crash out of _flush_batch unhandled."""
+        job_batch = [make_job("a"), make_job("b")]
+        client = AsyncMock()
+        client.post.side_effect = ThunderTokenError("Thunder ID unreachable")
+
+        await crawler._flush_batch(client, thunder_auth, job_batch)
+
+        assert client.post.await_count == MAX_RETRIES
+        assert job_batch == []
+
+    @pytest.mark.asyncio
+    async def test_token_fetch_failure_recovers_if_a_later_attempt_succeeds(
+        self, crawler, thunder_auth
+    ):
+        job_batch = [make_job("a")]
+        client = AsyncMock()
+        client.post.side_effect = [
+            ThunderTokenError("Thunder ID unreachable"),
             make_ok_response([]),
         ]
 

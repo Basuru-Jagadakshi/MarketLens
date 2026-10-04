@@ -6,7 +6,7 @@ import httpx
 
 from config import BACKEND_BASE_URL
 from models.raw_job import RawJobInput
-from utils.thunder_id_client import ThunderAuth
+from utils.thunder_id_client import ThunderAuth, ThunderTokenError
 
 logger = logging.getLogger(__name__)
 
@@ -80,6 +80,12 @@ class BaseJobCrawler(ABC):
                             f"Retrying {len(pending)} job(s) after attempt {attempt}/{MAX_RETRIES}"
                         )
 
+                except ThunderTokenError as e:
+                    logger.error(
+                        f"Batch POST could not obtain a ThunderID token on attempt "
+                        f"{attempt}/{MAX_RETRIES} ({len(pending)} jobs pending): {e}"
+                    )
+                    continue
                 except httpx.TimeoutException as e:
                     logger.error(
                         f"Batch POST timed out on attempt {attempt}/{MAX_RETRIES} "
