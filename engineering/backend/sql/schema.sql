@@ -100,7 +100,7 @@ CREATE TABLE IF NOT EXISTS employment_sector (
 );
 
 -- -----------------------------------------------------------------------------
--- 2. Occupation hierarchy (major -> sub-major -> minor -> unit -> occupation)
+-- Occupation hierarchy (major -> sub-major -> minor -> unit -> occupation)
 -- -----------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS major_group (
@@ -153,7 +153,7 @@ CREATE TABLE IF NOT EXISTS occupation_group (
 );
 
 -- -----------------------------------------------------------------------------
--- 3. Industry hierarchy (sector -> division -> group -> class -> subclass)
+-- Industry hierarchy (sector -> division -> group -> class -> subclass)
 -- -----------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS industry_sector (
@@ -206,7 +206,7 @@ CREATE TABLE IF NOT EXISTS industry_subclass (
 );
 
 -- -----------------------------------------------------------------------------
--- 4. Core job post tables
+-- Core job post tables
 -- -----------------------------------------------------------------------------
 DO $$
 BEGIN
@@ -263,7 +263,7 @@ CREATE TABLE IF NOT EXISTS meta_data (
 );
 
 -- -----------------------------------------------------------------------------
--- 5. Deduplication (LSH) index table
+-- Deduplication (LSH) index table
 -- -----------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS lsh_index (
@@ -274,7 +274,7 @@ CREATE TABLE IF NOT EXISTS lsh_index (
 );
 
 -- -----------------------------------------------------------------------------
--- 6. Indexes
+-- Indexes
 -- -----------------------------------------------------------------------------
 
 CREATE INDEX IF NOT EXISTS idx_lsh_bucket_radar
