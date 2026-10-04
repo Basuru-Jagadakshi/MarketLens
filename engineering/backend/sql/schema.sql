@@ -280,6 +280,9 @@ CREATE TABLE IF NOT EXISTS lsh_index (
 CREATE INDEX IF NOT EXISTS idx_lsh_bucket_radar
     ON lsh_index (bucket_key, job_post_id);
 
+CREATE INDEX IF NOT EXISTS idx_job_post_skills_skill_id
+    ON job_post_skills (skill_id);
+
 CREATE INDEX IF NOT EXISTS idx_metadata_snapshot_reconcile
     ON meta_data (crawler_run_id, end_date)
     WHERE end_date IS NULL;
