@@ -80,7 +80,7 @@ func (EducationLevel) TableName() string { return "education_level" }
 // Source model like ikman jobs, rooster
 type Source struct {
 	ID        uint      `json:"id"         gorm:"primaryKey"`
-	Source    string    `json:"source"     gorm:"size:255;not null"`
+	Name    string    `json:"name"     gorm:"size:255;not null"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }

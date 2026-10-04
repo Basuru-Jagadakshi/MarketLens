@@ -412,7 +412,7 @@ INSERT INTO public.lsh_index (bucket_key, band_no, job_post_id) VALUES ('b7_abba
 -- Data for Name: source; Type: TABLE DATA; Schema: public; Owner: app_user
 --
 
-INSERT INTO public.source (id, source, created_at, updated_at) VALUES (1, 'Ikman', '2026-09-17 01:08:16.573532+00', '2026-09-17 01:08:16.573532+00');
+INSERT INTO public.source (id, name, created_at, updated_at) VALUES (1, 'Ikman', '2026-09-17 01:08:16.573532+00', '2026-09-17 01:08:16.573532+00');
 
 --
 -- TOC entry 3786 (class 0 OID 16680)

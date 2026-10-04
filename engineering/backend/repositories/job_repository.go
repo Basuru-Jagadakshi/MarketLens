@@ -1100,9 +1100,9 @@ func (r *JobRepository) BatchSaveNewJobs(jobs []models.JobPost, lshIndexRecords 
 			// }
 
 			// Source (FirstOrCreate)
-			if job.MetaData.Source != nil && job.MetaData.Source.Source != "" {
+			if job.MetaData.Source != nil && job.MetaData.Source.Name != "" {
 				var source models.Source
-				if err := tx.Where(models.Source{Source: job.MetaData.Source.Source}).
+				if err := tx.Where(models.Source{Name: job.MetaData.Source.Name}).
 					FirstOrCreate(&source).Error; err != nil {
 					return fmt.Errorf("job[%d] source lookup failed: %w", i, err)
 				}
