@@ -80,16 +80,16 @@ jobs:
             -e THUNDER_INSECURE_TLS=true \
             crawler:latest
 
-          # wait for the entrypoint to reach application code
-          sleep 5
+          # Poll instead of a fixed sleep: cold imports of crawl4ai/Playwright
+          # can take a while, so give it up to 30s to reach application code.
+          for i in $(seq 1 30); do
+            docker logs crawler 2>&1 | grep -q "Crawling Started" && { echo "Success: Container booted and started the crawl pipeline..."; exit 0; }
+            sleep 1
+          done
 
-          if docker logs crawler 2>&1 | grep -q "Crawling Started"; then
-            echo "Success: Container booted and started the crawl pipeline..."
-          else
-            echo "Error: Container never reached the crawl pipeline, showing logs below:"
-            docker logs crawler
-            exit 1
-          fi
+          echo "Error: Container never reached the crawl pipeline, showing logs below:"
+          docker logs crawler
+          exit 1
 
       - name: Show container logs
         run: docker logs crawler
