@@ -210,9 +210,9 @@ CREATE TABLE IF NOT EXISTS industry_subclass (
 -- -----------------------------------------------------------------------------
 DO $$
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'work_mode_enum') THEN
-        CREATE TYPE work_mode_enum AS ENUM ('remote', 'onsite', 'hybrid');
-    END IF;
+    CREATE TYPE work_mode_enum AS ENUM ('remote', 'onsite', 'hybrid');
+EXCEPTION
+    WHEN duplicate_object THEN NULL;
 END
 $$;
 
