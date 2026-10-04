@@ -277,8 +277,8 @@ CREATE TABLE IF NOT EXISTS lsh_index (
 -- Indexes
 -- -----------------------------------------------------------------------------
 
-CREATE INDEX IF NOT EXISTS idx_lsh_bucket_radar
-    ON lsh_index (bucket_key, job_post_id);
+CREATE INDEX IF NOT EXISTS idx_lsh_index_job_post_id
+    ON lsh_index (job_post_id);
 
 CREATE INDEX IF NOT EXISTS idx_job_post_skills_skill_id
     ON job_post_skills (skill_id);
