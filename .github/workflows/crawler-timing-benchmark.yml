@@ -1,7 +1,9 @@
 name: Crawler Timing Benchmark
 
 on:
-  workflow_dispatch:
+  push:
+    branches:
+      - ci/crawler-timing-benchmark
 
 jobs:
   benchmark:
