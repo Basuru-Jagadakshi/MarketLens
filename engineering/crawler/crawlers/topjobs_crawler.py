@@ -81,7 +81,7 @@ class TopJobsCrawler(BaseJobCrawler):
             context = await browser.new_context(user_agent=USER_AGENT)
             page = await context.new_page()
 
-            await page.goto(f"{LISTING_URL}&pageNo=1", wait_until="networkidle")
+            await page.goto(f"{LISTING_URL}&pageNo=1", wait_until="domcontentloaded")
             total_pages = await self._get_total_pages(await page.content())
 
             logger.info(f"TopJobs: Total pages detected: {total_pages}")
@@ -92,7 +92,7 @@ class TopJobsCrawler(BaseJobCrawler):
                 logger.info(f"TopJobs: Scraping page {page_num} of {total_pages}...")
                 if page_num > 1:
                     await page.goto(
-                        f"{LISTING_URL}&pageNo={page_num}", wait_until="networkidle"
+                        f"{LISTING_URL}&pageNo={page_num}", wait_until="domcontentloaded"
                     )
 
                 content = await page.content()
@@ -114,7 +114,7 @@ class TopJobsCrawler(BaseJobCrawler):
                             )
 
                         popup = await popup_info.value
-                        await popup.wait_for_load_state("networkidle")
+                        await popup.wait_for_load_state("domcontentloaded")
 
                         all_images = popup.locator("img")
                         img_locator = None

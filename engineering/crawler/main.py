@@ -15,7 +15,7 @@ async def crawl_job():
 
     try:
         manager = CrawlerManager()
-        await manager.run_all_crawlers(concurrent=True)
+        await manager.run_all_crawlers(concurrent=False)
     except Exception:
         logger.exception("CRITICAL ERROR encountered during execution lifecycle")
         sys.exit(1)
