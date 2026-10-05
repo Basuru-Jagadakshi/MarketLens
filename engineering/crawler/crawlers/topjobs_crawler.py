@@ -102,6 +102,7 @@ class TopJobsCrawler(BaseJobCrawler):
                 )
 
                 for i, job in enumerate(jobs):
+                    popup = None
                     try:
                         await asyncio.sleep(3)
 
@@ -129,14 +130,14 @@ class TopJobsCrawler(BaseJobCrawler):
                             logger.error(
                                 "TopJobs: Could not find a large advertisement image."
                             )
-                            await popup.close()
+                            # await popup.close()
                             continue
 
                         await img_locator.wait_for(
                             state="visible", timeout=POPUP_WAIT_TIMEOUT
                         )
                         screenshot_bytes = await img_locator.screenshot()
-                        await popup.close()
+                        # await popup.close()
 
                         # OCR Processing
                         image = Image.open(io.BytesIO(screenshot_bytes)).convert("L")
@@ -158,6 +159,9 @@ class TopJobsCrawler(BaseJobCrawler):
                     except Exception as e:
                         logger.error(f"TopJobs: Failed to process {job['row_id']}: {e}")
                         job["error"] = str(e)
+                    finally:
+                        if popup is not None and not popup.is_closed():
+                            await popup.close()
 
             await browser.close()
 
