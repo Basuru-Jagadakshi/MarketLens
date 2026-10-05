@@ -1,0 +1,51 @@
+name: Crawler Timing Benchmark
+
+on:
+  workflow_dispatch:
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: engineering/crawler
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: engineering/crawler/requirements.txt
+
+      - name: Install system dependencies for OCR
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-sin tesseract-ocr-tam
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          python -m playwright install --with-deps chromium
+
+      - name: Start stub Thunder ID / backend server
+        run: |
+          python scripts/stub_server.py 9000 &
+          sleep 1
+
+      - name: Run crawler and measure time
+        env:
+          BACKEND_URL: "http://127.0.0.1:9000/api/v1/crawler"
+          BACKEND_URL_FOR_FETCHING: "http://127.0.0.1:9000/api/v1"
+          THUNDER_BASE_URL: "http://127.0.0.1:9000"
+          THUNDER_CLIENT_ID: "stub-client-id"
+          THUNDER_CLIENT_SECRET: "stub-client-secret"
+          THUNDER_RESOURCE: "stub-resource"
+          THUNDER_INSECURE_TLS: "true"
+        run: |
+          time python main.py
