@@ -22,10 +22,10 @@ HTTP_CLIENT_TIMEOUT_SECONDS = 300.0
 class CrawlerManager:
     def __init__(self):
         self._registry: Dict[str, Type[BaseJobCrawler]] = {
-            "rooster": RoosterCrawler,
-            "xpress": XpressJobsCrawler,
-            "topjobs": TopJobsCrawler,
-            "governmentjobs": GovernmentJobsCrawler,
+            # "rooster": RoosterCrawler,
+            # "xpress": XpressJobsCrawler,
+            # "topjobs": TopJobsCrawler,
+            # "governmentjobs": GovernmentJobsCrawler,
             "ikman": IkmanCrawler,
         }
         self._thunder_client = ThunderIDClient()
