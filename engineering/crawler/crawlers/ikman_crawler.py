@@ -58,7 +58,8 @@ class IkmanCrawler(BaseJobCrawler):
             raise
         auth_headers = {"Authorization": f"Bearer {token}"}
 
-        max_pages = await self._get_last_page_from_text()
+        # max_pages = await self._get_last_page_from_text()
+        max_pages = 3
 
         job_batch: List[RawJobInput] = []
 
