@@ -319,7 +319,7 @@ export default function AnalysisBreakdownCharts({
         <div className="border border-zinc-100 p-6 rounded-xl">
           <h3 className="text-sm font-bold text-zinc-900 mb-4 flex items-center gap-2">
             <span className="w-2 h-2 rounded-full" style={{ backgroundColor: accent.primary }} />
-            Remote / On-Site
+            Remote / On-Site / Hybrid
           </h3>
           <div className="space-y-4">
             {remoteShare.map((item, i) => (
