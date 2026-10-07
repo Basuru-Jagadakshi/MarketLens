@@ -53,18 +53,22 @@ export function useHierarchyDrilldown<TLevelKey extends string>(
 ): UseHierarchyDrilldownResult {
   const [prunedNotice, setPrunedNotice] = useState<string | null>(null);
 
-  const firstLevelOptions = levels[0]?.options ?? [];
-
-  // Seed the path with the first level's first option once it loads.
+  // Seed the path with the first level's first option once it loads. This
+  // synchronizes local selection state with server data that only becomes
+  // available after mount — one of the recognized effect use cases, not the
+  // "derive state from a prop" anti-pattern the set-state-in-effect rule
+  // otherwise targets.
   useEffect(() => {
+    const firstLevelOptions = levels[0]?.options ?? [];
     if (path.length === 0 && firstLevelOptions.length > 0) {
       const first = firstLevelOptions[0];
       setPath([{ ...first, level: levels[0].key }]);
     }
-  }, [path.length, firstLevelOptions, levels, setPath]);
+  }, [path.length, levels, setPath]);
 
   // If the date range changes and a previously-selected node no longer
   // exists at its level, drop it (and everything below it) and surface why.
+  // Same justification as above — same effect use case, same hook.
   useEffect(() => {
     if (path.length === 0) return;
 
@@ -72,7 +76,9 @@ export function useHierarchyDrilldown<TLevelKey extends string>(
       const level = levels[i];
       if (!level.isSuccess) return;
       if (!level.options.some((o) => o.id === path[i].id)) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- see note above
         setPrunedNotice(path[i].name);
+         
         setPath(path.slice(0, i));
         return;
       }

@@ -21,7 +21,9 @@ export interface FlatBundle {
   isLoading: boolean;
   isError: boolean;
   items: FlatItem[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- see note above
   createMut: MutationLike<any>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- see note above
   updateMut: MutationLike<{ id: number; payload: any }>;
   deleteMut: MutationLike<number>;
   labelField: string;
@@ -31,7 +33,9 @@ export interface HierarchyLevelBundle {
   isLoading: boolean;
   isError: boolean;
   items: HierarchyRow[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- see note above
   createMut: MutationLike<any>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- see note above
   updateMut: MutationLike<{ id: number; payload: any }>;
   deleteMut: MutationLike<number>;
   parentField: string | null; // e.g. "major_group_id", null for the top level

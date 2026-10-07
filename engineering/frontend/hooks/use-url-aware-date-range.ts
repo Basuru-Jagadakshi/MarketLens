@@ -32,13 +32,20 @@ export function useUrlAwareDateRange(storageKey: string): UseUrlAwareDateRangeRe
   const [toDate, setToDate] = useState(urlTo ?? defaultTo);
   const [restored, setRestored] = useState(false);
 
+  // Restoring persisted state from sessionStorage (a client-only API,
+  // unavailable during SSR) has to happen post-mount so the first client
+  // render still matches the server-rendered defaults — this is the
+  // standard hydration-safe pattern, not state derived from props/state
+  // that could be computed during render instead.
   useEffect(() => {
     if (!urlFrom && !urlTo) {
       try {
         const saved = sessionStorage.getItem(storageKey);
         if (saved) {
           const { from, to } = JSON.parse(saved);
+          // eslint-disable-next-line react-hooks/set-state-in-effect -- see note above
           if (from) setFromDate(from);
+           
           if (to) setToDate(to);
         }
       } catch {

@@ -30,6 +30,11 @@ export function usePersistedDateRange(
   const [toDate, setToDate] = useState(defaultTo);
   const [restored, setRestored] = useState(false);
 
+  // Restoring persisted state from sessionStorage (a client-only API,
+  // unavailable during SSR) has to happen post-mount so the first client
+  // render still matches the server-rendered defaults — this is the
+  // standard hydration-safe pattern, not state derived from props/state
+  // that could be computed during render instead.
   useEffect(() => {
     try {
       const saved = sessionStorage.getItem(storageKey);
@@ -42,7 +47,9 @@ export function usePersistedDateRange(
           from >= toISODate(getDataRangeStart()) &&
           to <= toISODate(getDataRangeEnd())
         ) {
+          // eslint-disable-next-line react-hooks/set-state-in-effect -- see note above
           setFromDate(from);
+           
           setToDate(to);
         }
       }
