@@ -147,10 +147,14 @@ class TestFetchAccessToken:
             "401 error", request=request, response=error_response
         )
         patcher, _ = patch_async_client(post_return_value=error_response)
-
         with patcher:
-            with pytest.raises(httpx.HTTPStatusError):
+            with pytest.raises(httpx.HTTPStatusError) as exc_info:
                 await client._fetch_access_token()
+
+        assert exc_info.value.response.status_code == 401
+        assert exc_info.value.response.text == "invalid_client"
+        error_response.json.assert_not_called()
+        assert client._cached_token is None
 
     @pytest.mark.asyncio
     async def test_network_error_propagates(self, client):
