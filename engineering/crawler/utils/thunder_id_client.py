@@ -15,7 +15,9 @@ from config import (
 logger = logging.getLogger(__name__)
 
 DEFAULT_TOKEN_TTL_SECONDS = 3600  # fallback only, if a response ever omits expires_in
-TOKEN_REFRESH_BUFFER_SECONDS = 60
+TOKEN_REFRESH_BUFFER_SECONDS = (
+    60  # Always expire time in ThunderID should be greater than 60
+)
 
 
 class ThunderTokenError(Exception):
