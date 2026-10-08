@@ -209,7 +209,7 @@ class TestInvalidateToken:
 
     def test_clears_cached_token_and_expiry_when_token_matches(self, client):
         client._cached_token = "stale-token"
-        client._cached_token_expiry = 9999999.0
+        client._cached_token_expiry = float("inf")
 
         client.invalidate_token("stale-token")
 
@@ -222,7 +222,7 @@ class TestInvalidateToken:
         invalidate_token() call naming the *current* cached token takes
         effect."""
         client._cached_token = "fresh-token"
-        client._cached_token_expiry = 9999999.0
+        client._cached_token_expiry = float("inf")
 
         client.invalidate_token("stale-token")
 
