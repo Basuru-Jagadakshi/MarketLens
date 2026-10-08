@@ -112,7 +112,7 @@ class XpressJobsCrawler(BaseJobCrawler):
     ) -> None:
 
         logger.info("XpressJobs: Xpress jobs crawl started.")
-        
+
         job_data_list = await self._process_all_jobs(async_client)
 
         job_batch: List[RawJobInput] = []
@@ -127,11 +127,15 @@ class XpressJobsCrawler(BaseJobCrawler):
             job_batch.append(job_input)
 
             if len(job_batch) >= BATCH_SIZE:
-                logger.info(f"XpressJobs: Flushing full batch of {len(job_batch)} job records to backend.")
+                logger.info(
+                    f"XpressJobs: Flushing full batch of {len(job_batch)} job records to backend."
+                )
                 await self._flush_batch(async_client, thunder_auth, job_batch)
- 
+
         if job_batch:
-            logger.info(f"XpressJobs: Flushing remaining {len(job_batch)} job records to backend.")
+            logger.info(
+                f"XpressJobs: Flushing remaining {len(job_batch)} job records to backend."
+            )
             await self._flush_batch(async_client, thunder_auth, job_batch)
- 
+
         logger.info("XpressJobs: Xpress jobs crawl pass concluded.")

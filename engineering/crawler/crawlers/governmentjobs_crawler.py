@@ -119,7 +119,7 @@ class GovernmentJobsCrawler(BaseJobCrawler):
     ) -> None:
 
         logger.info("GovernmentJobs: Government jobs crawl started.")
- 
+
         job_data_list = await self._fetch_job_details(async_client)
 
         job_batch: List[RawJobInput] = []
@@ -134,11 +134,15 @@ class GovernmentJobsCrawler(BaseJobCrawler):
             job_batch.append(job_input)
 
             if len(job_batch) >= BATCH_SIZE:
-                logger.info(f"GovernmentJobs: Flushing full batch of {len(job_batch)} job records to backend.")
+                logger.info(
+                    f"GovernmentJobs: Flushing full batch of {len(job_batch)} job records to backend."
+                )
                 await self._flush_batch(async_client, thunder_auth, job_batch)
- 
+
         if job_batch:
-            logger.info(f"GovernmentJobs: Flushing remaining {len(job_batch)} job records to backend.")
+            logger.info(
+                f"GovernmentJobs: Flushing remaining {len(job_batch)} job records to backend."
+            )
             await self._flush_batch(async_client, thunder_auth, job_batch)
- 
+
         logger.info("GovernmentJobs: Government jobs crawl pass concluded.")

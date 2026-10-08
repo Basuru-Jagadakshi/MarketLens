@@ -15,7 +15,9 @@ DEFAULT_EXPIRES_IN = 3600
 EFFECTIVE_TTL = DEFAULT_EXPIRES_IN - TOKEN_REFRESH_BUFFER_SECONDS
 
 
-def make_token_response(token: str = "test-token", expires_in: int = DEFAULT_EXPIRES_IN):
+def make_token_response(
+    token: str = "test-token", expires_in: int = DEFAULT_EXPIRES_IN
+):
     response = MagicMock()
     response.json.return_value = {"access_token": token, "expires_in": expires_in}
     return response
@@ -57,8 +59,8 @@ class FakeClock:
 # _fetch_access_token: the raw HTTP call to Thunder ID
 # ---------------------------------------------------------------------------
 
-class TestFetchAccessToken:
 
+class TestFetchAccessToken:
     @pytest.mark.asyncio
     async def test_returns_access_token_and_expires_in_from_response(self, client):
         patcher, _ = patch_async_client(
@@ -87,11 +89,19 @@ class TestFetchAccessToken:
         assert expires_in == DEFAULT_TOKEN_TTL_SECONDS
 
     @pytest.mark.asyncio
-    async def test_posts_with_correct_url_auth_headers_and_payload(self, client, monkeypatch):
-        monkeypatch.setattr("utils.thunder_id_client.THUNDER_BASE_URL", "https://thunder.test")
+    async def test_posts_with_correct_url_auth_headers_and_payload(
+        self, client, monkeypatch
+    ):
+        monkeypatch.setattr(
+            "utils.thunder_id_client.THUNDER_BASE_URL", "https://thunder.test"
+        )
         monkeypatch.setattr("utils.thunder_id_client.THUNDER_CLIENT_ID", "client-id")
-        monkeypatch.setattr("utils.thunder_id_client.THUNDER_CLIENT_SECRET", "client-secret")
-        monkeypatch.setattr("utils.thunder_id_client.THUNDER_RESOURCE", "https://resource.test")
+        monkeypatch.setattr(
+            "utils.thunder_id_client.THUNDER_CLIENT_SECRET", "client-secret"
+        )
+        monkeypatch.setattr(
+            "utils.thunder_id_client.THUNDER_RESOURCE", "https://resource.test"
+        )
         patcher, mock_client = patch_async_client()
 
         with patcher:
@@ -101,7 +111,9 @@ class TestFetchAccessToken:
         args, kwargs = mock_client.post.call_args
         assert args[0] == "https://thunder.test/oauth2/token"
         assert kwargs["auth"] == ("client-id", "client-secret")
-        assert kwargs["headers"] == {"Content-Type": "application/x-www-form-urlencoded"}
+        assert kwargs["headers"] == {
+            "Content-Type": "application/x-www-form-urlencoded"
+        }
         assert kwargs["data"] == {
             "grant_type": "client_credentials",
             "scope": (
@@ -112,7 +124,9 @@ class TestFetchAccessToken:
         }
 
     @pytest.mark.asyncio
-    async def test_passes_verify_tls_flag_through_to_async_client(self, client, monkeypatch):
+    async def test_passes_verify_tls_flag_through_to_async_client(
+        self, client, monkeypatch
+    ):
         monkeypatch.setattr("utils.thunder_id_client.THUNDER_VERIFY_TLS", False)
         patcher, _ = patch_async_client()
 
@@ -169,8 +183,8 @@ class TestFetchAccessToken:
 # _is_cached_token_valid: the cache-freshness check
 # ---------------------------------------------------------------------------
 
-class TestIsCachedTokenValid:
 
+class TestIsCachedTokenValid:
     def test_false_when_nothing_cached_yet(self, client):
         assert client._is_cached_token_valid() is False
 
@@ -205,8 +219,8 @@ class TestIsCachedTokenValid:
 # invalidate_token: forces the next get_access_token() to refetch
 # ---------------------------------------------------------------------------
 
-class TestInvalidateToken:
 
+class TestInvalidateToken:
     def test_clears_cached_token_and_expiry_when_token_matches(self, client):
         client._cached_token = "stale-token"
         client._cached_token_expiry = float("inf")
@@ -257,8 +271,8 @@ class TestInvalidateToken:
 # get_access_token: caching + refresh behavior
 # ---------------------------------------------------------------------------
 
-class TestGetAccessTokenCaching:
 
+class TestGetAccessTokenCaching:
     @pytest.mark.asyncio
     async def test_fetches_and_caches_token_on_first_call(self, client):
         clock = FakeClock(start=0.0)
@@ -349,12 +363,17 @@ class TestGetAccessTokenCaching:
         assert client._cached_token is None
 
     @pytest.mark.asyncio
-    async def test_two_instances_do_not_share_cached_token(self, client, another_client):
+    async def test_two_instances_do_not_share_cached_token(
+        self, client, another_client
+    ):
         """Caching is intentionally instance-level, not class-level — the
         shared-across-crawlers benefit comes from CrawlerManager handing out
         one ThunderIDClient instance, not from global state on the class."""
         patcher, mock_client = patch_async_client(
-            post_side_effect=[make_token_response("tok-a"), make_token_response("tok-b")]
+            post_side_effect=[
+                make_token_response("tok-a"),
+                make_token_response("tok-b"),
+            ]
         )
         with patcher:
             a = await client.get_access_token()
@@ -364,7 +383,6 @@ class TestGetAccessTokenCaching:
 
 
 class TestGetAccessTokenConcurrency:
-
     @pytest.mark.asyncio
     async def test_concurrent_calls_share_a_single_fetch(self, client):
         """Guards against a token stampede: CrawlerManager shares one
@@ -399,6 +417,7 @@ class TestGetAccessTokenConcurrency:
 # assumptions about it.
 # ---------------------------------------------------------------------------
 
+
 def make_thunder_client_mock(token: str = "test-token"):
     mock = MagicMock()
     mock.get_access_token = AsyncMock(return_value=token)
@@ -406,7 +425,6 @@ def make_thunder_client_mock(token: str = "test-token"):
 
 
 class TestThunderAuth:
-
     @pytest.mark.asyncio
     async def test_attaches_bearer_token_to_the_request(self):
         thunder_client = make_thunder_client_mock("good-token")
@@ -416,7 +434,9 @@ class TestThunderAuth:
             seen_requests.append(request)
             return httpx.Response(200, json={"ok": True})
 
-        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http_client:
+        async with httpx.AsyncClient(
+            transport=httpx.MockTransport(handler)
+        ) as http_client:
             response = await http_client.get(
                 "https://backend.test/thing", auth=ThunderAuth(thunder_client)
             )
@@ -442,7 +462,9 @@ class TestThunderAuth:
                 return httpx.Response(401, json={"error": "invalid_token"})
             return httpx.Response(200, json={"ok": True})
 
-        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http_client:
+        async with httpx.AsyncClient(
+            transport=httpx.MockTransport(handler)
+        ) as http_client:
             response = await http_client.get(
                 "https://backend.test/thing", auth=ThunderAuth(thunder_client)
             )
@@ -464,7 +486,9 @@ class TestThunderAuth:
             call_count += 1
             return httpx.Response(401, json={"error": "invalid_token"})
 
-        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http_client:
+        async with httpx.AsyncClient(
+            transport=httpx.MockTransport(handler)
+        ) as http_client:
             response = await http_client.get(
                 "https://backend.test/thing", auth=ThunderAuth(thunder_client)
             )
@@ -483,7 +507,9 @@ class TestThunderAuth:
             call_count += 1
             return httpx.Response(500)
 
-        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http_client:
+        async with httpx.AsyncClient(
+            transport=httpx.MockTransport(handler)
+        ) as http_client:
             response = await http_client.get(
                 "https://backend.test/thing", auth=ThunderAuth(thunder_client)
             )
@@ -505,7 +531,9 @@ class TestThunderAuth:
         async def handler(request):
             raise AssertionError("should never reach the transport")
 
-        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http_client:
+        async with httpx.AsyncClient(
+            transport=httpx.MockTransport(handler)
+        ) as http_client:
             with pytest.raises(ThunderTokenError):
                 await http_client.get(
                     "https://backend.test/thing", auth=ThunderAuth(thunder_client)

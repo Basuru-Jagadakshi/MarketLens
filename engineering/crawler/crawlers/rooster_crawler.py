@@ -106,7 +106,7 @@ class RoosterCrawler(BaseJobCrawler):
     ) -> None:
 
         logger.info("Rooster: Rooster crawl started.")
- 
+
         job_data_list = await self._fetch_all_jobs(async_client)
 
         job_batch: List[RawJobInput] = []
@@ -121,11 +121,15 @@ class RoosterCrawler(BaseJobCrawler):
             job_batch.append(job_input)
 
             if len(job_batch) >= BATCH_SIZE:
-                logger.info(f"Rooster: Flushing full batch of {len(job_batch)} job records to backend.")
+                logger.info(
+                    f"Rooster: Flushing full batch of {len(job_batch)} job records to backend."
+                )
                 await self._flush_batch(async_client, thunder_auth, job_batch)
- 
+
         if job_batch:
-            logger.info(f"Rooster: Flushing remaining {len(job_batch)} job records to backend.")
+            logger.info(
+                f"Rooster: Flushing remaining {len(job_batch)} job records to backend."
+            )
             await self._flush_batch(async_client, thunder_auth, job_batch)
- 
+
         logger.info("Rooster: Rooster crawl pass concluded.")

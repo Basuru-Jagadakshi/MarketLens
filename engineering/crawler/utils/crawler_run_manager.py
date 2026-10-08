@@ -57,14 +57,14 @@ class CrawlerManager:
             )
             return crawler_run_id
         except Exception as e:
-            logger.warning(
-                f"Crawler: Could not connect to tracking backend: {e}"
-            )
+            logger.warning(f"Crawler: Could not connect to tracking backend: {e}")
             raise
 
-    #This function sets the status of the current crawling session to "COMPLETED"
-    #and sets the end date of the jobs that are not equal to current crawler run id
-    async def _finalize_run(self, client: httpx.AsyncClient, crawler_run_id: int) -> None:
+    # This function sets the status of the current crawling session to "COMPLETED"
+    # and sets the end date of the jobs that are not equal to current crawler run id
+    async def _finalize_run(
+        self, client: httpx.AsyncClient, crawler_run_id: int
+    ) -> None:
         try:
             logger.info("Crawler: Executing pipeline reconciliation.")
 
@@ -82,7 +82,9 @@ class CrawlerManager:
             )
             complete_res.raise_for_status()
         except Exception as e:
-            logger.error(f"Crawler: Failed to finalize crawler run {crawler_run_id}: {e}")
+            logger.error(
+                f"Crawler: Failed to finalize crawler run {crawler_run_id}: {e}"
+            )
 
     # This function calls the relevant crawlers
     async def _run_crawler(
@@ -102,7 +104,7 @@ class CrawlerManager:
             await crawler_instance.crawl_jobs(
                 crawler_run_id=crawler_run_id,
                 async_client=client,
-                thunder_auth=self._thunder_auth
+                thunder_auth=self._thunder_auth,
             )
             logger.info(f"--- Finished crawler: {name} ---")
         except Exception as e:

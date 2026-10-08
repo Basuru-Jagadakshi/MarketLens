@@ -57,7 +57,10 @@ class ThunderIDClient:
             self._cached_token_expiry = 0
 
     def _is_cached_token_valid(self):
-        return self._cached_token is not None and time.monotonic() < self._cached_token_expiry
+        return (
+            self._cached_token is not None
+            and time.monotonic() < self._cached_token_expiry
+        )
 
     async def _fetch_access_token(self):
         async with httpx.AsyncClient(verify=THUNDER_VERIFY_TLS) as client:
@@ -75,7 +78,9 @@ class ThunderIDClient:
             body = response.json()
             token = body.get("access_token")
             if not token:
-                raise ValueError(f"ThunderID token response missing 'access_token': {body}")
+                raise ValueError(
+                    f"ThunderID token response missing 'access_token': {body}"
+                )
 
             expires_in = body.get("expires_in", DEFAULT_TOKEN_TTL_SECONDS)
 

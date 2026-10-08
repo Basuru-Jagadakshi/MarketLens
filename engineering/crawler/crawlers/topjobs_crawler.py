@@ -170,7 +170,7 @@ class TopJobsCrawler(BaseJobCrawler):
     ) -> None:
 
         logger.info("TopJobs: Top jobs crawl started.")
- 
+
         job_data_list = await self._extract_complete_jobs_details()
 
         job_batch: List[RawJobInput] = []
@@ -185,11 +185,15 @@ class TopJobsCrawler(BaseJobCrawler):
             job_batch.append(job_input)
 
             if len(job_batch) >= BATCH_SIZE:
-                logger.info(f"TopJobs: Flushing full batch of {len(job_batch)} job records to backend.")
+                logger.info(
+                    f"TopJobs: Flushing full batch of {len(job_batch)} job records to backend."
+                )
                 await self._flush_batch(async_client, thunder_auth, job_batch)
- 
+
         if job_batch:
-            logger.info(f"TopJobs: Flushing remaining {len(job_batch)} job records to backend.")
+            logger.info(
+                f"TopJobs: Flushing remaining {len(job_batch)} job records to backend."
+            )
             await self._flush_batch(async_client, thunder_auth, job_batch)
- 
+
         logger.info("TopJobs: Top jobs crawl pass concluded.")

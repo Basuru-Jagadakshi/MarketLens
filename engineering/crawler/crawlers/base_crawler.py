@@ -39,7 +39,6 @@ class BaseJobCrawler(ABC):
                 attempt += 1
 
                 try:
-
                     response = await async_client.post(
                         f"{BACKEND_BASE_URL}/jobs/batch-save",
                         json=[job.model_dump() for job in pending],

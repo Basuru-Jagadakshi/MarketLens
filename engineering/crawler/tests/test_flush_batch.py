@@ -292,7 +292,9 @@ class TestNonRetryableFailures:
         assert job_batch == []
 
     @pytest.mark.asyncio
-    async def test_408_request_timeout_is_treated_as_retryable(self, crawler, thunder_auth):
+    async def test_408_request_timeout_is_treated_as_retryable(
+        self, crawler, thunder_auth
+    ):
         """408 is in RETRYABLE_STATUS_CODES — a job failing because the
         request timed out server-side should get another chance rather
         than being dropped."""
