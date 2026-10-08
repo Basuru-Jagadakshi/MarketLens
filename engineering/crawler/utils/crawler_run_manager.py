@@ -58,7 +58,7 @@ class CrawlerManager:
             return crawler_run_id
         except Exception as e:
             logger.warning(
-                f"Crawler: Could not connect to tracking backend."
+                f"Crawler: Could not connect to tracking backend: {e}"
             )
             raise
 
