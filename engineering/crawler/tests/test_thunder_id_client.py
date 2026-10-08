@@ -353,13 +353,14 @@ class TestGetAccessTokenCaching:
         """Caching is intentionally instance-level, not class-level — the
         shared-across-crawlers benefit comes from CrawlerManager handing out
         one ThunderIDClient instance, not from global state on the class."""
-        patcher, _ = patch_async_client(post_return_value=make_token_response("tok-a"))
-
+        patcher, mock_client = patch_async_client(
+            post_side_effect=[make_token_response("tok-a"), make_token_response("tok-b")]
+        )
         with patcher:
-            await client.get_access_token()
-
-        assert client._cached_token == "tok-a"
-        assert another_client._cached_token is None
+            a = await client.get_access_token()
+            b = await another_client.get_access_token()
+        assert (a, b) == ("tok-a", "tok-b")
+        assert mock_client.post.await_count == 2
 
 
 class TestGetAccessTokenConcurrency:
