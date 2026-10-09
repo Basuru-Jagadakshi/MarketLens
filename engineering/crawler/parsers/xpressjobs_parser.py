@@ -1,4 +1,4 @@
-from parsers import BaseJobParser
+from .base_parser import BaseJobParser
 from models import RawJobInput
 
 

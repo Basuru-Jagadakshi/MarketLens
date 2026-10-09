@@ -5,7 +5,7 @@ import logging
 from typing import List
 from bs4 import BeautifulSoup
 from pydantic import ValidationError
-from crawlers import BaseJobCrawler
+from .base_crawler import BaseJobCrawler
 from utils import ThunderAuth
 from parsers import XpressJobsParser
 from models import RawJobInput

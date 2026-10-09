@@ -7,7 +7,7 @@ from typing import List
 from crawl4ai import AsyncWebCrawler
 from bs4 import BeautifulSoup
 from PIL import Image
-from crawlers import BaseJobCrawler
+from .base_crawler import BaseJobCrawler
 from utils import ThunderAuth
 from parsers import GovernmentJobsParser
 from config import BATCH_SIZE

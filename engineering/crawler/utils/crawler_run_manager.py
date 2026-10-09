@@ -14,7 +14,7 @@ from crawlers import (
     RoosterCrawler,
     GovernmentJobsCrawler,
 )
-from utils import ThunderAuth, ThunderIDClient
+from .thunder_id_client import ThunderAuth, ThunderIDClient
 
 logger = logging.getLogger(__name__)
 

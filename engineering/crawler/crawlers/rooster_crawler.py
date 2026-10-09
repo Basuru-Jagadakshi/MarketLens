@@ -7,7 +7,7 @@ from pydantic import ValidationError
 from utils import ThunderAuth
 from config import BATCH_SIZE
 
-from crawlers import BaseJobCrawler
+from .base_crawler import BaseJobCrawler
 from parsers import RoosterParser
 from models import RawJobInput
 

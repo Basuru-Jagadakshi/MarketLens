@@ -4,7 +4,7 @@ import re
 import math
 from typing import List
 
-from crawlers import BaseJobCrawler
+from .base_crawler import BaseJobCrawler
 from parsers import IkmanParser
 from utils import ThunderAuth
 from pydantic import ValidationError

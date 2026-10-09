@@ -10,7 +10,7 @@ from bs4 import BeautifulSoup
 from PIL import Image
 from playwright.async_api import async_playwright
 from pydantic import ValidationError
-from crawlers import BaseJobCrawler
+from .base_crawler import BaseJobCrawler
 from utils import ThunderAuth
 from parsers import TopJobsParser
 from models import RawJobInput
