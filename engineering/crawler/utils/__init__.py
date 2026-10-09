@@ -5,7 +5,6 @@ from utils.thunder_id_client import (
     ThunderIDClient,
     ThunderTokenError,
 )
-from utils.crawler_run_manager import CrawlerManager
 
 __all__ = [
     "DEFAULT_TOKEN_TTL_SECONDS",
@@ -13,5 +12,4 @@ __all__ = [
     "ThunderAuth",
     "ThunderIDClient",
     "ThunderTokenError",
-    "CrawlerManager",
 ]

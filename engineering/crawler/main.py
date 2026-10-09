@@ -2,7 +2,7 @@ import asyncio
 import logging
 import sys
 
-from utils import CrawlerManager
+from utils.crawler_run_manager import CrawlerManager
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
