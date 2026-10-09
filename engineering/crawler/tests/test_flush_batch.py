@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, MagicMock
 import httpx
 import pytest
 
-from crawlers import MAX_RETRIES, RETRYABLE_STATUS_CODES
+from crawlers.base_crawler import MAX_RETRIES, RETRYABLE_STATUS_CODES
 from models import RawJobInput
 from utils import ThunderTokenError
 
