@@ -54,7 +54,7 @@ CREATE TABLE IF NOT EXISTS geo_data (
 
 CREATE TABLE IF NOT EXISTS source (
     id          SERIAL PRIMARY KEY,
-    source      VARCHAR(255) NOT NULL,
+    name      VARCHAR(255) NOT NULL,
     created_at  TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     updated_at  TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
@@ -100,7 +100,7 @@ CREATE TABLE IF NOT EXISTS employment_sector (
 );
 
 -- -----------------------------------------------------------------------------
--- 2. Occupation hierarchy (major -> sub-major -> minor -> unit -> occupation)
+-- Occupation hierarchy (major -> sub-major -> minor -> unit -> occupation)
 -- -----------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS major_group (
@@ -153,7 +153,7 @@ CREATE TABLE IF NOT EXISTS occupation_group (
 );
 
 -- -----------------------------------------------------------------------------
--- 3. Industry hierarchy (sector -> division -> group -> class -> subclass)
+-- Industry hierarchy (sector -> division -> group -> class -> subclass)
 -- -----------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS industry_sector (
@@ -206,13 +206,13 @@ CREATE TABLE IF NOT EXISTS industry_subclass (
 );
 
 -- -----------------------------------------------------------------------------
--- 4. Core job post tables
+-- Core job post tables
 -- -----------------------------------------------------------------------------
 DO $$
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'work_mode_enum') THEN
-        CREATE TYPE work_mode_enum AS ENUM ('remote', 'onsite', 'hybrid');
-    END IF;
+    CREATE TYPE work_mode_enum AS ENUM ('remote', 'onsite', 'hybrid');
+EXCEPTION
+    WHEN duplicate_object THEN NULL;
 END
 $$;
 
@@ -263,7 +263,7 @@ CREATE TABLE IF NOT EXISTS meta_data (
 );
 
 -- -----------------------------------------------------------------------------
--- 5. Deduplication (LSH) index table
+-- Deduplication (LSH) index table
 -- -----------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS lsh_index (
@@ -274,11 +274,14 @@ CREATE TABLE IF NOT EXISTS lsh_index (
 );
 
 -- -----------------------------------------------------------------------------
--- 6. Indexes
+-- Indexes
 -- -----------------------------------------------------------------------------
 
-CREATE INDEX IF NOT EXISTS idx_lsh_bucket_radar
-    ON lsh_index (bucket_key, job_post_id);
+CREATE INDEX IF NOT EXISTS idx_lsh_index_job_post_id
+    ON lsh_index (job_post_id);
+
+CREATE INDEX IF NOT EXISTS idx_job_post_skills_skill_id
+    ON job_post_skills (skill_id);
 
 CREATE INDEX IF NOT EXISTS idx_metadata_snapshot_reconcile
     ON meta_data (crawler_run_id, end_date)
