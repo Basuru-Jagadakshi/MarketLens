@@ -245,7 +245,7 @@ func (s *IngestionService) extractAndClassify(ctx context.Context, raw RawJobInp
 		MetaData: models.JobMetaData{
 			CrawlerRunID:          &crawlerRunID,
 			GeoData:               &models.GeoData{Province: extracted.MetaData.GeoData.Province},
-			Source:                &models.Source{Source: raw.Source},
+			Source:                &models.Source{Name: raw.Source},
 			AiVersion:             &models.AiVersion{Version: "deepseek-v1"},
 			FormalityID:           nilIfZero(formalityID),
 			GenderID:              nilIfZero(genderID),
