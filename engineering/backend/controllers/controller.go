@@ -8,6 +8,11 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// better we rename this to 'handler.go'
+// the better name for JobController is 'Handler' because of these are handlers
+// for better readability we can split this files into to.
+// handler.go to store the main Handler struct and the NewHandler constructer.
+// for the other health and readiness handlers we can create a separate health.go file
 type JobController struct {
 	repo      *repositories.JobRepository
 	ingestion *crawler.IngestionService

@@ -40,6 +40,8 @@ type JobRepository struct {
 	db *gorm.DB
 }
 
+// here the JobRepository name is a bit confusing to the reader. What the struct store is the pointer for the db and shared.
+// Job is a part of the db. so i suggest a better name 'Store' for this.
 func NewJobRepository(db *gorm.DB) *JobRepository {
 	return &JobRepository{db: db}
 }

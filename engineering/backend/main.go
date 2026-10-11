@@ -15,6 +15,34 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// in this main package there are 2 servers running on. (original backend and the mcpserver)
+// recommended way to do this is move these 2 services to /cmd under 2 different subfolders.
+// this way we can separate the services and decouple the services internaly.
+// We need to change this in the dockerfiles as well.
+
+// backend/
+// ├── cmd/
+// │   ├── api/
+// │   │   └── main.go          # Gin server: connect DB → build repo/services → routes → r.Run(":8080")
+// │   └── mcp/
+// │       └── main.go          # MCP server: connect DB → build repo → mcpserver.New → StartHTTP(":9090")
+// ├── internal/
+// │   ├── config/              # database.go (move from ./config)
+// │   ├── auth/                # JWT/scope middleware (used by api)
+// │   ├── models/              # GORM models + payloads (shared by both)
+// │   ├── repositories/        # data access (shared by both)
+// │   ├── api/                 # Gin handlers (api only) renamed to api/ because controller name comes from spring frameworks according to MVC.
+// │   ├── ingestion/           # was crawler/: dedup, classification, metadata, ProcessBatch
+// │   ├── llm/                 # (optional) DeepSeek client
+// │   └── mcpserver/           # MCP tool registration + auth
+// ├── sql/                     # schema.sql, seed*.sql (not Go, stays at root)
+// ├── tests/                   # integration tests (can still import internal/: same module)
+// ├── openapi.yaml
+// ├── go.mod
+// └── Dockerfile.backend
+
+// use 'mcpserver' name instead of mcp because it clash with the official mcp package. thats why you have a separate label in the import 'mcpserver'
+
 func main() {
 
 	config.ConnectDatabase()
@@ -36,10 +64,16 @@ func main() {
 	ingestionSvc := crawler.NewIngestionService(jobRepo, llmClient, metaBuilder, 0.65)
 	jobCtrl := controllers.NewJobController(jobRepo, ingestionSvc)
 
+	// move all the routes to routes.go inside the /internal/api/
 	// Kubernetes liveness/readiness probes - unversioned, sit outside /api/v1
 	r.GET("/healthz", jobCtrl.HealthzHandler)
 	r.GET("/readyz", jobCtrl.ReadyzHandler)
 
+	// Consider splitting the MCP server into its own binary (cmd/mcp) alongside cmd/api.
+	// Right now they share a process, so a fatal error in the MCP goroutine (log.Fatalf) also stops the API,
+	// and the two can't be scaled or deployed independently. Trade-off: a second Deployment and DB pool to manage.
+	// If we keep one binary for now, at minimum the MCP goroutine shouldn't call log.Fatalf. It should log the error,
+	// or shut the whole server down gracefully on purpose.
 	mcpServer := mcpserver.New(jobRepo)
 	go func() {
 		log.Println("MCP server listening on :9090/mcp")
@@ -47,6 +81,60 @@ func main() {
 			log.Fatalf("MCP server failed: %v", err)
 		}
 	}()
+
+	// move all the routes to routes.go inside the /internal/api/
+	// create a separate function to createCRUD and reuse inside
+	// then register the routes in the main file
+	// ex:
+	// 		h := api.NewHandler(store, ingestionSvc)
+	// 		api.RegisterRoutes(r, h)
+
+	// keep both cmd/api/main.go and cmd/mcp/main.go minimal since they are the entry points
+
+	// here is the sample template for routes.go
+
+	// package api
+
+	// import (
+	// 	"marketlens-go-backend/internal/auth"
+
+	// 	"github.com/gin-gonic/gin"
+	// )
+
+	// // RegisterRoutes attaches all API routes and their middleware to r.
+	// func RegisterRoutes(r *gin.Engine, h *Handler) {
+	// 	// Kubernetes probes: unversioned, outside /api/v1
+	// 	r.GET("/healthz", h.Healthz)
+	// 	r.GET("/readyz", h.Readyz)
+
+	// 	v1 := r.Group("/api/v1")
+
+	// 	// Dashboard (public, read-only)
+	// 	v1.GET("/vacancy-trend", h.GetVacancyTrend)
+	// 	v1.GET("/vacancy-total", h.GetTotalVacancyCount)
+	// 	// ...
+
+	// 	// Crawler (authenticated)
+	// 	crawler := v1.Group("/crawler", auth.AuthRequired())
+	// 	crawler.POST("/runs", auth.RequireScope("crawler:runs"), h.StartCrawlerRun)
+	// 	crawler.POST("/jobs/batch-save", auth.RequireScope("crawler:batch-save"), h.BatchSaveJobs)
+	// 	// ...
+
+	// 	// Lookup tables
+	// 	registerCRUD(v1, "/genders", "genders", h.CreateGender, h.GetAllGenders, h.GetGenderByID, h.UpdateGender, h.DeleteGender)
+	// 	registerCRUD(v1, "/formalities", "formalities", h.CreateFormality, h.GetAllFormalities, h.GetFormalityByID, h.UpdateFormality, h.DeleteFormality)
+	// 	// ...
+	// }
+
+	// // registerCRUD wires the standard five routes: reads are public, writes need auth + scope.
+	// func registerCRUD(rg *gin.RouterGroup, path, scope string, create, list, get, update, del gin.HandlerFunc) {
+	// 	g := rg.Group(path)
+	// 	g.GET("", list)
+	// 	g.GET("/:id", get)
+	// 	g.POST("", auth.AuthRequired(), auth.RequireScope(scope+":create"), create)
+	// 	g.PUT("/:id", auth.AuthRequired(), auth.RequireScope(scope+":update"), update)
+	// 	g.DELETE("/:id", auth.AuthRequired(), auth.RequireScope(scope+":delete"), del)
+	// }
 
 	v1 := r.Group("/api/v1")
 	{
@@ -70,10 +158,12 @@ func main() {
 		v1.GET("/occupation/:level/:id/all-skills", jobCtrl.GetAllSkillsByOccupationLevelHandler)
 		v1.GET("/occupation/:level/:id/top-hiring-employers", jobCtrl.GetTopHiringEmployersByOccupationLevelHandler)
 
+		// think about this crawler naming. because we have another python crawler. use a better name
 		crawler := v1.Group("/crawler")
 		crawler.Use(auth.AuthRequired())
 		{
 			crawler.POST("/runs", auth.RequireScope("crawler:runs"), jobCtrl.StartCrawlerRunHandler)
+			// does this always complete the run? dont you need a way to change any other status (ex: failed/ completed/ running etc?)
 			crawler.POST("/runs/:id/complete", auth.RequireScope("crawler:complete"), jobCtrl.CompleteCrawlerRunHandler)
 			crawler.POST("/jobs/batch-save", auth.RequireScope("crawler:batch-save"), jobCtrl.BatchSaveJobsHandler)
 			crawler.POST("/jobs/reconcile", auth.RequireScope("crawler:reconcile"), jobCtrl.ReconcileStaleVacanciesHandler)
