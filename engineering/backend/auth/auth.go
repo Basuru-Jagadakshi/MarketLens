@@ -19,6 +19,11 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// current auth setup is manual and there are some edge cases needs to be covered.
+// ex:
+//   a token without exp never expires: `t.Claims.Exp != 0 &&` skips the expiry check when exp is missing.
+// I recommend to use https://github.com/golang-jwt/jwt package
+
 type jwtToken struct {
 	Header struct {
 		Alg string `json:"alg"`
@@ -77,7 +82,7 @@ func parseJWT(raw string) (*jwtToken, error) {
 	return &t, nil
 }
 
-// JWKS: ThunderID's public keys, fetched once and cached 
+// JWKS: ThunderID's public keys, fetched once and cached
 
 type jwk struct {
 	Kid string `json:"kid"`
@@ -108,7 +113,7 @@ func getJWKS() ([]jwk, error) {
 		return jwksCache, nil
 	}
 
-	client := newHTTPClient() 
+	client := newHTTPClient()
 
 	resp, err := client.Get(os.Getenv("THUNDER_BASE_URL") + "/oauth2/jwks")
 	if err != nil {
@@ -200,7 +205,7 @@ func verifyToken(raw string) (*jwtToken, error) {
 	return t, nil
 }
 
-// Gin middleware 
+// Gin middleware
 
 // AuthRequired: AUTHENTICATION. Verifies the JWT and stores the verified
 // identity (sub) and permissions (scopes) in the request context.
