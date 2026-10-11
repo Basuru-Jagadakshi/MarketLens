@@ -13,6 +13,12 @@ import (
 // Education level CRUD
 func (ctrl *JobController) CreateEducationLevelHandler(c *gin.Context) {
 	var item models.EducationLevel
+	// in this create handlers this binds all the attributes for the model. including id and the created_at which shouldnt taken from the client.
+	// we can avoid this with binding an input struct
+	// SERIAL only advances its sequence when the id comes from the column default (nextval).
+	// an explicit id from the client skips nextval, so the sequence falls behind and later
+	// creates get an id that already exists, failing with a duplicate key error (500).
+
 	if err := c.ShouldBindJSON(&item); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request payload", "details": err.Error()})
 		return
@@ -27,15 +33,32 @@ func (ctrl *JobController) CreateEducationLevelHandler(c *gin.Context) {
 func (ctrl *JobController) GetAllEducationLevelsHandler(c *gin.Context) {
 	items, err := ctrl.repo.GetAllEducationLevels()
 	if err != nil {
+		// here returning err.Error() is problematic since it reveals the db driver internal states.
+		// better option is log the error and return a generic message to the user
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch education levels", "details": err.Error()})
 		return
 	}
+	// here this works for now but gin.H is a map of string to any.
+	// there is no any type validation before it sends the response.
+	// there are 2 ways to do that one is create a generic response struct in somewhere (response.go) and pass it here
+	// or you can create separate struct for that.
+	// generic struct would be the better option but that will break the frontend since these responses use specific keys for each models.
+	// here is the sample struct for the generic list response
+
+	// internal/api/response.go
+	// type ListResponse[T any] struct {
+	// 	Count int `json:"count"`
+	// 	Items []T `json:"items"`
+	// }
+
 	c.JSON(http.StatusOK, gin.H{"count": len(items), "education_levels": items})
 }
 
 func (ctrl *JobController) GetEducationLevelByIDHandler(c *gin.Context) {
 	idStr := c.Param("id")
 	var id uint
+	// use strconv.ParseUint instead.
+	// check UpdateEducationLevelHandler comments for better explanation
 	if _, err := fmt.Sscanf(idStr, "%d", &id); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid id parameter"})
 		return
@@ -89,11 +112,13 @@ func (ctrl *JobController) UpdateEducationLevelHandler(c *gin.Context) {
 func (ctrl *JobController) DeleteEducationLevelHandler(c *gin.Context) {
 	idStr := c.Param("id")
 	var id uint
+	// consider the other comments above
 	if _, err := fmt.Sscanf(idStr, "%d", &id); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid id parameter"})
 		return
 	}
 	if err := ctrl.repo.DeleteEducationLevel(id); err != nil {
+		// consider the other comments above
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete education level", "details": err.Error()})
 		return
 	}
