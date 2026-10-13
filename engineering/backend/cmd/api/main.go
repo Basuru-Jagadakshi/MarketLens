@@ -27,10 +27,13 @@ func ginMode() string {
 }
 
 func main() {
-	config.ConnectDatabase()
+	db, err := config.ConnectDatabase()
+	if err != nil {
+		log.Fatalf("database connection failed: %v", err)
+	}
 	gin.SetMode(ginMode())
 
-	store := repositories.NewStore(config.DB)
+	store := repositories.NewStore(db)
 
 	llmClient := ingestion.NewDeepSeekClient(http.DefaultClient)
 	industryClassifier := ingestion.NewIndustryClassifier(

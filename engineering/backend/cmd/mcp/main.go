@@ -12,8 +12,11 @@ import (
 // startup failure no longer takes the customer-facing REST API down with
 // it — it just exits this process.
 func main() {
-	config.ConnectDatabase()
-	store := repositories.NewStore(config.DB)
+	db, err := config.ConnectDatabase()
+	if err != nil {
+		log.Fatalf("database connection failed: %v", err)
+	}
+	store := repositories.NewStore(db)
 
 	mcpServer := mcpserver.New(store)
 
