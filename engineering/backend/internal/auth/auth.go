@@ -1,9 +1,7 @@
 package auth
 
 import (
-	"crypto"
 	"crypto/rsa"
-	"crypto/sha256"
 	"crypto/tls"
 	"encoding/base64"
 	"encoding/binary"
@@ -17,67 +15,17 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v5"
 )
 
-type jwtToken struct {
-	Header struct {
-		Alg string `json:"alg"`
-		Kid string `json:"kid"`
-	}
-	Claims struct {
-		Iss   string          `json:"iss"`
-		Sub   string          `json:"sub"`
-		Exp   int64           `json:"exp"`
-		Scope string          `json:"scope"` // space-delimited: "openid book:create book:update"
-		Aud   json.RawMessage `json:"aud"`   // spec allows a string OR an array — parsed below
-	}
-	SigningInput string // raw "header.payload" — the bytes the signature covers
-	Signature    []byte
+// customClaims adds the space-delimited "scope" claim ThunderID issues
+// (e.g. "openid book:create book:update") on top of the standard
+// iss/sub/exp/aud claims, which jwt.RegisteredClaims already parses
+// (including the string-or-array "aud" shape the JWT spec allows).
+type customClaims struct {
+	Scope string `json:"scope"`
+	jwt.RegisteredClaims
 }
-
-// audience returns aud as a slice whether the token used a string or an array.
-func (t *jwtToken) audience() []string {
-	if len(t.Claims.Aud) == 0 {
-		return nil
-	}
-	var single string
-	if json.Unmarshal(t.Claims.Aud, &single) == nil {
-		return []string{single}
-	}
-	var many []string
-	if json.Unmarshal(t.Claims.Aud, &many) == nil {
-		return many
-	}
-	return nil
-}
-
-func parseJWT(raw string) (*jwtToken, error) {
-	parts := strings.Split(raw, ".")
-	if len(parts) != 3 {
-		return nil, errors.New("invalid token format")
-	}
-
-	var t jwtToken
-	headerBytes, err := base64.RawURLEncoding.DecodeString(parts[0])
-	if err != nil {
-		return nil, errors.New("bad token encoding")
-	}
-	payloadBytes, err := base64.RawURLEncoding.DecodeString(parts[1])
-	if err != nil {
-		return nil, errors.New("bad token encoding")
-	}
-	t.Signature, err = base64.RawURLEncoding.DecodeString(parts[2])
-	if err != nil {
-		return nil, errors.New("bad token encoding")
-	}
-	if json.Unmarshal(headerBytes, &t.Header) != nil || json.Unmarshal(payloadBytes, &t.Claims) != nil {
-		return nil, errors.New("bad token JSON")
-	}
-	t.SigningInput = parts[0] + "." + parts[1]
-	return &t, nil
-}
-
-// JWKS: ThunderID's public keys, fetched once and cached 
 
 type jwk struct {
 	Kid string `json:"kid"`
@@ -86,9 +34,15 @@ type jwk struct {
 }
 
 var (
-	jwksMu    sync.Mutex
-	jwksCache []jwk
+	jwksMu          sync.Mutex
+	jwksCache       []jwk
+	jwksLastRefresh time.Time
 )
+
+// jwksRefreshCooldown limits how often a cache-miss (an unrecognized kid)
+// can trigger a real HTTP fetch, so a token with a bogus kid can't be used
+// to hammer ThunderID's JWKS endpoint on every request.
+const jwksRefreshCooldown = 10 * time.Second
 
 func newHTTPClient() *http.Client {
 	client := &http.Client{Timeout: 10 * time.Second}
@@ -107,8 +61,25 @@ func getJWKS() ([]jwk, error) {
 	if jwksCache != nil {
 		return jwksCache, nil
 	}
+	return fetchJWKSLocked()
+}
 
-	client := newHTTPClient() 
+// refreshJWKS re-fetches the JWKS unconditionally, replacing the cache —
+// called when a token's kid isn't found in the cached set, which usually
+// means ThunderID rotated its signing keys since the last fetch.
+func refreshJWKS() ([]jwk, error) {
+	jwksMu.Lock()
+	defer jwksMu.Unlock()
+	if time.Since(jwksLastRefresh) < jwksRefreshCooldown {
+		return jwksCache, nil
+	}
+	return fetchJWKSLocked()
+}
+
+// fetchJWKSLocked does the actual HTTP fetch and cache update. Callers must
+// hold jwksMu.
+func fetchJWKSLocked() ([]jwk, error) {
+	client := newHTTPClient()
 
 	resp, err := client.Get(os.Getenv("THUNDER_BASE_URL") + "/oauth2/jwks")
 	if err != nil {
@@ -123,6 +94,7 @@ func getJWKS() ([]jwk, error) {
 		return nil, errors.New("bad JWKS document")
 	}
 	jwksCache = doc.Keys
+	jwksLastRefresh = time.Now()
 	return jwksCache, nil
 }
 
@@ -143,61 +115,56 @@ func publicKeyFromJWK(k jwk) (*rsa.PublicKey, error) {
 
 // Full verification: signature + standard claims
 
-func verifyToken(raw string) (*jwtToken, error) {
-	t, err := parseJWT(raw)
-	if err != nil {
-		return nil, err
-	}
-
-	// Algorithm pinning: the server decides, never the token.
-	if t.Header.Alg != "RS256" {
-		return nil, errors.New("unsupported token algorithm")
-	}
+// jwksKeyfunc resolves the RSA public key to verify a token's signature
+// with, by looking up its "kid" header in ThunderID's JWKS. An unrecognized
+// kid triggers one refresh before giving up, in case ThunderID rotated its
+// signing keys since the cache was last populated.
+func jwksKeyfunc(t *jwt.Token) (any, error) {
+	kid, _ := t.Header["kid"].(string)
 
 	keys, err := getJWKS()
 	if err != nil {
 		return nil, err
 	}
-	var key *rsa.PublicKey
+	if key, ok := findJWK(keys, kid); ok {
+		return publicKeyFromJWK(key)
+	}
+
+	keys, err = refreshJWKS()
+	if err != nil {
+		return nil, err
+	}
+	if key, ok := findJWK(keys, kid); ok {
+		return publicKeyFromJWK(key)
+	}
+	return nil, errors.New("signing key not found")
+}
+
+func findJWK(keys []jwk, kid string) (jwk, bool) {
 	for _, k := range keys {
-		if k.Kid == t.Header.Kid {
-			if key, err = publicKeyFromJWK(k); err != nil {
-				return nil, err
-			}
-			break
+		if k.Kid == kid {
+			return k, true
 		}
 	}
-	if key == nil {
-		return nil, errors.New("signing key not found")
-	}
+	return jwk{}, false
+}
 
-	// RS256 = RSA PKCS1v15 signature over a SHA-256 digest.
-	digest := sha256.Sum256([]byte(t.SigningInput))
-	if rsa.VerifyPKCS1v15(key, crypto.SHA256, digest[:], t.Signature) != nil {
-		return nil, errors.New("invalid token signature")
+func verifyToken(raw string) (*customClaims, error) {
+	opts := []jwt.ParserOption{
+		jwt.WithValidMethods([]string{"RS256"}), // algorithm pinning: the server decides, never the token.
+		jwt.WithIssuer(os.Getenv("THUNDER_ISSUER")),
+		jwt.WithExpirationRequired(), // a token with no exp claim is rejected, not treated as never-expiring.
+		jwt.WithLeeway(30 * time.Second),
 	}
-
-	if t.Claims.Iss != os.Getenv("THUNDER_ISSUER") {
-		return nil, errors.New("invalid token issuer")
-	}
-	if t.Claims.Exp != 0 && t.Claims.Exp < time.Now().Unix()-30 { // 30s clock skew
-		return nil, errors.New("token has expired")
-	}
-
 	if audience := os.Getenv("THUNDER_AUDIENCE"); audience != "" {
-		found := false
-		for _, a := range t.audience() {
-			if a == audience {
-				found = true
-				break
-			}
-		}
-		if !found {
-			return nil, errors.New("invalid token audience")
-		}
+		opts = append(opts, jwt.WithAudience(audience))
 	}
 
-	return t, nil
+	var claims customClaims
+	if _, err := jwt.ParseWithClaims(raw, &claims, jwksKeyfunc, opts...); err != nil {
+		return nil, err
+	}
+	return &claims, nil
 }
 
 // Gin middleware 
@@ -213,16 +180,16 @@ func AuthRequired() gin.HandlerFunc {
 			return
 		}
 
-		t, err := verifyToken(strings.TrimPrefix(authHeader, "Bearer "))
+		claims, err := verifyToken(strings.TrimPrefix(authHeader, "Bearer "))
 		if err != nil {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 			return
 		}
 
-		c.Set("sub", t.Claims.Sub)
+		c.Set("sub", claims.Subject)
 		// strings.Fields splits on any whitespace and drops empties, so a
 		// missing scope claim safely becomes an empty list (deny everything).
-		c.Set("scopes", strings.Fields(t.Claims.Scope))
+		c.Set("scopes", strings.Fields(claims.Scope))
 		c.Next()
 	}
 }
