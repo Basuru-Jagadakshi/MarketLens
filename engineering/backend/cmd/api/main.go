@@ -15,10 +15,11 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// ginMode decides gin's run mode from APP_ENV (falling back to GIN_MODE,
-// then defaulting to release). gin.Default()'s debug mode logs every
-// registered route and request — fine for local development, but a minor
-// information leak in production, so it's opt-in rather than the default.
+// ginMode decides gin's run mode from GIN_MODE, defaulting to release
+// unless it's explicitly set to debug or test. gin.Default()'s debug mode
+// logs every registered route and request — fine for local development,
+// but a minor information leak in production, so it's opt-in rather than
+// the default.
 func ginMode() string {
 	if m := os.Getenv("GIN_MODE"); m == gin.DebugMode || m == gin.TestMode {
 		return m
