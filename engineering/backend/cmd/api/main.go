@@ -73,7 +73,8 @@ func main() {
 
 	h := api.NewHandler(store, ingestionSvc)
 
-	r := gin.Default()
+	r := gin.New()
+	r.Use(gin.Logger(), gin.Recovery())
 	api.RegisterRoutes(r, h)
 
 	if err := r.Run(":8080"); err != nil {
