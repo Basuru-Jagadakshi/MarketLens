@@ -4,6 +4,7 @@ import (
 	"context"
 	"marketlens-go-backend/internal/models"
 	"marketlens-go-backend/internal/repositories"
+	"time"
 
 	"gorm.io/gorm"
 )
@@ -11,21 +12,27 @@ import (
 func NewMajorGroupService(store *repositories.Store) *CRUDService[models.MajorGroup] {
 	return NewCRUDService(
 		store.CreateMajorGroup,
-		store.GetAllMajorGroups,
+		func(ctx context.Context, _, _ int, fromDate, toDate *time.Time) ([]models.MajorGroup, error) {
+			if fromDate != nil && toDate != nil {
+				return store.GetAllMajorGroupsForDateRange(ctx, *fromDate, *toDate)
+			}
+			return store.GetAllMajorGroups(ctx)
+		},
 		store.GetMajorGroupByID,
 		store.UpdateMajorGroup,
 		store.DeleteMajorGroup,
 		func(_ context.Context, item *models.MajorGroup) error {
 			return validateNameAndCode(item.Name, item.Code)
 		},
-		WithDateRangeListing(store.GetAllMajorGroupsForDateRange),
 	)
 }
 
 func NewSubMajorGroupService(store *repositories.Store) *CRUDService[models.SubMajorGroup] {
 	return NewCRUDService(
 		store.CreateSubMajorGroup,
-		store.GetAllSubMajorGroups,
+		func(ctx context.Context, _, _ int, _, _ *time.Time) ([]models.SubMajorGroup, error) {
+			return store.GetAllSubMajorGroups(ctx)
+		},
 		store.GetSubMajorGroupByID,
 		store.UpdateSubMajorGroup,
 		store.DeleteSubMajorGroup,
@@ -36,14 +43,21 @@ func NewSubMajorGroupService(store *repositories.Store) *CRUDService[models.SubM
 			_, err := store.GetMajorGroupByID(ctx, item.MajorGroupID)
 			return validateParentExists(err, gorm.ErrRecordNotFound, "major_group_id", item.MajorGroupID)
 		},
-		WithParentLookups(store.GetSubMajorGroupsByMajorGroup, store.GetSubMajorGroupsByMajorGroupForDateRange),
+		WithParentLookups(func(ctx context.Context, parentID uint, fromDate, toDate *time.Time) ([]models.SubMajorGroup, error) {
+			if fromDate != nil && toDate != nil {
+				return store.GetSubMajorGroupsByMajorGroupForDateRange(ctx, parentID, *fromDate, *toDate)
+			}
+			return store.GetSubMajorGroupsByMajorGroup(ctx, parentID)
+		}),
 	)
 }
 
 func NewMinorGroupService(store *repositories.Store) *CRUDService[models.MinorGroup] {
 	return NewCRUDService(
 		store.CreateMinorGroup,
-		store.GetAllMinorGroups,
+		func(ctx context.Context, _, _ int, _, _ *time.Time) ([]models.MinorGroup, error) {
+			return store.GetAllMinorGroups(ctx)
+		},
 		store.GetMinorGroupByID,
 		store.UpdateMinorGroup,
 		store.DeleteMinorGroup,
@@ -54,14 +68,21 @@ func NewMinorGroupService(store *repositories.Store) *CRUDService[models.MinorGr
 			_, err := store.GetSubMajorGroupByID(ctx, item.SubMajorGroupID)
 			return validateParentExists(err, gorm.ErrRecordNotFound, "sub_major_group_id", item.SubMajorGroupID)
 		},
-		WithParentLookups(store.GetMinorGroupsBySubMajorGroup, store.GetMinorGroupsBySubMajorGroupForDateRange),
+		WithParentLookups(func(ctx context.Context, parentID uint, fromDate, toDate *time.Time) ([]models.MinorGroup, error) {
+			if fromDate != nil && toDate != nil {
+				return store.GetMinorGroupsBySubMajorGroupForDateRange(ctx, parentID, *fromDate, *toDate)
+			}
+			return store.GetMinorGroupsBySubMajorGroup(ctx, parentID)
+		}),
 	)
 }
 
 func NewUnitGroupService(store *repositories.Store) *CRUDService[models.UnitGroup] {
 	return NewCRUDService(
 		store.CreateUnitGroup,
-		store.GetAllUnitGroups,
+		func(ctx context.Context, _, _ int, _, _ *time.Time) ([]models.UnitGroup, error) {
+			return store.GetAllUnitGroups(ctx)
+		},
 		store.GetUnitGroupByID,
 		store.UpdateUnitGroup,
 		store.DeleteUnitGroup,
@@ -72,16 +93,20 @@ func NewUnitGroupService(store *repositories.Store) *CRUDService[models.UnitGrou
 			_, err := store.GetMinorGroupByID(ctx, item.MinorGroupID)
 			return validateParentExists(err, gorm.ErrRecordNotFound, "minor_group_id", item.MinorGroupID)
 		},
-		WithParentLookups(store.GetUnitGroupsByMinorGroup, store.GetUnitGroupsByMinorGroupForDateRange),
+		WithParentLookups(func(ctx context.Context, parentID uint, fromDate, toDate *time.Time) ([]models.UnitGroup, error) {
+			if fromDate != nil && toDate != nil {
+				return store.GetUnitGroupsByMinorGroupForDateRange(ctx, parentID, *fromDate, *toDate)
+			}
+			return store.GetUnitGroupsByMinorGroup(ctx, parentID)
+		}),
 	)
 }
 
 func NewOccupationGroupService(store *repositories.Store) *CRUDService[models.OccupationGroup] {
 	return NewCRUDService(
 		store.CreateOccupationGroup,
-		func(ctx context.Context) ([]models.OccupationGroup, error) {
-			items, _, err := store.GetAllOccupationGroups(ctx, 0, 0)
-			return items, err
+		func(ctx context.Context, limit, offset int, _, _ *time.Time) ([]models.OccupationGroup, error) {
+			return store.GetAllOccupationGroups(ctx, limit, offset)
 		},
 		store.GetOccupationGroupByID,
 		store.UpdateOccupationGroup,
@@ -93,7 +118,11 @@ func NewOccupationGroupService(store *repositories.Store) *CRUDService[models.Oc
 			_, err := store.GetUnitGroupByID(ctx, item.UnitGroupID)
 			return validateParentExists(err, gorm.ErrRecordNotFound, "unit_group_id", item.UnitGroupID)
 		},
-		WithParentLookups(store.GetOccupationGroupsByUnitGroup, store.GetOccupationGroupsByUnitGroupForDateRange),
-		WithPagination(store.GetAllOccupationGroups),
+		WithParentLookups(func(ctx context.Context, parentID uint, fromDate, toDate *time.Time) ([]models.OccupationGroup, error) {
+			if fromDate != nil && toDate != nil {
+				return store.GetOccupationGroupsByUnitGroupForDateRange(ctx, parentID, *fromDate, *toDate)
+			}
+			return store.GetOccupationGroupsByUnitGroup(ctx, parentID)
+		}),
 	)
 }

@@ -11,7 +11,7 @@ func (r *Store) CreateEmploymentSector(ctx context.Context, item *models.Employm
 }
 
 func (r *Store) GetAllEmploymentSectors(ctx context.Context) ([]models.EmploymentSector, error) {
-	return newCRUDRepository[models.EmploymentSector](r.db).getAll(ctx)
+	return newCRUDRepository[models.EmploymentSector](r.db).getAll(ctx, 0, 0, nil, nil)
 }
 
 func (r *Store) GetEmploymentSectorByID(ctx context.Context, id uint) (models.EmploymentSector, error) {

@@ -11,7 +11,7 @@ func (r *Store) CreateEducationLevel(ctx context.Context, item *models.Education
 }
 
 func (r *Store) GetAllEducationLevels(ctx context.Context) ([]models.EducationLevel, error) {
-	return newCRUDRepository[models.EducationLevel](r.db).getAll(ctx)
+	return newCRUDRepository[models.EducationLevel](r.db).getAll(ctx, 0, 0, nil, nil)
 }
 
 func (r *Store) GetEducationLevelByID(ctx context.Context, id uint) (models.EducationLevel, error) {

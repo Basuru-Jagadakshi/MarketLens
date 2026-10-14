@@ -11,7 +11,7 @@ func (r *Store) CreateFormality(ctx context.Context, item *models.Formality) err
 }
 
 func (r *Store) GetAllFormalities(ctx context.Context) ([]models.Formality, error) {
-	return newCRUDRepository[models.Formality](r.db).getAll(ctx)
+	return newCRUDRepository[models.Formality](r.db).getAll(ctx, 0, 0, nil, nil)
 }
 
 func (r *Store) GetFormalityByID(ctx context.Context, id uint) (models.Formality, error) {

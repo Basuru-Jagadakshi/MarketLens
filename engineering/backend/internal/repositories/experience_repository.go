@@ -7,7 +7,7 @@ import (
 
 // Experience CRUD
 func (r *Store) GetAllExperiences(ctx context.Context) ([]models.Experience, error) {
-	return newCRUDRepository[models.Experience](r.db).getAll(ctx)
+	return newCRUDRepository[models.Experience](r.db).getAll(ctx, 0, 0, nil, nil)
 }
 
 func (r *Store) CreateExperience(ctx context.Context, item *models.Experience) error {

@@ -44,7 +44,7 @@ func (h *Handler) GetSubMajorGroupsByMajorGroupHandler(c *gin.Context) {
 		return
 	}
 
-	items, err := h.subMajorGroups.GetByParentOptionalDateRange(c.Request.Context(), id, fromDate, toDate)
+	items, err := h.subMajorGroups.GetByParent(c.Request.Context(), id, fromDate, toDate)
 	if err != nil {
 		respondRepoError(c, "Failed to retrieve sub major groups", err)
 		return
@@ -63,7 +63,7 @@ func (h *Handler) GetMinorGroupsBySubMajorGroupHandler(c *gin.Context) {
 		return
 	}
 
-	items, err := h.minorGroups.GetByParentOptionalDateRange(c.Request.Context(), id, fromDate, toDate)
+	items, err := h.minorGroups.GetByParent(c.Request.Context(), id, fromDate, toDate)
 	if err != nil {
 		respondRepoError(c, "Failed to retrieve minor groups", err)
 		return
@@ -82,7 +82,7 @@ func (h *Handler) GetUnitGroupsByMinorGroupHandler(c *gin.Context) {
 		return
 	}
 
-	items, err := h.unitGroups.GetByParentOptionalDateRange(c.Request.Context(), id, fromDate, toDate)
+	items, err := h.unitGroups.GetByParent(c.Request.Context(), id, fromDate, toDate)
 	if err != nil {
 		respondRepoError(c, "Failed to retrieve unit groups", err)
 		return
@@ -101,7 +101,7 @@ func (h *Handler) GetOccupationGroupsByUnitGroupHandler(c *gin.Context) {
 		return
 	}
 
-	items, err := h.occupationGroups.GetByParentOptionalDateRange(c.Request.Context(), id, fromDate, toDate)
+	items, err := h.occupationGroups.GetByParent(c.Request.Context(), id, fromDate, toDate)
 	if err != nil {
 		respondRepoError(c, "Failed to retrieve occupation groups", err)
 		return
@@ -149,7 +149,7 @@ func (h *Handler) GetAllMajorGroupsHandler(c *gin.Context) {
 		return
 	}
 
-	items, err := h.majorGroups.GetAllOptionalDateRange(c.Request.Context(), fromDate, toDate)
+	items, err := h.majorGroups.GetAll(c.Request.Context(), 0, 0, fromDate, toDate)
 	if err != nil {
 		respondRepoError(c, "Failed to retrieve major groups", err)
 		return
@@ -241,7 +241,7 @@ func (h *Handler) CreateSubMajorGroupHandler(c *gin.Context) {
 }
 
 func (h *Handler) GetAllSubMajorGroupsHandler(c *gin.Context) {
-	items, err := h.subMajorGroups.GetAll(c.Request.Context())
+	items, err := h.subMajorGroups.GetAll(c.Request.Context(), 0, 0, nil, nil)
 	if err != nil {
 		respondError(c, http.StatusInternalServerError, "Failed to fetch sub major groups", err)
 		return
@@ -335,7 +335,7 @@ func (h *Handler) CreateMinorGroupHandler(c *gin.Context) {
 }
 
 func (h *Handler) GetAllMinorGroupsHandler(c *gin.Context) {
-	items, err := h.minorGroups.GetAll(c.Request.Context())
+	items, err := h.minorGroups.GetAll(c.Request.Context(), 0, 0, nil, nil)
 	if err != nil {
 		respondError(c, http.StatusInternalServerError, "Failed to fetch minor groups", err)
 		return
@@ -429,7 +429,7 @@ func (h *Handler) CreateUnitGroupHandler(c *gin.Context) {
 }
 
 func (h *Handler) GetAllUnitGroupsHandler(c *gin.Context) {
-	items, err := h.unitGroups.GetAll(c.Request.Context())
+	items, err := h.unitGroups.GetAll(c.Request.Context(), 0, 0, nil, nil)
 	if err != nil {
 		respondError(c, http.StatusInternalServerError, "Failed to fetch unit groups", err)
 		return
@@ -505,7 +505,6 @@ type updateOccupationGroupInput struct {
 
 type occupationGroupPaginatedResponse struct {
 	Count            int                      `json:"count"`
-	Total            int64                    `json:"total"`
 	Limit            int                      `json:"limit"`
 	Offset           int                      `json:"offset"`
 	OccupationGroups []models.OccupationGroup `json:"occupation_groups"`
@@ -543,13 +542,13 @@ func (h *Handler) GetAllOccupationGroupsHandler(c *gin.Context) {
 		}
 	}
 
-	items, total, err := h.occupationGroups.GetAllPaginated(c.Request.Context(), limit, offset)
+	items, err := h.occupationGroups.GetAll(c.Request.Context(), limit, offset, nil, nil)
 	if err != nil {
 		respondError(c, http.StatusInternalServerError, "Failed to fetch occupation groups", err)
 		return
 	}
 
-	c.JSON(http.StatusOK, occupationGroupPaginatedResponse{Count: len(items), Total: total, Limit: limit, Offset: offset, OccupationGroups: items})
+	c.JSON(http.StatusOK, occupationGroupPaginatedResponse{Count: len(items), Limit: limit, Offset: offset, OccupationGroups: items})
 }
 
 func (h *Handler) GetOccupationGroupByIDHandler(c *gin.Context) {

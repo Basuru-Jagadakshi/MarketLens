@@ -11,7 +11,7 @@ func (r *Store) CreateGeoData(ctx context.Context, item *models.GeoData) error {
 }
 
 func (r *Store) GetAllGeoData(ctx context.Context) ([]models.GeoData, error) {
-	return newCRUDRepository[models.GeoData](r.db).getAll(ctx)
+	return newCRUDRepository[models.GeoData](r.db).getAll(ctx, 0, 0, nil, nil)
 }
 
 func (r *Store) GetGeoDataByID(ctx context.Context, id uint) (models.GeoData, error) {

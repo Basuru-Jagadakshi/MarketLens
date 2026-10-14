@@ -36,7 +36,7 @@ func (h *Handler) CreateFormalityHandler(c *gin.Context) {
 }
 
 func (h *Handler) GetAllFormalitiesHandler(c *gin.Context) {
-	items, err := h.formalities.GetAll(c.Request.Context())
+	items, err := h.formalities.GetAll(c.Request.Context(), 0, 0, nil, nil)
 	if err != nil {
 		respondError(c, http.StatusInternalServerError, "Failed to fetch formalities", err)
 		return

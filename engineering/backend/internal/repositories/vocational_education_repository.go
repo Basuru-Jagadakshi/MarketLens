@@ -11,7 +11,7 @@ func (r *Store) CreateVocationalEducation(ctx context.Context, item *models.Voca
 }
 
 func (r *Store) GetAllVocationalEducations(ctx context.Context) ([]models.VocationalEducation, error) {
-	return newCRUDRepository[models.VocationalEducation](r.db).getAll(ctx)
+	return newCRUDRepository[models.VocationalEducation](r.db).getAll(ctx, 0, 0, nil, nil)
 }
 
 func (r *Store) GetVocationalEducationByID(ctx context.Context, id uint) (models.VocationalEducation, error) {

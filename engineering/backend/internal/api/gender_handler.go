@@ -36,7 +36,7 @@ func (h *Handler) CreateGenderHandler(c *gin.Context) {
 }
 
 func (h *Handler) GetAllGendersHandler(c *gin.Context) {
-	items, err := h.genders.GetAll(c.Request.Context())
+	items, err := h.genders.GetAll(c.Request.Context(), 0, 0, nil, nil)
 	if err != nil {
 		respondError(c, http.StatusInternalServerError, "Failed to fetch genders", err)
 		return

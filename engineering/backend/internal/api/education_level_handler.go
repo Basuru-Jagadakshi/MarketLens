@@ -36,7 +36,7 @@ func (h *Handler) CreateEducationLevelHandler(c *gin.Context) {
 }
 
 func (h *Handler) GetAllEducationLevelsHandler(c *gin.Context) {
-	items, err := h.educationLevels.GetAll(c.Request.Context())
+	items, err := h.educationLevels.GetAll(c.Request.Context(), 0, 0, nil, nil)
 	if err != nil {
 		respondError(c, http.StatusInternalServerError, "Failed to fetch education levels", err)
 		return

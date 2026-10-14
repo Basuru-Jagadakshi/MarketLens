@@ -22,7 +22,7 @@ type experienceListResponse struct {
 
 // Experience CRUD
 func (h *Handler) GetAllExperiencesHandler(c *gin.Context) {
-	experiences, err := h.experiences.GetAll(c.Request.Context())
+	experiences, err := h.experiences.GetAll(c.Request.Context(), 0, 0, nil, nil)
 	if err != nil {
 		respondError(c, http.StatusInternalServerError, "Failed to retrieve experience levels", err)
 		return

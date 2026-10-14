@@ -11,7 +11,7 @@ func (r *Store) CreateGender(ctx context.Context, item *models.Gender) error {
 }
 
 func (r *Store) GetAllGenders(ctx context.Context) ([]models.Gender, error) {
-	return newCRUDRepository[models.Gender](r.db).getAll(ctx)
+	return newCRUDRepository[models.Gender](r.db).getAll(ctx, 0, 0, nil, nil)
 }
 
 func (r *Store) GetGenderByID(ctx context.Context, id uint) (models.Gender, error) {

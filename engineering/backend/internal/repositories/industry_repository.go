@@ -8,39 +8,39 @@ import (
 
 // Industry levels by parent ids
 func (r *Store) GetAllIndustrySectorsForDateRange(ctx context.Context, fromDate, toDate time.Time) ([]models.IndustrySector, error) {
-	return newCRUDRepository[models.IndustrySector](r.db).getAllForDateRange(ctx, fromDate, toDate)
+	return newCRUDRepository[models.IndustrySector](r.db).getAll(ctx, 0, 0, &fromDate, &toDate)
 }
 
 func (r *Store) GetIndustryDivisionsByIndustrySector(ctx context.Context, industrySectorID uint) ([]models.IndustryDivision, error) {
-	return newCRUDRepository[models.IndustryDivision](r.db).getByParent(ctx, "industry_sector_id", industrySectorID)
+	return newCRUDRepository[models.IndustryDivision](r.db).getByParent(ctx, "industry_sector_id", industrySectorID, nil, nil)
 }
 
 func (r *Store) GetIndustryDivisionsByIndustrySectorForDateRange(ctx context.Context, industrySectorID uint, fromDate, toDate time.Time) ([]models.IndustryDivision, error) {
-	return newCRUDRepository[models.IndustryDivision](r.db).getByParentForDateRange(ctx, "industry_sector_id", industrySectorID, fromDate, toDate)
+	return newCRUDRepository[models.IndustryDivision](r.db).getByParent(ctx, "industry_sector_id", industrySectorID, &fromDate, &toDate)
 }
 
 func (r *Store) GetIndustryGroupsByIndustryDivision(ctx context.Context, industryDivisionID uint) ([]models.IndustryGroup, error) {
-	return newCRUDRepository[models.IndustryGroup](r.db).getByParent(ctx, "industry_division_id", industryDivisionID)
+	return newCRUDRepository[models.IndustryGroup](r.db).getByParent(ctx, "industry_division_id", industryDivisionID, nil, nil)
 }
 
 func (r *Store) GetIndustryGroupsByIndustryDivisionForDateRange(ctx context.Context, industryDivisionID uint, fromDate, toDate time.Time) ([]models.IndustryGroup, error) {
-	return newCRUDRepository[models.IndustryGroup](r.db).getByParentForDateRange(ctx, "industry_division_id", industryDivisionID, fromDate, toDate)
+	return newCRUDRepository[models.IndustryGroup](r.db).getByParent(ctx, "industry_division_id", industryDivisionID, &fromDate, &toDate)
 }
 
 func (r *Store) GetIndustryClassesByIndustryGroup(ctx context.Context, industryGroupID uint) ([]models.IndustryClass, error) {
-	return newCRUDRepository[models.IndustryClass](r.db).getByParent(ctx, "industry_group_id", industryGroupID)
+	return newCRUDRepository[models.IndustryClass](r.db).getByParent(ctx, "industry_group_id", industryGroupID, nil, nil)
 }
 
 func (r *Store) GetIndustryClassesByIndustryGroupForDateRange(ctx context.Context, industryGroupID uint, fromDate, toDate time.Time) ([]models.IndustryClass, error) {
-	return newCRUDRepository[models.IndustryClass](r.db).getByParentForDateRange(ctx, "industry_group_id", industryGroupID, fromDate, toDate)
+	return newCRUDRepository[models.IndustryClass](r.db).getByParent(ctx, "industry_group_id", industryGroupID, &fromDate, &toDate)
 }
 
 func (r *Store) GetIndustrySubclassesByIndustryClass(ctx context.Context, industryClassID uint) ([]models.IndustrySubclass, error) {
-	return newCRUDRepository[models.IndustrySubclass](r.db).getByParent(ctx, "industry_class_id", industryClassID)
+	return newCRUDRepository[models.IndustrySubclass](r.db).getByParent(ctx, "industry_class_id", industryClassID, nil, nil)
 }
 
 func (r *Store) GetIndustrySubclassesByIndustryClassForDateRange(ctx context.Context, industryClassID uint, fromDate, toDate time.Time) ([]models.IndustrySubclass, error) {
-	return newCRUDRepository[models.IndustrySubclass](r.db).getByParentForDateRange(ctx, "industry_class_id", industryClassID, fromDate, toDate)
+	return newCRUDRepository[models.IndustrySubclass](r.db).getByParent(ctx, "industry_class_id", industryClassID, &fromDate, &toDate)
 }
 
 // Industry sector CRUD
@@ -49,7 +49,7 @@ func (r *Store) CreateIndustrySector(ctx context.Context, item *models.IndustryS
 }
 
 func (r *Store) GetAllIndustrySectors(ctx context.Context) ([]models.IndustrySector, error) {
-	return newCRUDRepository[models.IndustrySector](r.db).getAll(ctx)
+	return newCRUDRepository[models.IndustrySector](r.db).getAll(ctx, 0, 0, nil, nil)
 }
 
 func (r *Store) GetIndustrySectorByID(ctx context.Context, id uint) (models.IndustrySector, error) {
@@ -70,7 +70,7 @@ func (r *Store) CreateIndustryDivision(ctx context.Context, item *models.Industr
 }
 
 func (r *Store) GetAllIndustryDivisions(ctx context.Context) ([]models.IndustryDivision, error) {
-	return newCRUDRepository[models.IndustryDivision](r.db).getAll(ctx, "IndustrySector")
+	return newCRUDRepository[models.IndustryDivision](r.db).getAll(ctx, 0, 0, nil, nil, "IndustrySector")
 }
 
 func (r *Store) GetIndustryDivisionByID(ctx context.Context, id uint) (models.IndustryDivision, error) {
@@ -91,7 +91,7 @@ func (r *Store) CreateIndustryGroup(ctx context.Context, item *models.IndustryGr
 }
 
 func (r *Store) GetAllIndustryGroups(ctx context.Context) ([]models.IndustryGroup, error) {
-	return newCRUDRepository[models.IndustryGroup](r.db).getAll(ctx, "IndustryDivision")
+	return newCRUDRepository[models.IndustryGroup](r.db).getAll(ctx, 0, 0, nil, nil, "IndustryDivision")
 }
 
 func (r *Store) GetIndustryGroupByID(ctx context.Context, id uint) (models.IndustryGroup, error) {
@@ -112,7 +112,7 @@ func (r *Store) CreateIndustryClass(ctx context.Context, item *models.IndustryCl
 }
 
 func (r *Store) GetAllIndustryClasses(ctx context.Context) ([]models.IndustryClass, error) {
-	return newCRUDRepository[models.IndustryClass](r.db).getAll(ctx, "IndustryGroup")
+	return newCRUDRepository[models.IndustryClass](r.db).getAll(ctx, 0, 0, nil, nil, "IndustryGroup")
 }
 
 func (r *Store) GetIndustryClassByID(ctx context.Context, id uint) (models.IndustryClass, error) {
@@ -132,8 +132,8 @@ func (r *Store) CreateIndustrySubclass(ctx context.Context, item *models.Industr
 	return newCRUDRepository[models.IndustrySubclass](r.db).create(ctx, item)
 }
 
-func (r *Store) GetAllIndustrySubclasses(ctx context.Context, limit, offset int) ([]models.IndustrySubclass, int64, error) {
-	return newCRUDRepository[models.IndustrySubclass](r.db).getAllPaginated(ctx, limit, offset, "IndustryClass")
+func (r *Store) GetAllIndustrySubclasses(ctx context.Context, limit, offset int) ([]models.IndustrySubclass, error) {
+	return newCRUDRepository[models.IndustrySubclass](r.db).getAll(ctx, limit, offset, nil, nil, "IndustryClass")
 }
 
 func (r *Store) GetIndustrySubclassByID(ctx context.Context, id uint) (models.IndustrySubclass, error) {

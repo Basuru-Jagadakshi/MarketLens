@@ -9,39 +9,39 @@ import (
 // Methods needed for multi-level filtering in the crawler
 // Occupation levels by parent ids
 func (r *Store) GetAllMajorGroupsForDateRange(ctx context.Context, fromDate, toDate time.Time) ([]models.MajorGroup, error) {
-	return newCRUDRepository[models.MajorGroup](r.db).getAllForDateRange(ctx, fromDate, toDate)
+	return newCRUDRepository[models.MajorGroup](r.db).getAll(ctx, 0, 0, &fromDate, &toDate)
 }
 
 func (r *Store) GetSubMajorGroupsByMajorGroup(ctx context.Context, majorGroupID uint) ([]models.SubMajorGroup, error) {
-	return newCRUDRepository[models.SubMajorGroup](r.db).getByParent(ctx, "major_group_id", majorGroupID)
+	return newCRUDRepository[models.SubMajorGroup](r.db).getByParent(ctx, "major_group_id", majorGroupID, nil, nil)
 }
 
 func (r *Store) GetSubMajorGroupsByMajorGroupForDateRange(ctx context.Context, majorGroupID uint, fromDate, toDate time.Time) ([]models.SubMajorGroup, error) {
-	return newCRUDRepository[models.SubMajorGroup](r.db).getByParentForDateRange(ctx, "major_group_id", majorGroupID, fromDate, toDate)
+	return newCRUDRepository[models.SubMajorGroup](r.db).getByParent(ctx, "major_group_id", majorGroupID, &fromDate, &toDate)
 }
 
 func (r *Store) GetMinorGroupsBySubMajorGroup(ctx context.Context, subMajorGroupID uint) ([]models.MinorGroup, error) {
-	return newCRUDRepository[models.MinorGroup](r.db).getByParent(ctx, "sub_major_group_id", subMajorGroupID)
+	return newCRUDRepository[models.MinorGroup](r.db).getByParent(ctx, "sub_major_group_id", subMajorGroupID, nil, nil)
 }
 
 func (r *Store) GetMinorGroupsBySubMajorGroupForDateRange(ctx context.Context, subMajorGroupID uint, fromDate, toDate time.Time) ([]models.MinorGroup, error) {
-	return newCRUDRepository[models.MinorGroup](r.db).getByParentForDateRange(ctx, "sub_major_group_id", subMajorGroupID, fromDate, toDate)
+	return newCRUDRepository[models.MinorGroup](r.db).getByParent(ctx, "sub_major_group_id", subMajorGroupID, &fromDate, &toDate)
 }
 
 func (r *Store) GetUnitGroupsByMinorGroup(ctx context.Context, minorGroupID uint) ([]models.UnitGroup, error) {
-	return newCRUDRepository[models.UnitGroup](r.db).getByParent(ctx, "minor_group_id", minorGroupID)
+	return newCRUDRepository[models.UnitGroup](r.db).getByParent(ctx, "minor_group_id", minorGroupID, nil, nil)
 }
 
 func (r *Store) GetUnitGroupsByMinorGroupForDateRange(ctx context.Context, minorGroupID uint, fromDate, toDate time.Time) ([]models.UnitGroup, error) {
-	return newCRUDRepository[models.UnitGroup](r.db).getByParentForDateRange(ctx, "minor_group_id", minorGroupID, fromDate, toDate)
+	return newCRUDRepository[models.UnitGroup](r.db).getByParent(ctx, "minor_group_id", minorGroupID, &fromDate, &toDate)
 }
 
 func (r *Store) GetOccupationGroupsByUnitGroup(ctx context.Context, unitGroupID uint) ([]models.OccupationGroup, error) {
-	return newCRUDRepository[models.OccupationGroup](r.db).getByParent(ctx, "unit_group_id", unitGroupID)
+	return newCRUDRepository[models.OccupationGroup](r.db).getByParent(ctx, "unit_group_id", unitGroupID, nil, nil)
 }
 
 func (r *Store) GetOccupationGroupsByUnitGroupForDateRange(ctx context.Context, unitGroupID uint, fromDate, toDate time.Time) ([]models.OccupationGroup, error) {
-	return newCRUDRepository[models.OccupationGroup](r.db).getByParentForDateRange(ctx, "unit_group_id", unitGroupID, fromDate, toDate)
+	return newCRUDRepository[models.OccupationGroup](r.db).getByParent(ctx, "unit_group_id", unitGroupID, &fromDate, &toDate)
 }
 
 // Major Group CRUD
@@ -50,7 +50,7 @@ func (r *Store) CreateMajorGroup(ctx context.Context, item *models.MajorGroup) e
 }
 
 func (r *Store) GetAllMajorGroups(ctx context.Context) ([]models.MajorGroup, error) {
-	return newCRUDRepository[models.MajorGroup](r.db).getAll(ctx)
+	return newCRUDRepository[models.MajorGroup](r.db).getAll(ctx, 0, 0, nil, nil)
 }
 
 func (r *Store) GetMajorGroupByID(ctx context.Context, id uint) (models.MajorGroup, error) {
@@ -71,7 +71,7 @@ func (r *Store) CreateSubMajorGroup(ctx context.Context, item *models.SubMajorGr
 }
 
 func (r *Store) GetAllSubMajorGroups(ctx context.Context) ([]models.SubMajorGroup, error) {
-	return newCRUDRepository[models.SubMajorGroup](r.db).getAll(ctx, "MajorGroup")
+	return newCRUDRepository[models.SubMajorGroup](r.db).getAll(ctx, 0, 0, nil, nil, "MajorGroup")
 }
 
 func (r *Store) GetSubMajorGroupByID(ctx context.Context, id uint) (models.SubMajorGroup, error) {
@@ -92,7 +92,7 @@ func (r *Store) CreateMinorGroup(ctx context.Context, item *models.MinorGroup) e
 }
 
 func (r *Store) GetAllMinorGroups(ctx context.Context) ([]models.MinorGroup, error) {
-	return newCRUDRepository[models.MinorGroup](r.db).getAll(ctx, "SubMajorGroup")
+	return newCRUDRepository[models.MinorGroup](r.db).getAll(ctx, 0, 0, nil, nil, "SubMajorGroup")
 }
 
 func (r *Store) GetMinorGroupByID(ctx context.Context, id uint) (models.MinorGroup, error) {
@@ -113,7 +113,7 @@ func (r *Store) CreateUnitGroup(ctx context.Context, item *models.UnitGroup) err
 }
 
 func (r *Store) GetAllUnitGroups(ctx context.Context) ([]models.UnitGroup, error) {
-	return newCRUDRepository[models.UnitGroup](r.db).getAll(ctx, "MinorGroup")
+	return newCRUDRepository[models.UnitGroup](r.db).getAll(ctx, 0, 0, nil, nil, "MinorGroup")
 }
 
 func (r *Store) GetUnitGroupByID(ctx context.Context, id uint) (models.UnitGroup, error) {
@@ -133,8 +133,8 @@ func (r *Store) CreateOccupationGroup(ctx context.Context, item *models.Occupati
 	return newCRUDRepository[models.OccupationGroup](r.db).create(ctx, item)
 }
 
-func (r *Store) GetAllOccupationGroups(ctx context.Context, limit, offset int) ([]models.OccupationGroup, int64, error) {
-	return newCRUDRepository[models.OccupationGroup](r.db).getAllPaginated(ctx, limit, offset, "UnitGroup")
+func (r *Store) GetAllOccupationGroups(ctx context.Context, limit, offset int) ([]models.OccupationGroup, error) {
+	return newCRUDRepository[models.OccupationGroup](r.db).getAll(ctx, limit, offset, nil, nil, "UnitGroup")
 }
 
 func (r *Store) GetOccupationGroupByID(ctx context.Context, id uint) (models.OccupationGroup, error) {

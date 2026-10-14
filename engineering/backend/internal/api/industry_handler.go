@@ -45,7 +45,7 @@ func (h *Handler) GetIndustryDivisionsByIndustrySectorHandler(c *gin.Context) {
 		return
 	}
 
-	items, err := h.industryDivisions.GetByParentOptionalDateRange(c.Request.Context(), id, fromDate, toDate)
+	items, err := h.industryDivisions.GetByParent(c.Request.Context(), id, fromDate, toDate)
 	if err != nil {
 		respondRepoError(c, "Failed to retrieve industry divisions", err)
 		return
@@ -66,7 +66,7 @@ func (h *Handler) GetIndustryGroupsByIndustryDivisionHandler(c *gin.Context) {
 		return
 	}
 
-	items, err := h.industryGroups.GetByParentOptionalDateRange(c.Request.Context(), id, fromDate, toDate)
+	items, err := h.industryGroups.GetByParent(c.Request.Context(), id, fromDate, toDate)
 	if err != nil {
 		respondRepoError(c, "Failed to retrieve industry groups", err)
 		return
@@ -87,7 +87,7 @@ func (h *Handler) GetIndustryClassesByIndustryGroupHandler(c *gin.Context) {
 		return
 	}
 
-	items, err := h.industryClasses.GetByParentOptionalDateRange(c.Request.Context(), id, fromDate, toDate)
+	items, err := h.industryClasses.GetByParent(c.Request.Context(), id, fromDate, toDate)
 	if err != nil {
 		respondRepoError(c, "Failed to retrieve industry classes", err)
 		return
@@ -108,7 +108,7 @@ func (h *Handler) GetIndustrySubclassesByIndustryClassHandler(c *gin.Context) {
 		return
 	}
 
-	items, err := h.industrySubclasses.GetByParentOptionalDateRange(c.Request.Context(), id, fromDate, toDate)
+	items, err := h.industrySubclasses.GetByParent(c.Request.Context(), id, fromDate, toDate)
 	if err != nil {
 		respondRepoError(c, "Failed to retrieve industry subclasses", err)
 		return
@@ -154,7 +154,7 @@ func (h *Handler) GetAllIndustrySectorsHandler(c *gin.Context) {
 		return
 	}
 
-	items, err := h.industrySectors.GetAllOptionalDateRange(c.Request.Context(), fromDate, toDate)
+	items, err := h.industrySectors.GetAll(c.Request.Context(), 0, 0, fromDate, toDate)
 	if err != nil {
 		respondRepoError(c, "Failed to retrieve industry sectors", err)
 		return
@@ -246,7 +246,7 @@ func (h *Handler) CreateIndustryDivisionHandler(c *gin.Context) {
 }
 
 func (h *Handler) GetAllIndustryDivisionsHandler(c *gin.Context) {
-	items, err := h.industryDivisions.GetAll(c.Request.Context())
+	items, err := h.industryDivisions.GetAll(c.Request.Context(), 0, 0, nil, nil)
 	if err != nil {
 		respondError(c, http.StatusInternalServerError, "Failed to fetch industry divisions", err)
 		return
@@ -340,7 +340,7 @@ func (h *Handler) CreateIndustryGroupHandler(c *gin.Context) {
 }
 
 func (h *Handler) GetAllIndustryGroupsHandler(c *gin.Context) {
-	items, err := h.industryGroups.GetAll(c.Request.Context())
+	items, err := h.industryGroups.GetAll(c.Request.Context(), 0, 0, nil, nil)
 	if err != nil {
 		respondError(c, http.StatusInternalServerError, "Failed to fetch industry groups", err)
 		return
@@ -434,7 +434,7 @@ func (h *Handler) CreateIndustryClassHandler(c *gin.Context) {
 }
 
 func (h *Handler) GetAllIndustryClassesHandler(c *gin.Context) {
-	items, err := h.industryClasses.GetAll(c.Request.Context())
+	items, err := h.industryClasses.GetAll(c.Request.Context(), 0, 0, nil, nil)
 	if err != nil {
 		respondError(c, http.StatusInternalServerError, "Failed to fetch industry classes", err)
 		return
@@ -510,7 +510,6 @@ type updateIndustrySubclassInput struct {
 
 type industrySubclassPaginatedResponse struct {
 	Count              int                       `json:"count"`
-	Total              int64                     `json:"total"`
 	Limit              int                       `json:"limit"`
 	Offset             int                       `json:"offset"`
 	IndustrySubclasses []models.IndustrySubclass `json:"industry_subclasses"`
@@ -548,13 +547,13 @@ func (h *Handler) GetAllIndustrySubclassesHandler(c *gin.Context) {
 		}
 	}
 
-	items, total, err := h.industrySubclasses.GetAllPaginated(c.Request.Context(), limit, offset)
+	items, err := h.industrySubclasses.GetAll(c.Request.Context(), limit, offset, nil, nil)
 	if err != nil {
 		respondError(c, http.StatusInternalServerError, "Failed to fetch industry subclasses", err)
 		return
 	}
 
-	c.JSON(http.StatusOK, industrySubclassPaginatedResponse{Count: len(items), Total: total, Limit: limit, Offset: offset, IndustrySubclasses: items})
+	c.JSON(http.StatusOK, industrySubclassPaginatedResponse{Count: len(items), Limit: limit, Offset: offset, IndustrySubclasses: items})
 }
 
 func (h *Handler) GetIndustrySubclassByIDHandler(c *gin.Context) {

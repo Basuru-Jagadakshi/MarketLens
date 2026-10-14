@@ -11,7 +11,7 @@ func (r *Store) CreateJobType(ctx context.Context, item *models.JobType) error {
 }
 
 func (r *Store) GetAllJobTypes(ctx context.Context) ([]models.JobType, error) {
-	return newCRUDRepository[models.JobType](r.db).getAll(ctx)
+	return newCRUDRepository[models.JobType](r.db).getAll(ctx, 0, 0, nil, nil)
 }
 
 func (r *Store) GetJobTypeByID(ctx context.Context, id uint) (models.JobType, error) {

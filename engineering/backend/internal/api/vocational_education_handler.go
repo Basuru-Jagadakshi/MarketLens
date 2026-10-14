@@ -36,7 +36,7 @@ func (h *Handler) CreateVocationalEducationHandler(c *gin.Context) {
 }
 
 func (h *Handler) GetAllVocationalEducationsHandler(c *gin.Context) {
-	items, err := h.vocationalEducations.GetAll(c.Request.Context())
+	items, err := h.vocationalEducations.GetAll(c.Request.Context(), 0, 0, nil, nil)
 	if err != nil {
 		respondError(c, http.StatusInternalServerError, "Failed to fetch vocational education levels", err)
 		return

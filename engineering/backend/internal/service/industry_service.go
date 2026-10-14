@@ -4,6 +4,7 @@ import (
 	"context"
 	"marketlens-go-backend/internal/models"
 	"marketlens-go-backend/internal/repositories"
+	"time"
 
 	"gorm.io/gorm"
 )
@@ -11,21 +12,27 @@ import (
 func NewIndustrySectorService(store *repositories.Store) *CRUDService[models.IndustrySector] {
 	return NewCRUDService(
 		store.CreateIndustrySector,
-		store.GetAllIndustrySectors,
+		func(ctx context.Context, _, _ int, fromDate, toDate *time.Time) ([]models.IndustrySector, error) {
+			if fromDate != nil && toDate != nil {
+				return store.GetAllIndustrySectorsForDateRange(ctx, *fromDate, *toDate)
+			}
+			return store.GetAllIndustrySectors(ctx)
+		},
 		store.GetIndustrySectorByID,
 		store.UpdateIndustrySector,
 		store.DeleteIndustrySector,
 		func(_ context.Context, item *models.IndustrySector) error {
 			return validateNameAndCode(item.Name, item.Code)
 		},
-		WithDateRangeListing(store.GetAllIndustrySectorsForDateRange),
 	)
 }
 
 func NewIndustryDivisionService(store *repositories.Store) *CRUDService[models.IndustryDivision] {
 	return NewCRUDService(
 		store.CreateIndustryDivision,
-		store.GetAllIndustryDivisions,
+		func(ctx context.Context, _, _ int, _, _ *time.Time) ([]models.IndustryDivision, error) {
+			return store.GetAllIndustryDivisions(ctx)
+		},
 		store.GetIndustryDivisionByID,
 		store.UpdateIndustryDivision,
 		store.DeleteIndustryDivision,
@@ -36,14 +43,21 @@ func NewIndustryDivisionService(store *repositories.Store) *CRUDService[models.I
 			_, err := store.GetIndustrySectorByID(ctx, item.IndustrySectorID)
 			return validateParentExists(err, gorm.ErrRecordNotFound, "industry_sector_id", item.IndustrySectorID)
 		},
-		WithParentLookups(store.GetIndustryDivisionsByIndustrySector, store.GetIndustryDivisionsByIndustrySectorForDateRange),
+		WithParentLookups(func(ctx context.Context, parentID uint, fromDate, toDate *time.Time) ([]models.IndustryDivision, error) {
+			if fromDate != nil && toDate != nil {
+				return store.GetIndustryDivisionsByIndustrySectorForDateRange(ctx, parentID, *fromDate, *toDate)
+			}
+			return store.GetIndustryDivisionsByIndustrySector(ctx, parentID)
+		}),
 	)
 }
 
 func NewIndustryGroupService(store *repositories.Store) *CRUDService[models.IndustryGroup] {
 	return NewCRUDService(
 		store.CreateIndustryGroup,
-		store.GetAllIndustryGroups,
+		func(ctx context.Context, _, _ int, _, _ *time.Time) ([]models.IndustryGroup, error) {
+			return store.GetAllIndustryGroups(ctx)
+		},
 		store.GetIndustryGroupByID,
 		store.UpdateIndustryGroup,
 		store.DeleteIndustryGroup,
@@ -54,14 +68,21 @@ func NewIndustryGroupService(store *repositories.Store) *CRUDService[models.Indu
 			_, err := store.GetIndustryDivisionByID(ctx, item.IndustryDivisionID)
 			return validateParentExists(err, gorm.ErrRecordNotFound, "industry_division_id", item.IndustryDivisionID)
 		},
-		WithParentLookups(store.GetIndustryGroupsByIndustryDivision, store.GetIndustryGroupsByIndustryDivisionForDateRange),
+		WithParentLookups(func(ctx context.Context, parentID uint, fromDate, toDate *time.Time) ([]models.IndustryGroup, error) {
+			if fromDate != nil && toDate != nil {
+				return store.GetIndustryGroupsByIndustryDivisionForDateRange(ctx, parentID, *fromDate, *toDate)
+			}
+			return store.GetIndustryGroupsByIndustryDivision(ctx, parentID)
+		}),
 	)
 }
 
 func NewIndustryClassService(store *repositories.Store) *CRUDService[models.IndustryClass] {
 	return NewCRUDService(
 		store.CreateIndustryClass,
-		store.GetAllIndustryClasses,
+		func(ctx context.Context, _, _ int, _, _ *time.Time) ([]models.IndustryClass, error) {
+			return store.GetAllIndustryClasses(ctx)
+		},
 		store.GetIndustryClassByID,
 		store.UpdateIndustryClass,
 		store.DeleteIndustryClass,
@@ -72,16 +93,20 @@ func NewIndustryClassService(store *repositories.Store) *CRUDService[models.Indu
 			_, err := store.GetIndustryGroupByID(ctx, item.IndustryGroupID)
 			return validateParentExists(err, gorm.ErrRecordNotFound, "industry_group_id", item.IndustryGroupID)
 		},
-		WithParentLookups(store.GetIndustryClassesByIndustryGroup, store.GetIndustryClassesByIndustryGroupForDateRange),
+		WithParentLookups(func(ctx context.Context, parentID uint, fromDate, toDate *time.Time) ([]models.IndustryClass, error) {
+			if fromDate != nil && toDate != nil {
+				return store.GetIndustryClassesByIndustryGroupForDateRange(ctx, parentID, *fromDate, *toDate)
+			}
+			return store.GetIndustryClassesByIndustryGroup(ctx, parentID)
+		}),
 	)
 }
 
 func NewIndustrySubclassService(store *repositories.Store) *CRUDService[models.IndustrySubclass] {
 	return NewCRUDService(
 		store.CreateIndustrySubclass,
-		func(ctx context.Context) ([]models.IndustrySubclass, error) {
-			items, _, err := store.GetAllIndustrySubclasses(ctx, 0, 0)
-			return items, err
+		func(ctx context.Context, limit, offset int, _, _ *time.Time) ([]models.IndustrySubclass, error) {
+			return store.GetAllIndustrySubclasses(ctx, limit, offset)
 		},
 		store.GetIndustrySubclassByID,
 		store.UpdateIndustrySubclass,
@@ -93,7 +118,11 @@ func NewIndustrySubclassService(store *repositories.Store) *CRUDService[models.I
 			_, err := store.GetIndustryClassByID(ctx, item.IndustryClassID)
 			return validateParentExists(err, gorm.ErrRecordNotFound, "industry_class_id", item.IndustryClassID)
 		},
-		WithParentLookups(store.GetIndustrySubclassesByIndustryClass, store.GetIndustrySubclassesByIndustryClassForDateRange),
-		WithPagination(store.GetAllIndustrySubclasses),
+		WithParentLookups(func(ctx context.Context, parentID uint, fromDate, toDate *time.Time) ([]models.IndustrySubclass, error) {
+			if fromDate != nil && toDate != nil {
+				return store.GetIndustrySubclassesByIndustryClassForDateRange(ctx, parentID, *fromDate, *toDate)
+			}
+			return store.GetIndustrySubclassesByIndustryClass(ctx, parentID)
+		}),
 	)
 }
