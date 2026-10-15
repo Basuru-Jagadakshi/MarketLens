@@ -529,6 +529,12 @@ func (h *Handler) GetOccupationJobCountByDateRangeHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, occupationJobCountResponse{FromDate: dr.FromStr, ToDate: dr.ToStr, Count: len(results), Occupations: results})
 }
 
+type totalVacancyCountResponse struct {
+	FromDate       string `json:"from_date"`
+	ToDate         string `json:"to_date"`
+	TotalVacancies int64  `json:"total_vacancies"`
+}
+
 // This function returns the total number of vacancies posted within a given date range
 func (h *Handler) GetTotalVacancyCountHandler(c *gin.Context) {
 	dr, ok := parseDateRangeQuery(c)
@@ -542,7 +548,7 @@ func (h *Handler) GetTotalVacancyCountHandler(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, models.TotalVacancyCount{
+	c.JSON(http.StatusOK, totalVacancyCountResponse{
 		FromDate:       dr.FromStr,
 		ToDate:         dr.ToStr,
 		TotalVacancies: total,

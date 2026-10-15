@@ -9,12 +9,6 @@ type LevelChildJobCount struct {
 	OpenJobCount int64  `json:"open_job_count"`
 }
 
-type TotalVacancyCount struct {
-	FromDate       string `json:"from_date"`
-	ToDate         string `json:"to_date"`
-	TotalVacancies int64  `json:"total_vacancies"`
-}
-
 type VacancyTrendPoint struct {
 	Label        string `json:"label"`
 	OpenJobCount int64  `json:"open_job_count"`
