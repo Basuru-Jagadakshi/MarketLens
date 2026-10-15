@@ -10,6 +10,7 @@ import (
 	"marketlens-go-backend/internal/service"
 
 	"github.com/gin-gonic/gin"
+	"github.com/jackc/pgx/v5/pgconn"
 	"gorm.io/gorm"
 )
 
@@ -115,10 +116,14 @@ func respondError(c *gin.Context, status int, publicMessage string, err error) {
 	c.JSON(status, gin.H{"error": publicMessage})
 }
 
+// postgresUniqueViolation is Postgres's error code for a unique constraint
+// violation (class 23 — Integrity Constraint Violation).
+const postgresUniqueViolation = "23505"
+
 // respondRepoError maps a repository/service error to the right HTTP
 // status: a missing row (gorm.ErrRecordNotFound) is a 404, a rejected
-// business rule (service.ErrValidation) is a 400, anything else is an
-// unexpected server error (logged, 500).
+// business rule (service.ErrValidation) or a unique constraint violation is
+// a 400, anything else is an unexpected server error (logged, 500).
 func respondRepoError(c *gin.Context, publicMessage string, err error) {
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		c.JSON(http.StatusNotFound, gin.H{"error": publicMessage + ": not found"})
@@ -126,6 +131,11 @@ func respondRepoError(c *gin.Context, publicMessage string, err error) {
 	}
 	if errors.Is(err, service.ErrValidation) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Code == postgresUniqueViolation {
+		c.JSON(http.StatusBadRequest, gin.H{"error": publicMessage + ": already exists"})
 		return
 	}
 	respondError(c, http.StatusInternalServerError, publicMessage, err)
