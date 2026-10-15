@@ -6,16 +6,24 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+type crudHandlers struct {
+	Create gin.HandlerFunc
+	List   gin.HandlerFunc
+	Get    gin.HandlerFunc
+	Update gin.HandlerFunc
+	Delete gin.HandlerFunc
+}
+
 // registerCRUD wires the standard five routes for a flat-lookup or
 // hierarchy resource: reads are public, writes need auth + a
 // "<scope>:<action>" scope.
-func registerCRUD(rg *gin.RouterGroup, path, scope string, create, list, get, update, del gin.HandlerFunc) {
+func registerCRUD(rg *gin.RouterGroup, path, scope string, h crudHandlers) {
 	g := rg.Group(path)
-	g.GET("", list)
-	g.GET("/:id", get)
-	g.POST("", auth.AuthRequired(), auth.RequireScope(scope+":create"), create)
-	g.PUT("/:id", auth.AuthRequired(), auth.RequireScope(scope+":update"), update)
-	g.DELETE("/:id", auth.AuthRequired(), auth.RequireScope(scope+":delete"), del)
+	g.GET("", h.List)
+	g.GET("/:id", h.Get)
+	g.POST("", auth.AuthRequired(), auth.RequireScope(scope+":create"), h.Create)
+	g.PUT("/:id", auth.AuthRequired(), auth.RequireScope(scope+":update"), h.Update)
+	g.DELETE("/:id", auth.AuthRequired(), auth.RequireScope(scope+":delete"), h.Delete)
 }
 
 // RegisterRoutes attaches every API route and its middleware to r.
@@ -57,81 +65,94 @@ func RegisterRoutes(r *gin.Engine, h *Handler) {
 		}
 
 		// Flat lookup tables
-		registerCRUD(v1, "/education-levels", "education-levels",
-			h.CreateEducationLevelHandler, h.GetAllEducationLevelsHandler, h.GetEducationLevelByIDHandler,
-			h.UpdateEducationLevelHandler, h.DeleteEducationLevelHandler)
+		registerCRUD(v1, "/education-levels", "education-levels", crudHandlers{
+			Create: h.CreateEducationLevelHandler, List: h.GetAllEducationLevelsHandler, Get: h.GetEducationLevelByIDHandler,
+			Update: h.UpdateEducationLevelHandler, Delete: h.DeleteEducationLevelHandler,
+		})
 
-		registerCRUD(v1, "/formalities", "formalities",
-			h.CreateFormalityHandler, h.GetAllFormalitiesHandler, h.GetFormalityByIDHandler,
-			h.UpdateFormalityHandler, h.DeleteFormalityHandler)
+		registerCRUD(v1, "/formalities", "formalities", crudHandlers{
+			Create: h.CreateFormalityHandler, List: h.GetAllFormalitiesHandler, Get: h.GetFormalityByIDHandler,
+			Update: h.UpdateFormalityHandler, Delete: h.DeleteFormalityHandler,
+		})
 
-		registerCRUD(v1, "/genders", "genders",
-			h.CreateGenderHandler, h.GetAllGendersHandler, h.GetGenderByIDHandler,
-			h.UpdateGenderHandler, h.DeleteGenderHandler)
+		registerCRUD(v1, "/genders", "genders", crudHandlers{
+			Create: h.CreateGenderHandler, List: h.GetAllGendersHandler, Get: h.GetGenderByIDHandler,
+			Update: h.UpdateGenderHandler, Delete: h.DeleteGenderHandler,
+		})
 
-		registerCRUD(v1, "/employment-sectors", "employment-sectors",
-			h.CreateEmploymentSectorHandler, h.GetAllEmploymentSectorsHandler, h.GetEmploymentSectorByIDHandler,
-			h.UpdateEmploymentSectorHandler, h.DeleteEmploymentSectorHandler)
+		registerCRUD(v1, "/employment-sectors", "employment-sectors", crudHandlers{
+			Create: h.CreateEmploymentSectorHandler, List: h.GetAllEmploymentSectorsHandler, Get: h.GetEmploymentSectorByIDHandler,
+			Update: h.UpdateEmploymentSectorHandler, Delete: h.DeleteEmploymentSectorHandler,
+		})
 
-		registerCRUD(v1, "/vocational-educations", "vocational-educations",
-			h.CreateVocationalEducationHandler, h.GetAllVocationalEducationsHandler, h.GetVocationalEducationByIDHandler,
-			h.UpdateVocationalEducationHandler, h.DeleteVocationalEducationHandler)
+		registerCRUD(v1, "/vocational-educations", "vocational-educations", crudHandlers{
+			Create: h.CreateVocationalEducationHandler, List: h.GetAllVocationalEducationsHandler, Get: h.GetVocationalEducationByIDHandler,
+			Update: h.UpdateVocationalEducationHandler, Delete: h.DeleteVocationalEducationHandler,
+		})
 
-		registerCRUD(v1, "/experiences", "experiences",
-			h.CreateExperienceHandler, h.GetAllExperiencesHandler, h.GetExperienceByIDHandler,
-			h.UpdateExperienceHandler, h.DeleteExperienceHandler)
+		registerCRUD(v1, "/experiences", "experiences", crudHandlers{
+			Create: h.CreateExperienceHandler, List: h.GetAllExperiencesHandler, Get: h.GetExperienceByIDHandler,
+			Update: h.UpdateExperienceHandler, Delete: h.DeleteExperienceHandler,
+		})
 
 		// Occupation hierarchy
-		registerCRUD(v1, "/major-groups", "major-groups",
-			h.CreateMajorGroupHandler, h.GetAllMajorGroupsHandler, h.GetMajorGroupByIDHandler,
-			h.UpdateMajorGroupHandler, h.DeleteMajorGroupHandler)
+		registerCRUD(v1, "/major-groups", "major-groups", crudHandlers{
+			Create: h.CreateMajorGroupHandler, List: h.GetAllMajorGroupsHandler, Get: h.GetMajorGroupByIDHandler,
+			Update: h.UpdateMajorGroupHandler, Delete: h.DeleteMajorGroupHandler,
+		})
 		v1.GET("/major-groups/:id/sub-major-groups", h.GetSubMajorGroupsByMajorGroupHandler)
 
-		registerCRUD(v1, "/sub-major-groups", "sub-major-groups",
-			h.CreateSubMajorGroupHandler, h.GetAllSubMajorGroupsHandler, h.GetSubMajorGroupByIDHandler,
-			h.UpdateSubMajorGroupHandler, h.DeleteSubMajorGroupHandler)
+		registerCRUD(v1, "/sub-major-groups", "sub-major-groups", crudHandlers{
+			Create: h.CreateSubMajorGroupHandler, List: h.GetAllSubMajorGroupsHandler, Get: h.GetSubMajorGroupByIDHandler,
+			Update: h.UpdateSubMajorGroupHandler, Delete: h.DeleteSubMajorGroupHandler,
+		})
 		v1.GET("/sub-major-groups/:id/minor-groups", h.GetMinorGroupsBySubMajorGroupHandler)
 
-		registerCRUD(v1, "/minor-groups", "minor-groups",
-			h.CreateMinorGroupHandler, h.GetAllMinorGroupsHandler, h.GetMinorGroupByIDHandler,
-			h.UpdateMinorGroupHandler, h.DeleteMinorGroupHandler)
+		registerCRUD(v1, "/minor-groups", "minor-groups", crudHandlers{
+			Create: h.CreateMinorGroupHandler, List: h.GetAllMinorGroupsHandler, Get: h.GetMinorGroupByIDHandler,
+			Update: h.UpdateMinorGroupHandler, Delete: h.DeleteMinorGroupHandler,
+		})
 		v1.GET("/minor-groups/:id/unit-groups", h.GetUnitGroupsByMinorGroupHandler)
 
-		registerCRUD(v1, "/unit-groups", "unit-groups",
-			h.CreateUnitGroupHandler, h.GetAllUnitGroupsHandler, h.GetUnitGroupByIDHandler,
-			h.UpdateUnitGroupHandler, h.DeleteUnitGroupHandler)
+		registerCRUD(v1, "/unit-groups", "unit-groups", crudHandlers{
+			Create: h.CreateUnitGroupHandler, List: h.GetAllUnitGroupsHandler, Get: h.GetUnitGroupByIDHandler,
+			Update: h.UpdateUnitGroupHandler, Delete: h.DeleteUnitGroupHandler,
+		})
 		v1.GET("/unit-groups/:id/occupation-groups", h.GetOccupationGroupsByUnitGroupHandler)
 
-		registerCRUD(v1, "/occupation-groups", "occupation-groups",
-			h.CreateOccupationGroupHandler, h.GetAllOccupationGroupsHandler, h.GetOccupationGroupByIDHandler,
-			h.UpdateOccupationGroupHandler, h.DeleteOccupationGroupHandler)
+		registerCRUD(v1, "/occupation-groups", "occupation-groups", crudHandlers{
+			Create: h.CreateOccupationGroupHandler, List: h.GetAllOccupationGroupsHandler, Get: h.GetOccupationGroupByIDHandler,
+			Update: h.UpdateOccupationGroupHandler, Delete: h.DeleteOccupationGroupHandler,
+		})
 
 		// Industry hierarchy
-		registerCRUD(v1, "/industry-sectors", "industry-sectors",
-			h.CreateIndustrySectorHandler, h.GetAllIndustrySectorsHandler, h.GetIndustrySectorByIDHandler,
-			h.UpdateIndustrySectorHandler, h.DeleteIndustrySectorHandler)
+		registerCRUD(v1, "/industry-sectors", "industry-sectors", crudHandlers{
+			Create: h.CreateIndustrySectorHandler, List: h.GetAllIndustrySectorsHandler, Get: h.GetIndustrySectorByIDHandler,
+			Update: h.UpdateIndustrySectorHandler, Delete: h.DeleteIndustrySectorHandler,
+		})
 		v1.GET("/industry-sectors/:id/industry-divisions", h.GetIndustryDivisionsByIndustrySectorHandler)
 
-		registerCRUD(v1, "/industry-divisions", "industry-divisions",
-			h.CreateIndustryDivisionHandler, h.GetAllIndustryDivisionsHandler, h.GetIndustryDivisionByIDHandler,
-			h.UpdateIndustryDivisionHandler, h.DeleteIndustryDivisionHandler)
+		registerCRUD(v1, "/industry-divisions", "industry-divisions", crudHandlers{
+			Create: h.CreateIndustryDivisionHandler, List: h.GetAllIndustryDivisionsHandler, Get: h.GetIndustryDivisionByIDHandler,
+			Update: h.UpdateIndustryDivisionHandler, Delete: h.DeleteIndustryDivisionHandler,
+		})
 		v1.GET("/industry-divisions/:id/industry-groups", h.GetIndustryGroupsByIndustryDivisionHandler)
 
-		registerCRUD(v1, "/industry-groups", "industry-groups",
-			h.CreateIndustryGroupHandler, h.GetAllIndustryGroupsHandler, h.GetIndustryGroupByIDHandler,
-			h.UpdateIndustryGroupHandler, h.DeleteIndustryGroupHandler)
+		registerCRUD(v1, "/industry-groups", "industry-groups", crudHandlers{
+			Create: h.CreateIndustryGroupHandler, List: h.GetAllIndustryGroupsHandler, Get: h.GetIndustryGroupByIDHandler,
+			Update: h.UpdateIndustryGroupHandler, Delete: h.DeleteIndustryGroupHandler,
+		})
 		v1.GET("/industry-groups/:id/industry-classes", h.GetIndustryClassesByIndustryGroupHandler)
 
-		registerCRUD(v1, "/industry-classes", "industry-classes",
-			h.CreateIndustryClassHandler, h.GetAllIndustryClassesHandler, h.GetIndustryClassByIDHandler,
-			h.UpdateIndustryClassHandler, h.DeleteIndustryClassHandler)
+		registerCRUD(v1, "/industry-classes", "industry-classes", crudHandlers{
+			Create: h.CreateIndustryClassHandler, List: h.GetAllIndustryClassesHandler, Get: h.GetIndustryClassByIDHandler,
+			Update: h.UpdateIndustryClassHandler, Delete: h.DeleteIndustryClassHandler,
+		})
 		v1.GET("/industry-classes/:id/industry-subclasses", h.GetIndustrySubclassesByIndustryClassHandler)
 
-		// Note: scope stays "industry-sub-classes" (hyphenated) even though
-		// the path is "/industry-subclasses" — matches the scope names
-		// already granted in the identity provider.
-		registerCRUD(v1, "/industry-subclasses", "industry-sub-classes",
-			h.CreateIndustrySubclassHandler, h.GetAllIndustrySubclassesHandler, h.GetIndustrySubclassByIDHandler,
-			h.UpdateIndustrySubclassHandler, h.DeleteIndustrySubclassHandler)
+		registerCRUD(v1, "/industry-subclasses", "industry-sub-classes", crudHandlers{
+			Create: h.CreateIndustrySubclassHandler, List: h.GetAllIndustrySubclassesHandler, Get: h.GetIndustrySubclassByIDHandler,
+			Update: h.UpdateIndustrySubclassHandler, Delete: h.DeleteIndustrySubclassHandler,
+		})
 	}
 }
