@@ -33,7 +33,7 @@ type JobMetaData struct {
 	VocationalEducation   *VocationalEducation `json:"vocational_education"   gorm:"foreignKey:VocationalEducationID"`
 	EmploymentSectorID *uint             `json:"employment_sector_id"`
 	EmploymentSector   *EmploymentSector `json:"employment_sector"   gorm:"foreignKey:EmploymentSectorID"`
-	PostedAt         *time.Time    `json:"posted_at"`
+	PostedAt         time.Time     `json:"posted_at"          gorm:"not null"`
 	EndDate          *time.Time    `json:"end_date"`
 	MinhashSignature pq.Int64Array `json:"minhash_signature"  gorm:"type:integer[]"`
 	ConfidenceScore  float64       `json:"confidence_score"   gorm:"type:decimal(5,4)"`

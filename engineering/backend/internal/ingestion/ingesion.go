@@ -213,9 +213,9 @@ func (s *IngestionService) extractAndClassify(ctx context.Context, raw RawJobInp
 		return models.JobPost{}, fmt.Errorf("occupation classification: %w", err)
 	}
 
-	var postedAt *time.Time
-	if t, err := time.Parse(time.RFC3339, extracted.MetaData.PostedAt); err == nil {
-		postedAt = &t
+	postedAt, err := time.Parse(time.RFC3339, extracted.MetaData.PostedAt)
+	if err != nil {
+		return models.JobPost{}, fmt.Errorf("missing or invalid posted_at date: %w", err)
 	}
 
 	skills := make([]models.Skill, 0, len(extracted.Skills))

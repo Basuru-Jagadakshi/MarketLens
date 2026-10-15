@@ -253,7 +253,7 @@ CREATE TABLE IF NOT EXISTS meta_data (
     vocational_education_id INT    REFERENCES vocational_education(id) ON DELETE SET NULL,
     employment_sector_id    INT    REFERENCES employment_sector(id)    ON DELETE SET NULL,
 
-    posted_at               TIMESTAMPTZ,
+    posted_at               TIMESTAMPTZ NOT NULL,
     end_date                TIMESTAMPTZ,
     minhash_signature       INTEGER[],
     confidence_score        DECIMAL(5,4),
