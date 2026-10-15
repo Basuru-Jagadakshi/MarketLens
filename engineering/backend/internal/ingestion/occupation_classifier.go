@@ -44,7 +44,7 @@ func (c *OccupationClassifier) Classify(ctx context.Context, jobText string) (ui
 		{
 			Name: "Major Group",
 			Fetch: func(uint) ([]Option, error) {
-				items, err := c.majorGroups.GetAll(ctx)
+				items, err := c.majorGroups.GetAll(ctx, 0, 0, nil, nil)
 				if err != nil {
 					return nil, err
 				}
@@ -54,7 +54,7 @@ func (c *OccupationClassifier) Classify(ctx context.Context, jobText string) (ui
 		{
 			Name: "Sub Major Group",
 			Fetch: func(majorID uint) ([]Option, error) {
-				items, err := c.subMajorGroups.GetByParent(ctx, majorID)
+				items, err := c.subMajorGroups.GetByParent(ctx, majorID, nil, nil)
 				if err != nil {
 					return nil, err
 				}
@@ -64,7 +64,7 @@ func (c *OccupationClassifier) Classify(ctx context.Context, jobText string) (ui
 		{
 			Name: "Minor Group",
 			Fetch: func(subMajorID uint) ([]Option, error) {
-				items, err := c.minorGroups.GetByParent(ctx, subMajorID)
+				items, err := c.minorGroups.GetByParent(ctx, subMajorID, nil, nil)
 				if err != nil {
 					return nil, err
 				}
@@ -74,7 +74,7 @@ func (c *OccupationClassifier) Classify(ctx context.Context, jobText string) (ui
 		{
 			Name: "Unit Group",
 			Fetch: func(minorID uint) ([]Option, error) {
-				items, err := c.unitGroups.GetByParent(ctx, minorID)
+				items, err := c.unitGroups.GetByParent(ctx, minorID, nil, nil)
 				if err != nil {
 					return nil, err
 				}
@@ -84,7 +84,7 @@ func (c *OccupationClassifier) Classify(ctx context.Context, jobText string) (ui
 		{
 			Name: "Occupation Group",
 			Fetch: func(unitID uint) ([]Option, error) {
-				items, err := c.occupationGroups.GetByParent(ctx, unitID)
+				items, err := c.occupationGroups.GetByParent(ctx, unitID, nil, nil)
 				if err != nil {
 					return nil, err
 				}

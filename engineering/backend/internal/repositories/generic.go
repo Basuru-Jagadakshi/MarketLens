@@ -101,3 +101,33 @@ func (c crudRepository[T]) getByParent(ctx context.Context, parentColumn string,
 	return items, err
 }
 
+// CRUDRepository is an exported wrapper around 
+type CRUDRepository[T any] struct {
+	repo     crudRepository[T]
+	preloads []string
+}
+
+func NewCRUDRepository[T any](db *gorm.DB, preloads ...string) *CRUDRepository[T] {
+	return &CRUDRepository[T]{repo: newCRUDRepository[T](db), preloads: preloads}
+}
+
+func (r *CRUDRepository[T]) Create(ctx context.Context, item *T) error {
+	return r.repo.create(ctx, item)
+}
+
+func (r *CRUDRepository[T]) GetAll(ctx context.Context, limit, offset int, fromDate, toDate *time.Time) ([]T, error) {
+	return r.repo.getAll(ctx, limit, offset, fromDate, toDate, r.preloads...)
+}
+
+func (r *CRUDRepository[T]) GetByID(ctx context.Context, id uint) (T, error) {
+	return r.repo.getByID(ctx, id, r.preloads...)
+}
+
+func (r *CRUDRepository[T]) Update(ctx context.Context, id uint, updates map[string]interface{}) (T, error) {
+	return r.repo.update(ctx, id, updates)
+}
+
+func (r *CRUDRepository[T]) Delete(ctx context.Context, id uint) error {
+	return r.repo.delete(ctx, id)
+}
+

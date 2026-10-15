@@ -7,10 +7,6 @@ import (
 )
 
 // Industry levels by parent ids
-func (r *Store) GetAllIndustrySectorsForDateRange(ctx context.Context, fromDate, toDate time.Time) ([]models.IndustrySector, error) {
-	return newCRUDRepository[models.IndustrySector](r.db).getAll(ctx, 0, 0, &fromDate, &toDate)
-}
-
 func (r *Store) GetIndustryDivisionsByIndustrySector(ctx context.Context, industrySectorID uint) ([]models.IndustryDivision, error) {
 	return newCRUDRepository[models.IndustryDivision](r.db).getByParent(ctx, "industry_sector_id", industrySectorID, nil, nil)
 }
@@ -43,107 +39,31 @@ func (r *Store) GetIndustrySubclassesByIndustryClassForDateRange(ctx context.Con
 	return newCRUDRepository[models.IndustrySubclass](r.db).getByParent(ctx, "industry_class_id", industryClassID, &fromDate, &toDate)
 }
 
-// Industry sector CRUD
-func (r *Store) CreateIndustrySector(ctx context.Context, item *models.IndustrySector) error {
-	return newCRUDRepository[models.IndustrySector](r.db).create(ctx, item)
+// IndustrySectors returns the generic CRUD repository for IndustrySector.
+// Its GetAll already supports the date-range listing the old
+// GetAllIndustrySectorsForDateRange method used to provide separately.
+func (r *Store) IndustrySectors() *CRUDRepository[models.IndustrySector] {
+	return NewCRUDRepository[models.IndustrySector](r.db)
 }
 
-func (r *Store) GetAllIndustrySectors(ctx context.Context) ([]models.IndustrySector, error) {
-	return newCRUDRepository[models.IndustrySector](r.db).getAll(ctx, 0, 0, nil, nil)
+// IndustryDivisions returns the generic CRUD repository for IndustryDivision.
+func (r *Store) IndustryDivisions() *CRUDRepository[models.IndustryDivision] {
+	return NewCRUDRepository[models.IndustryDivision](r.db, "IndustrySector")
 }
 
-func (r *Store) GetIndustrySectorByID(ctx context.Context, id uint) (models.IndustrySector, error) {
-	return newCRUDRepository[models.IndustrySector](r.db).getByID(ctx, id)
+// IndustryGroups returns the generic CRUD repository for IndustryGroup.
+func (r *Store) IndustryGroups() *CRUDRepository[models.IndustryGroup] {
+	return NewCRUDRepository[models.IndustryGroup](r.db, "IndustryDivision")
 }
 
-func (r *Store) UpdateIndustrySector(ctx context.Context, id uint, updates map[string]interface{}) (models.IndustrySector, error) {
-	return newCRUDRepository[models.IndustrySector](r.db).update(ctx, id, updates)
+// IndustryClasses returns the generic CRUD repository for IndustryClass.
+func (r *Store) IndustryClasses() *CRUDRepository[models.IndustryClass] {
+	return NewCRUDRepository[models.IndustryClass](r.db, "IndustryGroup")
 }
 
-func (r *Store) DeleteIndustrySector(ctx context.Context, id uint) error {
-	return newCRUDRepository[models.IndustrySector](r.db).delete(ctx, id)
-}
-
-// Industry division CRUD
-func (r *Store) CreateIndustryDivision(ctx context.Context, item *models.IndustryDivision) error {
-	return newCRUDRepository[models.IndustryDivision](r.db).create(ctx, item)
-}
-
-func (r *Store) GetAllIndustryDivisions(ctx context.Context) ([]models.IndustryDivision, error) {
-	return newCRUDRepository[models.IndustryDivision](r.db).getAll(ctx, 0, 0, nil, nil, "IndustrySector")
-}
-
-func (r *Store) GetIndustryDivisionByID(ctx context.Context, id uint) (models.IndustryDivision, error) {
-	return newCRUDRepository[models.IndustryDivision](r.db).getByID(ctx, id, "IndustrySector")
-}
-
-func (r *Store) UpdateIndustryDivision(ctx context.Context, id uint, updates map[string]interface{}) (models.IndustryDivision, error) {
-	return newCRUDRepository[models.IndustryDivision](r.db).update(ctx, id, updates)
-}
-
-func (r *Store) DeleteIndustryDivision(ctx context.Context, id uint) error {
-	return newCRUDRepository[models.IndustryDivision](r.db).delete(ctx, id)
-}
-
-// Industry group CRUD
-func (r *Store) CreateIndustryGroup(ctx context.Context, item *models.IndustryGroup) error {
-	return newCRUDRepository[models.IndustryGroup](r.db).create(ctx, item)
-}
-
-func (r *Store) GetAllIndustryGroups(ctx context.Context) ([]models.IndustryGroup, error) {
-	return newCRUDRepository[models.IndustryGroup](r.db).getAll(ctx, 0, 0, nil, nil, "IndustryDivision")
-}
-
-func (r *Store) GetIndustryGroupByID(ctx context.Context, id uint) (models.IndustryGroup, error) {
-	return newCRUDRepository[models.IndustryGroup](r.db).getByID(ctx, id, "IndustryDivision")
-}
-
-func (r *Store) UpdateIndustryGroup(ctx context.Context, id uint, updates map[string]interface{}) (models.IndustryGroup, error) {
-	return newCRUDRepository[models.IndustryGroup](r.db).update(ctx, id, updates)
-}
-
-func (r *Store) DeleteIndustryGroup(ctx context.Context, id uint) error {
-	return newCRUDRepository[models.IndustryGroup](r.db).delete(ctx, id)
-}
-
-// Industry class CRUD
-func (r *Store) CreateIndustryClass(ctx context.Context, item *models.IndustryClass) error {
-	return newCRUDRepository[models.IndustryClass](r.db).create(ctx, item)
-}
-
-func (r *Store) GetAllIndustryClasses(ctx context.Context) ([]models.IndustryClass, error) {
-	return newCRUDRepository[models.IndustryClass](r.db).getAll(ctx, 0, 0, nil, nil, "IndustryGroup")
-}
-
-func (r *Store) GetIndustryClassByID(ctx context.Context, id uint) (models.IndustryClass, error) {
-	return newCRUDRepository[models.IndustryClass](r.db).getByID(ctx, id, "IndustryGroup")
-}
-
-func (r *Store) UpdateIndustryClass(ctx context.Context, id uint, updates map[string]interface{}) (models.IndustryClass, error) {
-	return newCRUDRepository[models.IndustryClass](r.db).update(ctx, id, updates)
-}
-
-func (r *Store) DeleteIndustryClass(ctx context.Context, id uint) error {
-	return newCRUDRepository[models.IndustryClass](r.db).delete(ctx, id)
-}
-
-// Industry sub class CRUD
-func (r *Store) CreateIndustrySubclass(ctx context.Context, item *models.IndustrySubclass) error {
-	return newCRUDRepository[models.IndustrySubclass](r.db).create(ctx, item)
-}
-
-func (r *Store) GetAllIndustrySubclasses(ctx context.Context, limit, offset int) ([]models.IndustrySubclass, error) {
-	return newCRUDRepository[models.IndustrySubclass](r.db).getAll(ctx, limit, offset, nil, nil, "IndustryClass")
-}
-
-func (r *Store) GetIndustrySubclassByID(ctx context.Context, id uint) (models.IndustrySubclass, error) {
-	return newCRUDRepository[models.IndustrySubclass](r.db).getByID(ctx, id, "IndustryClass")
-}
-
-func (r *Store) UpdateIndustrySubclass(ctx context.Context, id uint, updates map[string]interface{}) (models.IndustrySubclass, error) {
-	return newCRUDRepository[models.IndustrySubclass](r.db).update(ctx, id, updates)
-}
-
-func (r *Store) DeleteIndustrySubclass(ctx context.Context, id uint) error {
-	return newCRUDRepository[models.IndustrySubclass](r.db).delete(ctx, id)
+// IndustrySubclasses returns the generic CRUD repository for
+// IndustrySubclass. Its GetAll already supports the limit/offset the old
+// GetAllIndustrySubclasses method used to provide separately.
+func (r *Store) IndustrySubclasses() *CRUDRepository[models.IndustrySubclass] {
+	return NewCRUDRepository[models.IndustrySubclass](r.db, "IndustryClass")
 }

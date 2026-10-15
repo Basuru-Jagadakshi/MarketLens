@@ -10,17 +10,8 @@ import (
 )
 
 func NewMajorGroupService(store *repositories.Store) *CRUDService[models.MajorGroup] {
-	return NewCRUDService(
-		store.CreateMajorGroup,
-		func(ctx context.Context, _, _ int, fromDate, toDate *time.Time) ([]models.MajorGroup, error) {
-			if fromDate != nil && toDate != nil {
-				return store.GetAllMajorGroupsForDateRange(ctx, *fromDate, *toDate)
-			}
-			return store.GetAllMajorGroups(ctx)
-		},
-		store.GetMajorGroupByID,
-		store.UpdateMajorGroup,
-		store.DeleteMajorGroup,
+	return NewCRUDServiceFromRepository(
+		store.MajorGroups(),
 		func(_ context.Context, item *models.MajorGroup) error {
 			return validateNameAndCode(item.Name, item.Code)
 		},
@@ -28,19 +19,13 @@ func NewMajorGroupService(store *repositories.Store) *CRUDService[models.MajorGr
 }
 
 func NewSubMajorGroupService(store *repositories.Store) *CRUDService[models.SubMajorGroup] {
-	return NewCRUDService(
-		store.CreateSubMajorGroup,
-		func(ctx context.Context, _, _ int, _, _ *time.Time) ([]models.SubMajorGroup, error) {
-			return store.GetAllSubMajorGroups(ctx)
-		},
-		store.GetSubMajorGroupByID,
-		store.UpdateSubMajorGroup,
-		store.DeleteSubMajorGroup,
+	return NewCRUDServiceFromRepository(
+		store.SubMajorGroups(),
 		func(ctx context.Context, item *models.SubMajorGroup) error {
 			if err := validateNameAndCode(item.Name, item.Code); err != nil {
 				return err
 			}
-			_, err := store.GetMajorGroupByID(ctx, item.MajorGroupID)
+			_, err := store.MajorGroups().GetByID(ctx, item.MajorGroupID)
 			return validateParentExists(err, gorm.ErrRecordNotFound, "major_group_id", item.MajorGroupID)
 		},
 		WithParentLookups(func(ctx context.Context, parentID uint, fromDate, toDate *time.Time) ([]models.SubMajorGroup, error) {
@@ -53,19 +38,13 @@ func NewSubMajorGroupService(store *repositories.Store) *CRUDService[models.SubM
 }
 
 func NewMinorGroupService(store *repositories.Store) *CRUDService[models.MinorGroup] {
-	return NewCRUDService(
-		store.CreateMinorGroup,
-		func(ctx context.Context, _, _ int, _, _ *time.Time) ([]models.MinorGroup, error) {
-			return store.GetAllMinorGroups(ctx)
-		},
-		store.GetMinorGroupByID,
-		store.UpdateMinorGroup,
-		store.DeleteMinorGroup,
+	return NewCRUDServiceFromRepository(
+		store.MinorGroups(),
 		func(ctx context.Context, item *models.MinorGroup) error {
 			if err := validateNameAndCode(item.Name, item.Code); err != nil {
 				return err
 			}
-			_, err := store.GetSubMajorGroupByID(ctx, item.SubMajorGroupID)
+			_, err := store.SubMajorGroups().GetByID(ctx, item.SubMajorGroupID)
 			return validateParentExists(err, gorm.ErrRecordNotFound, "sub_major_group_id", item.SubMajorGroupID)
 		},
 		WithParentLookups(func(ctx context.Context, parentID uint, fromDate, toDate *time.Time) ([]models.MinorGroup, error) {
@@ -78,19 +57,13 @@ func NewMinorGroupService(store *repositories.Store) *CRUDService[models.MinorGr
 }
 
 func NewUnitGroupService(store *repositories.Store) *CRUDService[models.UnitGroup] {
-	return NewCRUDService(
-		store.CreateUnitGroup,
-		func(ctx context.Context, _, _ int, _, _ *time.Time) ([]models.UnitGroup, error) {
-			return store.GetAllUnitGroups(ctx)
-		},
-		store.GetUnitGroupByID,
-		store.UpdateUnitGroup,
-		store.DeleteUnitGroup,
+	return NewCRUDServiceFromRepository(
+		store.UnitGroups(),
 		func(ctx context.Context, item *models.UnitGroup) error {
 			if err := validateNameAndCode(item.Name, item.Code); err != nil {
 				return err
 			}
-			_, err := store.GetMinorGroupByID(ctx, item.MinorGroupID)
+			_, err := store.MinorGroups().GetByID(ctx, item.MinorGroupID)
 			return validateParentExists(err, gorm.ErrRecordNotFound, "minor_group_id", item.MinorGroupID)
 		},
 		WithParentLookups(func(ctx context.Context, parentID uint, fromDate, toDate *time.Time) ([]models.UnitGroup, error) {
@@ -103,19 +76,13 @@ func NewUnitGroupService(store *repositories.Store) *CRUDService[models.UnitGrou
 }
 
 func NewOccupationGroupService(store *repositories.Store) *CRUDService[models.OccupationGroup] {
-	return NewCRUDService(
-		store.CreateOccupationGroup,
-		func(ctx context.Context, limit, offset int, _, _ *time.Time) ([]models.OccupationGroup, error) {
-			return store.GetAllOccupationGroups(ctx, limit, offset)
-		},
-		store.GetOccupationGroupByID,
-		store.UpdateOccupationGroup,
-		store.DeleteOccupationGroup,
+	return NewCRUDServiceFromRepository(
+		store.OccupationGroups(),
 		func(ctx context.Context, item *models.OccupationGroup) error {
 			if err := validateNameAndCode(item.Name, item.Code); err != nil {
 				return err
 			}
-			_, err := store.GetUnitGroupByID(ctx, item.UnitGroupID)
+			_, err := store.UnitGroups().GetByID(ctx, item.UnitGroupID)
 			return validateParentExists(err, gorm.ErrRecordNotFound, "unit_group_id", item.UnitGroupID)
 		},
 		WithParentLookups(func(ctx context.Context, parentID uint, fromDate, toDate *time.Time) ([]models.OccupationGroup, error) {

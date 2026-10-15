@@ -4,9 +4,10 @@ import (
 	"context"
 	"net/http"
 	"encoding/json"
-	"os"          
+	"os"
 	"strings"
 	"reflect"
+	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
@@ -230,28 +231,37 @@ type idAndDateRangeInput struct {
 	ToDate   string `json:"to_date" jsonschema:"end date, format YYYY-MM-DD"`
 }
 
+// plainGetAll adapts a CRUDService's unified GetAll (limit/offset/date-range
+// all optional) to the no-arg shape registerNoArgTool expects, for the MCP
+// lookup tools that always want the full, unfiltered list.
+func plainGetAll[T any](getAll func(ctx context.Context, limit, offset int, fromDate, toDate *time.Time) ([]T, error)) func(ctx context.Context) ([]T, error) {
+	return func(ctx context.Context) ([]T, error) {
+		return getAll(ctx, 0, 0, nil, nil)
+	}
+}
+
 func registerLookupTools(server *mcp.Server, svcs *services) {
 	registerNoArgTool(server, "get_experiences", "List all experience levels.",
-		svcs.experiences.GetAll)
+		plainGetAll(svcs.experiences.GetAll))
 
 	registerNoArgTool(server, "get_provinces", "List all Sri Lankan provinces used for geo-tagging job posts.",
-		svcs.geoData.GetAll)
+		plainGetAll(svcs.geoData.GetAll))
 
 	registerNoArgTool(server, "get_job_types", "List all job types (Full Time, Part Time, Contract, Internship).",
-		svcs.jobTypes.GetAll)
+		plainGetAll(svcs.jobTypes.GetAll))
 
 	registerNoArgTool(server, "get_employment_sectors", "List all employment sectors (Government, Private, NGO, etc.).",
-		svcs.employmentSectors.GetAll)
+		plainGetAll(svcs.employmentSectors.GetAll))
 
 	registerNoArgTool(server, "get_education_levels", "List all education level categories.",
-		svcs.educationLevels.GetAll)
+		plainGetAll(svcs.educationLevels.GetAll))
 
 	registerNoArgTool(server, "get_formalities", "List all formality categories (Formal / Informal sector).",
-		svcs.formalities.GetAll)
+		plainGetAll(svcs.formalities.GetAll))
 
 	registerNoArgTool(server, "get_genders", "List all gender categories used in job postings.",
-		svcs.genders.GetAll)
+		plainGetAll(svcs.genders.GetAll))
 
 	registerNoArgTool(server, "get_vocational_educations", "List all vocational education (NVQ) levels.",
-		svcs.vocationalEducations.GetAll)
+		plainGetAll(svcs.vocationalEducations.GetAll))
 }

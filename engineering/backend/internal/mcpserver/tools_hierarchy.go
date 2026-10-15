@@ -9,22 +9,22 @@ import (
 
 func registerHierarchyTools(server *mcp.Server, svcs *services) {
 	registerNoArgTool(server, "get_major_groups", "List all occupation major groups (top level of the SLSO occupation hierarchy).",
-		svcs.majorGroups.GetAll)
+		plainGetAll(svcs.majorGroups.GetAll))
 	registerIDTool(server, "get_major_group", "Get a single occupation major group by id.",
 		svcs.majorGroups.GetByID)
 
 	registerNoArgTool(server, "get_sub_major_groups", "List all occupation sub major groups.",
-		svcs.subMajorGroups.GetAll)
+		plainGetAll(svcs.subMajorGroups.GetAll))
 	registerIDTool(server, "get_sub_major_group", "Get a single occupation sub major group by id.",
 		svcs.subMajorGroups.GetByID)
 
 	registerNoArgTool(server, "get_minor_groups", "List all occupation minor groups.",
-		svcs.minorGroups.GetAll)
+		plainGetAll(svcs.minorGroups.GetAll))
 	registerIDTool(server, "get_minor_group", "Get a single occupation minor group by id.",
 		svcs.minorGroups.GetByID)
 
 	registerNoArgTool(server, "get_unit_groups", "List all occupation unit groups.",
-		svcs.unitGroups.GetAll)
+		plainGetAll(svcs.unitGroups.GetAll))
 	registerIDTool(server, "get_unit_group", "Get a single occupation unit group by id.",
 		svcs.unitGroups.GetByID)
 
@@ -40,32 +40,32 @@ func registerHierarchyTools(server *mcp.Server, svcs *services) {
 		if limit <= 0 {
 			limit = 20
 		}
-		items, total, err := svcs.occupationGroups.GetAllPaginated(ctx, limit, in.Offset)
+		items, err := svcs.occupationGroups.GetAll(ctx, limit, in.Offset, nil, nil)
 		if err != nil {
 			return nil, nil, err
 		}
-		return nil, map[string]any{"items": items, "total": total, "limit": limit, "offset": in.Offset}, nil
+		return nil, map[string]any{"items": items, "limit": limit, "offset": in.Offset}, nil
 	})
 	registerIDTool(server, "get_occupation_group", "Get a single occupation group by id.",
 		svcs.occupationGroups.GetByID)
 
 	registerNoArgTool(server, "get_industry_sectors", "List all industry sectors (top level of the SLSIC industry hierarchy).",
-		svcs.industrySectors.GetAll)
+		plainGetAll(svcs.industrySectors.GetAll))
 	registerIDTool(server, "get_industry_sector", "Get a single industry sector by id.",
 		svcs.industrySectors.GetByID)
 
 	registerNoArgTool(server, "get_industry_divisions", "List all industry divisions.",
-		svcs.industryDivisions.GetAll)
+		plainGetAll(svcs.industryDivisions.GetAll))
 	registerIDTool(server, "get_industry_division", "Get a single industry division by id.",
 		svcs.industryDivisions.GetByID)
 
 	registerNoArgTool(server, "get_industry_groups", "List all industry groups.",
-		svcs.industryGroups.GetAll)
+		plainGetAll(svcs.industryGroups.GetAll))
 	registerIDTool(server, "get_industry_group", "Get a single industry group by id.",
 		svcs.industryGroups.GetByID)
 
 	registerNoArgTool(server, "get_industry_classes", "List all industry classes.",
-		svcs.industryClasses.GetAll)
+		plainGetAll(svcs.industryClasses.GetAll))
 	registerIDTool(server, "get_industry_class", "Get a single industry class by id.",
 		svcs.industryClasses.GetByID)
 
@@ -81,11 +81,11 @@ func registerHierarchyTools(server *mcp.Server, svcs *services) {
 		if limit <= 0 {
 			limit = 20
 		}
-		items, total, err := svcs.industrySubclasses.GetAllPaginated(ctx, limit, in.Offset)
+		items, err := svcs.industrySubclasses.GetAll(ctx, limit, in.Offset, nil, nil)
 		if err != nil {
 			return nil, nil, err
 		}
-		return nil, map[string]any{"items": items, "total": total, "limit": limit, "offset": in.Offset}, nil
+		return nil, map[string]any{"items": items, "limit": limit, "offset": in.Offset}, nil
 	})
 	registerIDTool(server, "get_industry_subclass", "Get a single industry subclass by id.",
 		svcs.industrySubclasses.GetByID)

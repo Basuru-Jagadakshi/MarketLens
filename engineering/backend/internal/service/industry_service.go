@@ -10,17 +10,8 @@ import (
 )
 
 func NewIndustrySectorService(store *repositories.Store) *CRUDService[models.IndustrySector] {
-	return NewCRUDService(
-		store.CreateIndustrySector,
-		func(ctx context.Context, _, _ int, fromDate, toDate *time.Time) ([]models.IndustrySector, error) {
-			if fromDate != nil && toDate != nil {
-				return store.GetAllIndustrySectorsForDateRange(ctx, *fromDate, *toDate)
-			}
-			return store.GetAllIndustrySectors(ctx)
-		},
-		store.GetIndustrySectorByID,
-		store.UpdateIndustrySector,
-		store.DeleteIndustrySector,
+	return NewCRUDServiceFromRepository(
+		store.IndustrySectors(),
 		func(_ context.Context, item *models.IndustrySector) error {
 			return validateNameAndCode(item.Name, item.Code)
 		},
@@ -28,19 +19,13 @@ func NewIndustrySectorService(store *repositories.Store) *CRUDService[models.Ind
 }
 
 func NewIndustryDivisionService(store *repositories.Store) *CRUDService[models.IndustryDivision] {
-	return NewCRUDService(
-		store.CreateIndustryDivision,
-		func(ctx context.Context, _, _ int, _, _ *time.Time) ([]models.IndustryDivision, error) {
-			return store.GetAllIndustryDivisions(ctx)
-		},
-		store.GetIndustryDivisionByID,
-		store.UpdateIndustryDivision,
-		store.DeleteIndustryDivision,
+	return NewCRUDServiceFromRepository(
+		store.IndustryDivisions(),
 		func(ctx context.Context, item *models.IndustryDivision) error {
 			if err := validateNameAndCode(item.Name, item.Code); err != nil {
 				return err
 			}
-			_, err := store.GetIndustrySectorByID(ctx, item.IndustrySectorID)
+			_, err := store.IndustrySectors().GetByID(ctx, item.IndustrySectorID)
 			return validateParentExists(err, gorm.ErrRecordNotFound, "industry_sector_id", item.IndustrySectorID)
 		},
 		WithParentLookups(func(ctx context.Context, parentID uint, fromDate, toDate *time.Time) ([]models.IndustryDivision, error) {
@@ -53,19 +38,13 @@ func NewIndustryDivisionService(store *repositories.Store) *CRUDService[models.I
 }
 
 func NewIndustryGroupService(store *repositories.Store) *CRUDService[models.IndustryGroup] {
-	return NewCRUDService(
-		store.CreateIndustryGroup,
-		func(ctx context.Context, _, _ int, _, _ *time.Time) ([]models.IndustryGroup, error) {
-			return store.GetAllIndustryGroups(ctx)
-		},
-		store.GetIndustryGroupByID,
-		store.UpdateIndustryGroup,
-		store.DeleteIndustryGroup,
+	return NewCRUDServiceFromRepository(
+		store.IndustryGroups(),
 		func(ctx context.Context, item *models.IndustryGroup) error {
 			if err := validateNameAndCode(item.Name, item.Code); err != nil {
 				return err
 			}
-			_, err := store.GetIndustryDivisionByID(ctx, item.IndustryDivisionID)
+			_, err := store.IndustryDivisions().GetByID(ctx, item.IndustryDivisionID)
 			return validateParentExists(err, gorm.ErrRecordNotFound, "industry_division_id", item.IndustryDivisionID)
 		},
 		WithParentLookups(func(ctx context.Context, parentID uint, fromDate, toDate *time.Time) ([]models.IndustryGroup, error) {
@@ -78,19 +57,13 @@ func NewIndustryGroupService(store *repositories.Store) *CRUDService[models.Indu
 }
 
 func NewIndustryClassService(store *repositories.Store) *CRUDService[models.IndustryClass] {
-	return NewCRUDService(
-		store.CreateIndustryClass,
-		func(ctx context.Context, _, _ int, _, _ *time.Time) ([]models.IndustryClass, error) {
-			return store.GetAllIndustryClasses(ctx)
-		},
-		store.GetIndustryClassByID,
-		store.UpdateIndustryClass,
-		store.DeleteIndustryClass,
+	return NewCRUDServiceFromRepository(
+		store.IndustryClasses(),
 		func(ctx context.Context, item *models.IndustryClass) error {
 			if err := validateNameAndCode(item.Name, item.Code); err != nil {
 				return err
 			}
-			_, err := store.GetIndustryGroupByID(ctx, item.IndustryGroupID)
+			_, err := store.IndustryGroups().GetByID(ctx, item.IndustryGroupID)
 			return validateParentExists(err, gorm.ErrRecordNotFound, "industry_group_id", item.IndustryGroupID)
 		},
 		WithParentLookups(func(ctx context.Context, parentID uint, fromDate, toDate *time.Time) ([]models.IndustryClass, error) {
@@ -103,19 +76,13 @@ func NewIndustryClassService(store *repositories.Store) *CRUDService[models.Indu
 }
 
 func NewIndustrySubclassService(store *repositories.Store) *CRUDService[models.IndustrySubclass] {
-	return NewCRUDService(
-		store.CreateIndustrySubclass,
-		func(ctx context.Context, limit, offset int, _, _ *time.Time) ([]models.IndustrySubclass, error) {
-			return store.GetAllIndustrySubclasses(ctx, limit, offset)
-		},
-		store.GetIndustrySubclassByID,
-		store.UpdateIndustrySubclass,
-		store.DeleteIndustrySubclass,
+	return NewCRUDServiceFromRepository(
+		store.IndustrySubclasses(),
 		func(ctx context.Context, item *models.IndustrySubclass) error {
 			if err := validateNameAndCode(item.Name, item.Code); err != nil {
 				return err
 			}
-			_, err := store.GetIndustryClassByID(ctx, item.IndustryClassID)
+			_, err := store.IndustryClasses().GetByID(ctx, item.IndustryClassID)
 			return validateParentExists(err, gorm.ErrRecordNotFound, "industry_class_id", item.IndustryClassID)
 		},
 		WithParentLookups(func(ctx context.Context, parentID uint, fromDate, toDate *time.Time) ([]models.IndustrySubclass, error) {

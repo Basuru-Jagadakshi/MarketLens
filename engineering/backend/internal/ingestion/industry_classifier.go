@@ -42,7 +42,7 @@ func (c *IndustryClassifier) Classify(ctx context.Context, jobText string) (uint
 		{
 			Name: "Industry Sector",
 			Fetch: func(uint) ([]Option, error) {
-				items, err := c.industrySectors.GetAll(ctx)
+				items, err := c.industrySectors.GetAll(ctx, 0, 0, nil, nil)
 				if err != nil {
 					return nil, err
 				}
@@ -52,7 +52,7 @@ func (c *IndustryClassifier) Classify(ctx context.Context, jobText string) (uint
 		{
 			Name: "Industry Division",
 			Fetch: func(sectorID uint) ([]Option, error) {
-				items, err := c.industryDivisions.GetByParent(ctx, sectorID)
+				items, err := c.industryDivisions.GetByParent(ctx, sectorID, nil, nil)
 				if err != nil {
 					return nil, err
 				}
@@ -62,7 +62,7 @@ func (c *IndustryClassifier) Classify(ctx context.Context, jobText string) (uint
 		{
 			Name: "Industry Group",
 			Fetch: func(divisionID uint) ([]Option, error) {
-				items, err := c.industryGroups.GetByParent(ctx, divisionID)
+				items, err := c.industryGroups.GetByParent(ctx, divisionID, nil, nil)
 				if err != nil {
 					return nil, err
 				}
@@ -72,7 +72,7 @@ func (c *IndustryClassifier) Classify(ctx context.Context, jobText string) (uint
 		{
 			Name: "Industry Class",
 			Fetch: func(groupID uint) ([]Option, error) {
-				items, err := c.industryClasses.GetByParent(ctx, groupID)
+				items, err := c.industryClasses.GetByParent(ctx, groupID, nil, nil)
 				if err != nil {
 					return nil, err
 				}
@@ -82,7 +82,7 @@ func (c *IndustryClassifier) Classify(ctx context.Context, jobText string) (uint
 		{
 			Name: "Industry Subclass",
 			Fetch: func(classID uint) ([]Option, error) {
-				items, err := c.industrySubclasses.GetByParent(ctx, classID)
+				items, err := c.industrySubclasses.GetByParent(ctx, classID, nil, nil)
 				if err != nil {
 					return nil, err
 				}

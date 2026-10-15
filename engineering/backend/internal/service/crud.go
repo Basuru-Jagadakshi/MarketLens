@@ -7,10 +7,7 @@ import (
 	"time"
 )
 
-// ErrValidation marks a request as rejected by a business rule (a required
-// field was empty, a referenced parent id doesn't exist, ...) rather than
-// failing because of the database. Handlers map it to 400 Bad Request
-// instead of 500.
+
 var ErrValidation = errors.New("validation failed")
 
 // ValidationErrorf builds an error that errors.Is(err, ErrValidation) finds.
@@ -18,12 +15,7 @@ func ValidationErrorf(format string, args ...any) error {
 	return fmt.Errorf("%w: %s", ErrValidation, fmt.Sprintf(format, args...))
 }
 
-// CRUDService fronts a Store's generated methods for one flat-lookup or
-// hierarchy entity. Every field is a Store method value; the optional ones
-// (getByParent) are nil unless the entity actually has that shape (see each
-// entity's constructor in *_service.go) and their accessor returns a clear
-// error if called on an entity that doesn't support them, instead of
-// panicking.
+// CRUDService fronts a Store's generated methods 
 type CRUDService[T any] struct {
 	create func(ctx context.Context, item *T) error
 	getAll  func(ctx context.Context, limit, offset int, fromDate, toDate *time.Time) ([]T, error)
@@ -57,6 +49,23 @@ func NewCRUDService[T any](
 		opt(s)
 	}
 	return s
+}
+
+// Repository is the minimal shape *repositories.CRUDRepository[T]
+// satisfies — defined here (the consumer), not in internal/repositories,
+// so that package never needs to import this one.
+type Repository[T any] interface {
+	Create(ctx context.Context, item *T) error
+	GetAll(ctx context.Context, limit, offset int, fromDate, toDate *time.Time) ([]T, error)
+	GetByID(ctx context.Context, id uint) (T, error)
+	Update(ctx context.Context, id uint, updates map[string]interface{}) (T, error)
+	Delete(ctx context.Context, id uint) error
+}
+
+// NewCRUDServiceFromRepository is NewCRUDService, but taking one
+// Repository[T] instead of five separate positional function arguments.
+func NewCRUDServiceFromRepository[T any](repo Repository[T], validate func(context.Context, *T) error, opts ...CRUDOption[T]) *CRUDService[T] {
+	return NewCRUDService(repo.Create, repo.GetAll, repo.GetByID, repo.Update, repo.Delete, validate, opts...)
 }
 
 func (s *CRUDService[T]) Create(ctx context.Context, item *T) error {
@@ -126,12 +135,7 @@ func requireNonEmptyField[T any](fieldName string, get func(*T) string) func(con
 	}
 }
 
-// validateParentExists turns a parent lookup's "not found" into a
-// validation error naming the offending field; any other error (a real DB
-// problem) passes through unchanged so it surfaces as a 500, not a
-// misleading "doesn't exist". It takes the already-performed lookup's
-// error rather than doing the lookup itself, since each entity's parent
-// type differs.
+
 func validateParentExists(lookupErr error, notFound error, field string, id uint) error {
 	if errors.Is(lookupErr, notFound) {
 		return ValidationErrorf("%s %d does not exist", field, id)
@@ -139,8 +143,7 @@ func validateParentExists(lookupErr error, notFound error, field string, id uint
 	return lookupErr
 }
 
-// validateNameAndCode is the shared rule for every occupation/industry
-// classification level: both fields are required.
+
 func validateNameAndCode(name, code string) error {
 	if name == "" {
 		return ValidationErrorf("name is required")

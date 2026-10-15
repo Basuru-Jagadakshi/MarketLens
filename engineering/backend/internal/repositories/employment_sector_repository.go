@@ -1,27 +1,10 @@
 package repositories
 
 import (
-	"context"
 	"marketlens-go-backend/internal/models"
 )
 
-// Employment Sector CRUD
-func (r *Store) CreateEmploymentSector(ctx context.Context, item *models.EmploymentSector) error {
-	return newCRUDRepository[models.EmploymentSector](r.db).create(ctx, item)
-}
-
-func (r *Store) GetAllEmploymentSectors(ctx context.Context) ([]models.EmploymentSector, error) {
-	return newCRUDRepository[models.EmploymentSector](r.db).getAll(ctx, 0, 0, nil, nil)
-}
-
-func (r *Store) GetEmploymentSectorByID(ctx context.Context, id uint) (models.EmploymentSector, error) {
-	return newCRUDRepository[models.EmploymentSector](r.db).getByID(ctx, id)
-}
-
-func (r *Store) UpdateEmploymentSector(ctx context.Context, id uint, updates map[string]interface{}) (models.EmploymentSector, error) {
-	return newCRUDRepository[models.EmploymentSector](r.db).update(ctx, id, updates)
-}
-
-func (r *Store) DeleteEmploymentSector(ctx context.Context, id uint) error {
-	return newCRUDRepository[models.EmploymentSector](r.db).delete(ctx, id)
+// EmploymentSectors returns the generic CRUD repository for EmploymentSector.
+func (r *Store) EmploymentSectors() *CRUDRepository[models.EmploymentSector] {
+	return NewCRUDRepository[models.EmploymentSector](r.db)
 }

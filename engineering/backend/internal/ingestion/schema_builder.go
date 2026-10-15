@@ -265,27 +265,27 @@ func (b *MetadataBuilder) getOptions(ctx context.Context) (*optionSet, error) {
 }
 
 func (b *MetadataBuilder) refresh(ctx context.Context) (*optionSet, error) {
-	formalities, err := b.formalities.GetAll(ctx)
+	formalities, err := b.formalities.GetAll(ctx, 0, 0, nil, nil)
 	if err != nil {
 		return nil, fmt.Errorf("%w: fetching formalities: %v", ErrTransientExtractionFailure, err)
 	}
-	genders, err := b.genders.GetAll(ctx)
+	genders, err := b.genders.GetAll(ctx, 0, 0, nil, nil)
 	if err != nil {
 		return nil, fmt.Errorf("%w: fetching genders: %v", ErrTransientExtractionFailure, err)
 	}
-	vocationalEducations, err := b.vocationalEducations.GetAll(ctx)
+	vocationalEducations, err := b.vocationalEducations.GetAll(ctx, 0, 0, nil, nil)
 	if err != nil {
 		return nil, fmt.Errorf("%w: fetching vocational educations: %v", ErrTransientExtractionFailure, err)
 	}
-	employmentSectors, err := b.employmentSectors.GetAll(ctx)
+	employmentSectors, err := b.employmentSectors.GetAll(ctx, 0, 0, nil, nil)
 	if err != nil {
 		return nil, fmt.Errorf("%w: fetching employment sectors: %v", ErrTransientExtractionFailure, err)
 	}
-	educationLevels, err := b.educationLevels.GetAll(ctx)
+	educationLevels, err := b.educationLevels.GetAll(ctx, 0, 0, nil, nil)
 	if err != nil {
 		return nil, fmt.Errorf("%w: fetching education levels: %v", ErrTransientExtractionFailure, err)
 	}
-	experiences, err := b.experiences.GetAll(ctx)
+	experiences, err := b.experiences.GetAll(ctx, 0, 0, nil, nil)
 	if err != nil {
 		return nil, fmt.Errorf("%w: fetching experiences: %v", ErrTransientExtractionFailure, err)
 	}
