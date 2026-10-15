@@ -2,26 +2,17 @@ package service
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 )
 
-
-var ErrValidation = errors.New("validation failed")
-
-// ValidationErrorf builds an error that errors.Is(err, ErrValidation) finds.
-func ValidationErrorf(format string, args ...any) error {
-	return fmt.Errorf("%w: %s", ErrValidation, fmt.Sprintf(format, args...))
-}
-
-// CRUDService fronts a Store's generated methods 
+// CRUDService fronts 
 type CRUDService[T any] struct {
-	create func(ctx context.Context, item *T) error
-	getAll  func(ctx context.Context, limit, offset int, fromDate, toDate *time.Time) ([]T, error)
-	getByID func(ctx context.Context, id uint) (T, error)
-	update  func(ctx context.Context, id uint, updates map[string]interface{}) (T, error)
-	delete  func(ctx context.Context, id uint) error
+	create      func(ctx context.Context, item *T) error
+	getAll      func(ctx context.Context, limit, offset int, fromDate, toDate *time.Time) ([]T, error)
+	getByID     func(ctx context.Context, id uint) (T, error)
+	update      func(ctx context.Context, id uint, updates map[string]interface{}) (T, error)
+	delete      func(ctx context.Context, id uint) error
 	getByParent func(ctx context.Context, parentID uint, fromDate, toDate *time.Time) ([]T, error)
 
 	validate func(ctx context.Context, item *T) error
@@ -77,7 +68,7 @@ func (s *CRUDService[T]) Create(ctx context.Context, item *T) error {
 	return s.create(ctx, item)
 }
 
-
+// GetAll lists rows 
 func (s *CRUDService[T]) GetAll(ctx context.Context, limit, offset int, fromDate, toDate *time.Time) ([]T, error) {
 	if fromDate != nil && toDate != nil {
 		if err := validateDateRange(*fromDate, *toDate); err != nil {
@@ -112,44 +103,4 @@ func (s *CRUDService[T]) GetByParent(ctx context.Context, parentID uint, fromDat
 		}
 	}
 	return s.getByParent(ctx, parentID, fromDate, toDate)
-}
-
-// validateDateRange is the one shared "to must not be before from" rule
-// used by every date-range query across the service package.
-func validateDateRange(fromDate, toDate time.Time) error {
-	if toDate.Before(fromDate) {
-		return ValidationErrorf("to-date must not be before from-date")
-	}
-	return nil
-}
-
-// requireNonEmptyField builds a Create validator for the common flat-lookup
-// shape: one required display string. get reads that field off the item
-// (e.g. func(e *models.EmploymentSector) string { return e.Sector }).
-func requireNonEmptyField[T any](fieldName string, get func(*T) string) func(context.Context, *T) error {
-	return func(_ context.Context, item *T) error {
-		if get(item) == "" {
-			return ValidationErrorf("%s is required", fieldName)
-		}
-		return nil
-	}
-}
-
-
-func validateParentExists(lookupErr error, notFound error, field string, id uint) error {
-	if errors.Is(lookupErr, notFound) {
-		return ValidationErrorf("%s %d does not exist", field, id)
-	}
-	return lookupErr
-}
-
-
-func validateNameAndCode(name, code string) error {
-	if name == "" {
-		return ValidationErrorf("name is required")
-	}
-	if code == "" {
-		return ValidationErrorf("code is required")
-	}
-	return nil
 }
