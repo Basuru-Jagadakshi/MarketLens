@@ -30,7 +30,7 @@ func (h *Handler) GetTopHiringEmployersByOccupationLevelHandler(c *gin.Context) 
 		return
 	}
 
-	results, err := h.analytics.GetTopHiringEmployersByOccupationLevel(c.Request.Context(), level, id, dr.From, dr.To)
+	results, err := h.Analytics.GetTopHiringEmployersByOccupationLevel(c.Request.Context(), level, id, dr.From, dr.To)
 	if err != nil {
 		respondRepoError(c, "Failed to retrieve top hiring employers", err)
 		return
@@ -81,7 +81,7 @@ func (h *Handler) GetAllSkillsByOccupationLevelHandler(c *gin.Context) {
 		}
 	}
 
-	results, total, err := h.analytics.GetAllSkillsByOccupationLevel(c.Request.Context(), level, id, dr.From, dr.To, limit, offset)
+	results, total, err := h.Analytics.GetAllSkillsByOccupationLevel(c.Request.Context(), level, id, dr.From, dr.To, limit, offset)
 	if err != nil {
 		respondRepoError(c, "Failed to retrieve skills", err)
 		return
@@ -112,7 +112,7 @@ func (h *Handler) GetTop15SkillsByOccupationLevelHandler(c *gin.Context) {
 		return
 	}
 
-	results, err := h.analytics.GetTop15SkillsByOccupationLevel(c.Request.Context(), level, id, dr.From, dr.To)
+	results, err := h.Analytics.GetTop15SkillsByOccupationLevel(c.Request.Context(), level, id, dr.From, dr.To)
 	if err != nil {
 		respondRepoError(c, "Failed to retrieve top 15 skills", err)
 		return
@@ -145,7 +145,7 @@ func (h *Handler) GetJobTypeByLevelHandler(c *gin.Context) {
 		return
 	}
 
-	results, err := h.analytics.GetJobTypeByLevel(c.Request.Context(), standard, level, id, dr.From, dr.To)
+	results, err := h.Analytics.GetJobTypeByLevel(c.Request.Context(), standard, level, id, dr.From, dr.To)
 	if err != nil {
 		respondRepoError(c, "Failed to retrieve job type breakdown", err)
 		return
@@ -177,7 +177,7 @@ func (h *Handler) GetRemoteOnSiteHybridByLevelHandler(c *gin.Context) {
 		return
 	}
 
-	result, err := h.analytics.GetRemoteOnSiteHybridByLevel(c.Request.Context(), standard, level, id, dr.From, dr.To)
+	result, err := h.Analytics.GetRemoteOnSiteHybridByLevel(c.Request.Context(), standard, level, id, dr.From, dr.To)
 	if err != nil {
 		respondRepoError(c, "Failed to retrieve remote/on-site breakdown", err)
 		return
@@ -210,7 +210,7 @@ func (h *Handler) GetVocationalEducationByLevelHandler(c *gin.Context) {
 		return
 	}
 
-	results, err := h.analytics.GetVocationalEducationByLevel(c.Request.Context(), standard, level, id, dr.From, dr.To)
+	results, err := h.Analytics.GetVocationalEducationByLevel(c.Request.Context(), standard, level, id, dr.From, dr.To)
 	if err != nil {
 		respondRepoError(c, "Failed to retrieve vocational education breakdown", err)
 		return
@@ -243,7 +243,7 @@ func (h *Handler) GetGenderByLevelHandler(c *gin.Context) {
 		return
 	}
 
-	results, err := h.analytics.GetGenderByLevel(c.Request.Context(), standard, level, id, dr.From, dr.To)
+	results, err := h.Analytics.GetGenderByLevel(c.Request.Context(), standard, level, id, dr.From, dr.To)
 	if err != nil {
 		respondRepoError(c, "Failed to retrieve gender breakdown", err)
 		return
@@ -276,7 +276,7 @@ func (h *Handler) GetFormalityByLevelHandler(c *gin.Context) {
 		return
 	}
 
-	results, err := h.analytics.GetFormalityByLevel(c.Request.Context(), standard, level, id, dr.From, dr.To)
+	results, err := h.Analytics.GetFormalityByLevel(c.Request.Context(), standard, level, id, dr.From, dr.To)
 	if err != nil {
 		respondRepoError(c, "Failed to retrieve formality breakdown", err)
 		return
@@ -309,7 +309,7 @@ func (h *Handler) GetEducationLevelByLevelHandler(c *gin.Context) {
 		return
 	}
 
-	results, err := h.analytics.GetEducationLevelByLevel(c.Request.Context(), standard, level, id, dr.From, dr.To)
+	results, err := h.Analytics.GetEducationLevelByLevel(c.Request.Context(), standard, level, id, dr.From, dr.To)
 	if err != nil {
 		respondRepoError(c, "Failed to retrieve education level breakdown", err)
 		return
@@ -342,7 +342,7 @@ func (h *Handler) GetProvinceByLevelHandler(c *gin.Context) {
 		return
 	}
 
-	results, err := h.analytics.GetProvinceByLevel(c.Request.Context(), standard, level, id, dr.From, dr.To)
+	results, err := h.Analytics.GetProvinceByLevel(c.Request.Context(), standard, level, id, dr.From, dr.To)
 	if err != nil {
 		respondRepoError(c, "Failed to retrieve province breakdown", err)
 		return
@@ -375,7 +375,7 @@ func (h *Handler) GetExperienceByLevelHandler(c *gin.Context) {
 		return
 	}
 
-	results, err := h.analytics.GetExperienceByLevel(c.Request.Context(), standard, level, id, dr.From, dr.To)
+	results, err := h.Analytics.GetExperienceByLevel(c.Request.Context(), standard, level, id, dr.From, dr.To)
 	if err != nil {
 		respondRepoError(c, "Failed to retrieve experience breakdown", err)
 		return
@@ -408,7 +408,7 @@ func (h *Handler) GetEmploymentSectorByLevelHandler(c *gin.Context) {
 		return
 	}
 
-	results, err := h.analytics.GetEmploymentSectorByLevel(c.Request.Context(), standard, level, id, dr.From, dr.To)
+	results, err := h.Analytics.GetEmploymentSectorByLevel(c.Request.Context(), standard, level, id, dr.From, dr.To)
 	if err != nil {
 		respondRepoError(c, "Failed to retrieve employment sector breakdown", err)
 		return
@@ -442,7 +442,7 @@ func (h *Handler) GetLevelChildrenHandler(c *gin.Context) {
 		return
 	}
 
-	results, childLevel, err := h.analytics.GetLevelChildren(c.Request.Context(), standard, level, id, dr.From, dr.To)
+	results, childLevel, err := h.Analytics.GetLevelChildren(c.Request.Context(), standard, level, id, dr.From, dr.To)
 	if err != nil {
 		respondRepoError(c, "Failed to retrieve child level data", err)
 		return
@@ -474,7 +474,7 @@ func (h *Handler) GetTotalJobCountByLevelHandler(c *gin.Context) {
 		return
 	}
 
-	total, err := h.analytics.GetTotalJobCountByLevel(c.Request.Context(), standard, level, id, dr.From, dr.To)
+	total, err := h.Analytics.GetTotalJobCountByLevel(c.Request.Context(), standard, level, id, dr.From, dr.To)
 	if err != nil {
 		respondRepoError(c, "Failed to retrieve total job count", err)
 		return
@@ -497,7 +497,7 @@ func (h *Handler) GetIndustryJobCountByDateRangeHandler(c *gin.Context) {
 		return
 	}
 
-	results, err := h.analytics.GetIndustryJobCountByDateRange(c.Request.Context(), dr.From, dr.To)
+	results, err := h.Analytics.GetIndustryJobCountByDateRange(c.Request.Context(), dr.From, dr.To)
 	if err != nil {
 		respondRepoError(c, "Failed to retrieve industry job counts", err)
 		return
@@ -520,7 +520,7 @@ func (h *Handler) GetOccupationJobCountByDateRangeHandler(c *gin.Context) {
 		return
 	}
 
-	results, err := h.analytics.GetOccupationJobCountByDateRange(c.Request.Context(), dr.From, dr.To)
+	results, err := h.Analytics.GetOccupationJobCountByDateRange(c.Request.Context(), dr.From, dr.To)
 	if err != nil {
 		respondRepoError(c, "Failed to retrieve occupation job counts", err)
 		return
@@ -536,7 +536,7 @@ func (h *Handler) GetTotalVacancyCountHandler(c *gin.Context) {
 		return
 	}
 
-	total, err := h.analytics.GetTotalVacancyCount(c.Request.Context(), dr.From, dr.To)
+	total, err := h.Analytics.GetTotalVacancyCount(c.Request.Context(), dr.From, dr.To)
 	if err != nil {
 		respondRepoError(c, "Failed to retrieve total vacancy count", err)
 		return
@@ -575,10 +575,10 @@ func (h *Handler) GetVacancyTrendHandler(c *gin.Context) {
 
 	if diffDays < 60 {
 		granularity = "weekly"
-		results, repoErr = h.analytics.GetVacancyTrendDaily(c.Request.Context(), dr.From, dr.To)
+		results, repoErr = h.Analytics.GetVacancyTrendDaily(c.Request.Context(), dr.From, dr.To)
 	} else {
 		granularity = "monthly"
-		results, repoErr = h.analytics.GetVacancyTrendMonthly(c.Request.Context(), dr.From, dr.To)
+		results, repoErr = h.Analytics.GetVacancyTrendMonthly(c.Request.Context(), dr.From, dr.To)
 	}
 
 	if repoErr != nil {

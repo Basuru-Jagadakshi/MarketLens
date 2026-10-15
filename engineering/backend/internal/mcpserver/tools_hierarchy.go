@@ -5,28 +5,30 @@ import (
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+
+	"marketlens-go-backend/internal/service"
 )
 
-func registerHierarchyTools(server *mcp.Server, svcs *services) {
+func registerHierarchyTools(server *mcp.Server, svcs *service.Services) {
 	registerNoArgTool(server, "get_major_groups", "List all occupation major groups (top level of the SLSO occupation hierarchy).",
-		plainGetAll(svcs.majorGroups.GetAll))
+		plainGetAll(svcs.MajorGroups.GetAll))
 	registerIDTool(server, "get_major_group", "Get a single occupation major group by id.",
-		svcs.majorGroups.GetByID)
+		svcs.MajorGroups.GetByID)
 
 	registerNoArgTool(server, "get_sub_major_groups", "List all occupation sub major groups.",
-		plainGetAll(svcs.subMajorGroups.GetAll))
+		plainGetAll(svcs.SubMajorGroups.GetAll))
 	registerIDTool(server, "get_sub_major_group", "Get a single occupation sub major group by id.",
-		svcs.subMajorGroups.GetByID)
+		svcs.SubMajorGroups.GetByID)
 
 	registerNoArgTool(server, "get_minor_groups", "List all occupation minor groups.",
-		plainGetAll(svcs.minorGroups.GetAll))
+		plainGetAll(svcs.MinorGroups.GetAll))
 	registerIDTool(server, "get_minor_group", "Get a single occupation minor group by id.",
-		svcs.minorGroups.GetByID)
+		svcs.MinorGroups.GetByID)
 
 	registerNoArgTool(server, "get_unit_groups", "List all occupation unit groups.",
-		plainGetAll(svcs.unitGroups.GetAll))
+		plainGetAll(svcs.UnitGroups.GetAll))
 	registerIDTool(server, "get_unit_group", "Get a single occupation unit group by id.",
-		svcs.unitGroups.GetByID)
+		svcs.UnitGroups.GetByID)
 
 	// Paginated
 	mcp.AddTool(server, &mcp.Tool{
@@ -40,34 +42,34 @@ func registerHierarchyTools(server *mcp.Server, svcs *services) {
 		if limit <= 0 {
 			limit = 20
 		}
-		items, err := svcs.occupationGroups.GetAll(ctx, limit, in.Offset, nil, nil)
+		items, err := svcs.OccupationGroups.GetAll(ctx, limit, in.Offset, nil, nil)
 		if err != nil {
 			return nil, nil, err
 		}
 		return nil, map[string]any{"items": items, "limit": limit, "offset": in.Offset}, nil
 	})
 	registerIDTool(server, "get_occupation_group", "Get a single occupation group by id.",
-		svcs.occupationGroups.GetByID)
+		svcs.OccupationGroups.GetByID)
 
 	registerNoArgTool(server, "get_industry_sectors", "List all industry sectors (top level of the SLSIC industry hierarchy).",
-		plainGetAll(svcs.industrySectors.GetAll))
+		plainGetAll(svcs.IndustrySectors.GetAll))
 	registerIDTool(server, "get_industry_sector", "Get a single industry sector by id.",
-		svcs.industrySectors.GetByID)
+		svcs.IndustrySectors.GetByID)
 
 	registerNoArgTool(server, "get_industry_divisions", "List all industry divisions.",
-		plainGetAll(svcs.industryDivisions.GetAll))
+		plainGetAll(svcs.IndustryDivisions.GetAll))
 	registerIDTool(server, "get_industry_division", "Get a single industry division by id.",
-		svcs.industryDivisions.GetByID)
+		svcs.IndustryDivisions.GetByID)
 
 	registerNoArgTool(server, "get_industry_groups", "List all industry groups.",
-		plainGetAll(svcs.industryGroups.GetAll))
+		plainGetAll(svcs.IndustryGroups.GetAll))
 	registerIDTool(server, "get_industry_group", "Get a single industry group by id.",
-		svcs.industryGroups.GetByID)
+		svcs.IndustryGroups.GetByID)
 
 	registerNoArgTool(server, "get_industry_classes", "List all industry classes.",
-		plainGetAll(svcs.industryClasses.GetAll))
+		plainGetAll(svcs.IndustryClasses.GetAll))
 	registerIDTool(server, "get_industry_class", "Get a single industry class by id.",
-		svcs.industryClasses.GetByID)
+		svcs.IndustryClasses.GetByID)
 
 	// Paginated
 	mcp.AddTool(server, &mcp.Tool{
@@ -81,46 +83,46 @@ func registerHierarchyTools(server *mcp.Server, svcs *services) {
 		if limit <= 0 {
 			limit = 20
 		}
-		items, err := svcs.industrySubclasses.GetAll(ctx, limit, in.Offset, nil, nil)
+		items, err := svcs.IndustrySubclasses.GetAll(ctx, limit, in.Offset, nil, nil)
 		if err != nil {
 			return nil, nil, err
 		}
 		return nil, map[string]any{"items": items, "limit": limit, "offset": in.Offset}, nil
 	})
 	registerIDTool(server, "get_industry_subclass", "Get a single industry subclass by id.",
-		svcs.industrySubclasses.GetByID)
+		svcs.IndustrySubclasses.GetByID)
 
 	registerChildrenTool(server, svcs)
 	registerLevelBreakdownTool(server, "get_total_job_count_by_level",
 		"Get the total vacancy count for a given occupation/industry hierarchy level and id, within a date range.",
-		svcs.analytics.GetTotalJobCountByLevel)
+		svcs.Analytics.GetTotalJobCountByLevel)
 	registerLevelBreakdownTool(server, "get_employment_sector_by_level",
 		"Get employment sector breakdown for a given occupation/industry hierarchy level and id, within a date range.",
-		svcs.analytics.GetEmploymentSectorByLevel)
+		svcs.Analytics.GetEmploymentSectorByLevel)
 	registerLevelBreakdownTool(server, "get_experience_by_level",
 		"Get experience-level breakdown for a given occupation/industry hierarchy level and id, within a date range.",
-		svcs.analytics.GetExperienceByLevel)
+		svcs.Analytics.GetExperienceByLevel)
 	registerLevelBreakdownTool(server, "get_province_by_level",
 		"Get province breakdown for a given occupation/industry hierarchy level and id, within a date range.",
-		svcs.analytics.GetProvinceByLevel)
+		svcs.Analytics.GetProvinceByLevel)
 	registerLevelBreakdownTool(server, "get_education_by_level",
 		"Get education level breakdown for a given occupation/industry hierarchy level and id, within a date range.",
-		svcs.analytics.GetEducationLevelByLevel)
+		svcs.Analytics.GetEducationLevelByLevel)
 	registerLevelBreakdownTool(server, "get_formality_by_level",
 		"Get formal/informal breakdown for a given occupation/industry hierarchy level and id, within a date range.",
-		svcs.analytics.GetFormalityByLevel)
+		svcs.Analytics.GetFormalityByLevel)
 	registerLevelBreakdownTool(server, "get_gender_by_level",
 		"Get gender breakdown for a given occupation/industry hierarchy level and id, within a date range.",
-		svcs.analytics.GetGenderByLevel)
+		svcs.Analytics.GetGenderByLevel)
 	registerLevelBreakdownTool(server, "get_vocational_education_by_level",
 		"Get vocational education (NVQ) breakdown for a given occupation/industry hierarchy level and id, within a date range.",
-		svcs.analytics.GetVocationalEducationByLevel)
+		svcs.Analytics.GetVocationalEducationByLevel)
 	registerLevelBreakdownTool(server, "get_remote_onsite_by_level",
 		"Get remote vs on-site job counts for a given occupation/industry hierarchy level and id, within a date range.",
-		svcs.analytics.GetRemoteOnSiteHybridByLevel)
+		svcs.Analytics.GetRemoteOnSiteHybridByLevel)
 	registerLevelBreakdownTool(server, "get_job_type_by_level",
 		"Get job type breakdown for a given occupation/industry hierarchy level and id, within a date range.",
-		svcs.analytics.GetJobTypeByLevel)
+		svcs.Analytics.GetJobTypeByLevel)
 }
 
 // levelInput mirrors the /:standard/:level/:id/... path params, plus the
@@ -170,7 +172,7 @@ func registerLevelBreakdownTool[T any](
 
 // registerChildrenTool registers the "get the next level down" tool
 // (mirrors GET /:standard/:level/:id/children).
-func registerChildrenTool(server *mcp.Server, svcs *services) {
+func registerChildrenTool(server *mcp.Server, svcs *service.Services) {
 	mcp.AddTool(server, &mcp.Tool{
 		Name: "get_hierarchy_children",
 		Description: "Get the immediate child-level entities under a given occupation/industry hierarchy " +
@@ -181,7 +183,7 @@ func registerChildrenTool(server *mcp.Server, svcs *services) {
 		if err != nil {
 			return nil, nil, err
 		}
-		items, childLevel, err := svcs.analytics.GetLevelChildren(ctx, in.Standard, in.Level, id, from, to)
+		items, childLevel, err := svcs.Analytics.GetLevelChildren(ctx, in.Standard, in.Level, id, from, to)
 		if err != nil {
 			return nil, nil, err
 		}

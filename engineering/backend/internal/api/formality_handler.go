@@ -28,7 +28,7 @@ func (h *Handler) CreateFormalityHandler(c *gin.Context) {
 		return
 	}
 	item := models.Formality{FormalityType: in.FormalityType}
-	if err := h.formalities.Create(c.Request.Context(), &item); err != nil {
+	if err := h.Formalities.Create(c.Request.Context(), &item); err != nil {
 		respondRepoError(c, "Failed to create formality", err)
 		return
 	}
@@ -36,7 +36,7 @@ func (h *Handler) CreateFormalityHandler(c *gin.Context) {
 }
 
 func (h *Handler) GetAllFormalitiesHandler(c *gin.Context) {
-	items, err := h.formalities.GetAll(c.Request.Context(), 0, 0, nil, nil)
+	items, err := h.Formalities.GetAll(c.Request.Context(), 0, 0, nil, nil)
 	if err != nil {
 		respondError(c, http.StatusInternalServerError, "Failed to fetch formalities", err)
 		return
@@ -49,7 +49,7 @@ func (h *Handler) GetFormalityByIDHandler(c *gin.Context) {
 	if !ok {
 		return
 	}
-	item, err := h.formalities.GetByID(c.Request.Context(), id)
+	item, err := h.Formalities.GetByID(c.Request.Context(), id)
 	if err != nil {
 		respondRepoError(c, "Failed to fetch formality", err)
 		return
@@ -67,7 +67,7 @@ func (h *Handler) UpdateFormalityHandler(c *gin.Context) {
 		respondError(c, http.StatusBadRequest, "Invalid request payload", err)
 		return
 	}
-	item, err := h.formalities.Update(c.Request.Context(), id, map[string]interface{}{"formality_type": in.FormalityType})
+	item, err := h.Formalities.Update(c.Request.Context(), id, map[string]interface{}{"formality_type": in.FormalityType})
 	if err != nil {
 		respondRepoError(c, "Failed to update formality", err)
 		return
@@ -80,7 +80,7 @@ func (h *Handler) DeleteFormalityHandler(c *gin.Context) {
 	if !ok {
 		return
 	}
-	if err := h.formalities.Delete(c.Request.Context(), id); err != nil {
+	if err := h.Formalities.Delete(c.Request.Context(), id); err != nil {
 		respondRepoError(c, "Failed to delete formality", err)
 		return
 	}

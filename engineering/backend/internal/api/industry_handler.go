@@ -45,7 +45,7 @@ func (h *Handler) GetIndustryDivisionsByIndustrySectorHandler(c *gin.Context) {
 		return
 	}
 
-	items, err := h.industryDivisions.GetByParent(c.Request.Context(), id, fromDate, toDate)
+	items, err := h.IndustryDivisions.GetByParent(c.Request.Context(), id, fromDate, toDate)
 	if err != nil {
 		respondRepoError(c, "Failed to retrieve industry divisions", err)
 		return
@@ -66,7 +66,7 @@ func (h *Handler) GetIndustryGroupsByIndustryDivisionHandler(c *gin.Context) {
 		return
 	}
 
-	items, err := h.industryGroups.GetByParent(c.Request.Context(), id, fromDate, toDate)
+	items, err := h.IndustryGroups.GetByParent(c.Request.Context(), id, fromDate, toDate)
 	if err != nil {
 		respondRepoError(c, "Failed to retrieve industry groups", err)
 		return
@@ -87,7 +87,7 @@ func (h *Handler) GetIndustryClassesByIndustryGroupHandler(c *gin.Context) {
 		return
 	}
 
-	items, err := h.industryClasses.GetByParent(c.Request.Context(), id, fromDate, toDate)
+	items, err := h.IndustryClasses.GetByParent(c.Request.Context(), id, fromDate, toDate)
 	if err != nil {
 		respondRepoError(c, "Failed to retrieve industry classes", err)
 		return
@@ -108,7 +108,7 @@ func (h *Handler) GetIndustrySubclassesByIndustryClassHandler(c *gin.Context) {
 		return
 	}
 
-	items, err := h.industrySubclasses.GetByParent(c.Request.Context(), id, fromDate, toDate)
+	items, err := h.IndustrySubclasses.GetByParent(c.Request.Context(), id, fromDate, toDate)
 	if err != nil {
 		respondRepoError(c, "Failed to retrieve industry subclasses", err)
 		return
@@ -141,7 +141,7 @@ func (h *Handler) CreateIndustrySectorHandler(c *gin.Context) {
 		return
 	}
 	item := models.IndustrySector{Name: in.Name, Code: in.Code}
-	if err := h.industrySectors.Create(c.Request.Context(), &item); err != nil {
+	if err := h.IndustrySectors.Create(c.Request.Context(), &item); err != nil {
 		respondRepoError(c, "Failed to create industry sector", err)
 		return
 	}
@@ -154,7 +154,7 @@ func (h *Handler) GetAllIndustrySectorsHandler(c *gin.Context) {
 		return
 	}
 
-	items, err := h.industrySectors.GetAll(c.Request.Context(), 0, 0, fromDate, toDate)
+	items, err := h.IndustrySectors.GetAll(c.Request.Context(), 0, 0, fromDate, toDate)
 	if err != nil {
 		respondRepoError(c, "Failed to retrieve industry sectors", err)
 		return
@@ -168,7 +168,7 @@ func (h *Handler) GetIndustrySectorByIDHandler(c *gin.Context) {
 	if !ok {
 		return
 	}
-	item, err := h.industrySectors.GetByID(c.Request.Context(), id)
+	item, err := h.IndustrySectors.GetByID(c.Request.Context(), id)
 	if err != nil {
 		respondRepoError(c, "Failed to fetch industry sector", err)
 		return
@@ -193,7 +193,7 @@ func (h *Handler) UpdateIndustrySectorHandler(c *gin.Context) {
 	if in.Code != nil {
 		updates["code"] = *in.Code
 	}
-	item, err := h.industrySectors.Update(c.Request.Context(), id, updates)
+	item, err := h.IndustrySectors.Update(c.Request.Context(), id, updates)
 	if err != nil {
 		respondRepoError(c, "Failed to update industry sector", err)
 		return
@@ -206,7 +206,7 @@ func (h *Handler) DeleteIndustrySectorHandler(c *gin.Context) {
 	if !ok {
 		return
 	}
-	if err := h.industrySectors.Delete(c.Request.Context(), id); err != nil {
+	if err := h.IndustrySectors.Delete(c.Request.Context(), id); err != nil {
 		respondRepoError(c, "Failed to delete industry sector", err)
 		return
 	}
@@ -238,7 +238,7 @@ func (h *Handler) CreateIndustryDivisionHandler(c *gin.Context) {
 		return
 	}
 	item := models.IndustryDivision{IndustrySectorID: in.IndustrySectorID, Name: in.Name, Code: in.Code}
-	if err := h.industryDivisions.Create(c.Request.Context(), &item); err != nil {
+	if err := h.IndustryDivisions.Create(c.Request.Context(), &item); err != nil {
 		respondRepoError(c, "Failed to create industry division", err)
 		return
 	}
@@ -246,7 +246,7 @@ func (h *Handler) CreateIndustryDivisionHandler(c *gin.Context) {
 }
 
 func (h *Handler) GetAllIndustryDivisionsHandler(c *gin.Context) {
-	items, err := h.industryDivisions.GetAll(c.Request.Context(), 0, 0, nil, nil)
+	items, err := h.IndustryDivisions.GetAll(c.Request.Context(), 0, 0, nil, nil)
 	if err != nil {
 		respondError(c, http.StatusInternalServerError, "Failed to fetch industry divisions", err)
 		return
@@ -259,7 +259,7 @@ func (h *Handler) GetIndustryDivisionByIDHandler(c *gin.Context) {
 	if !ok {
 		return
 	}
-	item, err := h.industryDivisions.GetByID(c.Request.Context(), id)
+	item, err := h.IndustryDivisions.GetByID(c.Request.Context(), id)
 	if err != nil {
 		respondRepoError(c, "Failed to fetch industry division", err)
 		return
@@ -287,7 +287,7 @@ func (h *Handler) UpdateIndustryDivisionHandler(c *gin.Context) {
 	if in.Code != nil {
 		updates["code"] = *in.Code
 	}
-	item, err := h.industryDivisions.Update(c.Request.Context(), id, updates)
+	item, err := h.IndustryDivisions.Update(c.Request.Context(), id, updates)
 	if err != nil {
 		respondRepoError(c, "Failed to update industry division", err)
 		return
@@ -300,7 +300,7 @@ func (h *Handler) DeleteIndustryDivisionHandler(c *gin.Context) {
 	if !ok {
 		return
 	}
-	if err := h.industryDivisions.Delete(c.Request.Context(), id); err != nil {
+	if err := h.IndustryDivisions.Delete(c.Request.Context(), id); err != nil {
 		respondRepoError(c, "Failed to delete industry division", err)
 		return
 	}
@@ -332,7 +332,7 @@ func (h *Handler) CreateIndustryGroupHandler(c *gin.Context) {
 		return
 	}
 	item := models.IndustryGroup{IndustryDivisionID: in.IndustryDivisionID, Name: in.Name, Code: in.Code}
-	if err := h.industryGroups.Create(c.Request.Context(), &item); err != nil {
+	if err := h.IndustryGroups.Create(c.Request.Context(), &item); err != nil {
 		respondRepoError(c, "Failed to create industry group", err)
 		return
 	}
@@ -340,7 +340,7 @@ func (h *Handler) CreateIndustryGroupHandler(c *gin.Context) {
 }
 
 func (h *Handler) GetAllIndustryGroupsHandler(c *gin.Context) {
-	items, err := h.industryGroups.GetAll(c.Request.Context(), 0, 0, nil, nil)
+	items, err := h.IndustryGroups.GetAll(c.Request.Context(), 0, 0, nil, nil)
 	if err != nil {
 		respondError(c, http.StatusInternalServerError, "Failed to fetch industry groups", err)
 		return
@@ -353,7 +353,7 @@ func (h *Handler) GetIndustryGroupByIDHandler(c *gin.Context) {
 	if !ok {
 		return
 	}
-	item, err := h.industryGroups.GetByID(c.Request.Context(), id)
+	item, err := h.IndustryGroups.GetByID(c.Request.Context(), id)
 	if err != nil {
 		respondRepoError(c, "Failed to fetch industry group", err)
 		return
@@ -381,7 +381,7 @@ func (h *Handler) UpdateIndustryGroupHandler(c *gin.Context) {
 	if in.Code != nil {
 		updates["code"] = *in.Code
 	}
-	item, err := h.industryGroups.Update(c.Request.Context(), id, updates)
+	item, err := h.IndustryGroups.Update(c.Request.Context(), id, updates)
 	if err != nil {
 		respondRepoError(c, "Failed to update industry group", err)
 		return
@@ -394,7 +394,7 @@ func (h *Handler) DeleteIndustryGroupHandler(c *gin.Context) {
 	if !ok {
 		return
 	}
-	if err := h.industryGroups.Delete(c.Request.Context(), id); err != nil {
+	if err := h.IndustryGroups.Delete(c.Request.Context(), id); err != nil {
 		respondRepoError(c, "Failed to delete industry group", err)
 		return
 	}
@@ -426,7 +426,7 @@ func (h *Handler) CreateIndustryClassHandler(c *gin.Context) {
 		return
 	}
 	item := models.IndustryClass{IndustryGroupID: in.IndustryGroupID, Name: in.Name, Code: in.Code}
-	if err := h.industryClasses.Create(c.Request.Context(), &item); err != nil {
+	if err := h.IndustryClasses.Create(c.Request.Context(), &item); err != nil {
 		respondRepoError(c, "Failed to create industry class", err)
 		return
 	}
@@ -434,7 +434,7 @@ func (h *Handler) CreateIndustryClassHandler(c *gin.Context) {
 }
 
 func (h *Handler) GetAllIndustryClassesHandler(c *gin.Context) {
-	items, err := h.industryClasses.GetAll(c.Request.Context(), 0, 0, nil, nil)
+	items, err := h.IndustryClasses.GetAll(c.Request.Context(), 0, 0, nil, nil)
 	if err != nil {
 		respondError(c, http.StatusInternalServerError, "Failed to fetch industry classes", err)
 		return
@@ -447,7 +447,7 @@ func (h *Handler) GetIndustryClassByIDHandler(c *gin.Context) {
 	if !ok {
 		return
 	}
-	item, err := h.industryClasses.GetByID(c.Request.Context(), id)
+	item, err := h.IndustryClasses.GetByID(c.Request.Context(), id)
 	if err != nil {
 		respondRepoError(c, "Failed to fetch industry class", err)
 		return
@@ -475,7 +475,7 @@ func (h *Handler) UpdateIndustryClassHandler(c *gin.Context) {
 	if in.Code != nil {
 		updates["code"] = *in.Code
 	}
-	item, err := h.industryClasses.Update(c.Request.Context(), id, updates)
+	item, err := h.IndustryClasses.Update(c.Request.Context(), id, updates)
 	if err != nil {
 		respondRepoError(c, "Failed to update industry class", err)
 		return
@@ -488,7 +488,7 @@ func (h *Handler) DeleteIndustryClassHandler(c *gin.Context) {
 	if !ok {
 		return
 	}
-	if err := h.industryClasses.Delete(c.Request.Context(), id); err != nil {
+	if err := h.IndustryClasses.Delete(c.Request.Context(), id); err != nil {
 		respondRepoError(c, "Failed to delete industry class", err)
 		return
 	}
@@ -522,7 +522,7 @@ func (h *Handler) CreateIndustrySubclassHandler(c *gin.Context) {
 		return
 	}
 	item := models.IndustrySubclass{IndustryClassID: in.IndustryClassID, Name: in.Name, Code: in.Code}
-	if err := h.industrySubclasses.Create(c.Request.Context(), &item); err != nil {
+	if err := h.IndustrySubclasses.Create(c.Request.Context(), &item); err != nil {
 		respondRepoError(c, "Failed to create industry subclass", err)
 		return
 	}
@@ -547,7 +547,7 @@ func (h *Handler) GetAllIndustrySubclassesHandler(c *gin.Context) {
 		}
 	}
 
-	items, err := h.industrySubclasses.GetAll(c.Request.Context(), limit, offset, nil, nil)
+	items, err := h.IndustrySubclasses.GetAll(c.Request.Context(), limit, offset, nil, nil)
 	if err != nil {
 		respondError(c, http.StatusInternalServerError, "Failed to fetch industry subclasses", err)
 		return
@@ -561,7 +561,7 @@ func (h *Handler) GetIndustrySubclassByIDHandler(c *gin.Context) {
 	if !ok {
 		return
 	}
-	item, err := h.industrySubclasses.GetByID(c.Request.Context(), id)
+	item, err := h.IndustrySubclasses.GetByID(c.Request.Context(), id)
 	if err != nil {
 		respondRepoError(c, "Failed to fetch industry subclass", err)
 		return
@@ -589,7 +589,7 @@ func (h *Handler) UpdateIndustrySubclassHandler(c *gin.Context) {
 	if in.Code != nil {
 		updates["code"] = *in.Code
 	}
-	item, err := h.industrySubclasses.Update(c.Request.Context(), id, updates)
+	item, err := h.IndustrySubclasses.Update(c.Request.Context(), id, updates)
 	if err != nil {
 		respondRepoError(c, "Failed to update industry subclass", err)
 		return
@@ -602,7 +602,7 @@ func (h *Handler) DeleteIndustrySubclassHandler(c *gin.Context) {
 	if !ok {
 		return
 	}
-	if err := h.industrySubclasses.Delete(c.Request.Context(), id); err != nil {
+	if err := h.IndustrySubclasses.Delete(c.Request.Context(), id); err != nil {
 		respondRepoError(c, "Failed to delete industry subclass", err)
 		return
 	}

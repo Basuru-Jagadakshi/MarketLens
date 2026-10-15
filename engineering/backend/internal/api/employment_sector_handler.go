@@ -28,7 +28,7 @@ func (h *Handler) CreateEmploymentSectorHandler(c *gin.Context) {
 		return
 	}
 	item := models.EmploymentSector{Sector: in.Sector}
-	if err := h.employmentSectors.Create(c.Request.Context(), &item); err != nil {
+	if err := h.EmploymentSectors.Create(c.Request.Context(), &item); err != nil {
 		respondRepoError(c, "Failed to create employment sector", err)
 		return
 	}
@@ -36,7 +36,7 @@ func (h *Handler) CreateEmploymentSectorHandler(c *gin.Context) {
 }
 
 func (h *Handler) GetAllEmploymentSectorsHandler(c *gin.Context) {
-	items, err := h.employmentSectors.GetAll(c.Request.Context(), 0, 0, nil, nil)
+	items, err := h.EmploymentSectors.GetAll(c.Request.Context(), 0, 0, nil, nil)
 	if err != nil {
 		respondError(c, http.StatusInternalServerError, "Failed to fetch employment sectors", err)
 		return
@@ -49,7 +49,7 @@ func (h *Handler) GetEmploymentSectorByIDHandler(c *gin.Context) {
 	if !ok {
 		return
 	}
-	item, err := h.employmentSectors.GetByID(c.Request.Context(), id)
+	item, err := h.EmploymentSectors.GetByID(c.Request.Context(), id)
 	if err != nil {
 		respondRepoError(c, "Failed to fetch employment sector", err)
 		return
@@ -67,7 +67,7 @@ func (h *Handler) UpdateEmploymentSectorHandler(c *gin.Context) {
 		respondError(c, http.StatusBadRequest, "Invalid request payload", err)
 		return
 	}
-	item, err := h.employmentSectors.Update(c.Request.Context(), id, map[string]interface{}{"sector": in.Sector})
+	item, err := h.EmploymentSectors.Update(c.Request.Context(), id, map[string]interface{}{"sector": in.Sector})
 	if err != nil {
 		respondRepoError(c, "Failed to update employment sector", err)
 		return
@@ -80,7 +80,7 @@ func (h *Handler) DeleteEmploymentSectorHandler(c *gin.Context) {
 	if !ok {
 		return
 	}
-	if err := h.employmentSectors.Delete(c.Request.Context(), id); err != nil {
+	if err := h.EmploymentSectors.Delete(c.Request.Context(), id); err != nil {
 		respondRepoError(c, "Failed to delete employment sector", err)
 		return
 	}

@@ -44,7 +44,7 @@ func (h *Handler) GetSubMajorGroupsByMajorGroupHandler(c *gin.Context) {
 		return
 	}
 
-	items, err := h.subMajorGroups.GetByParent(c.Request.Context(), id, fromDate, toDate)
+	items, err := h.SubMajorGroups.GetByParent(c.Request.Context(), id, fromDate, toDate)
 	if err != nil {
 		respondRepoError(c, "Failed to retrieve sub major groups", err)
 		return
@@ -63,7 +63,7 @@ func (h *Handler) GetMinorGroupsBySubMajorGroupHandler(c *gin.Context) {
 		return
 	}
 
-	items, err := h.minorGroups.GetByParent(c.Request.Context(), id, fromDate, toDate)
+	items, err := h.MinorGroups.GetByParent(c.Request.Context(), id, fromDate, toDate)
 	if err != nil {
 		respondRepoError(c, "Failed to retrieve minor groups", err)
 		return
@@ -82,7 +82,7 @@ func (h *Handler) GetUnitGroupsByMinorGroupHandler(c *gin.Context) {
 		return
 	}
 
-	items, err := h.unitGroups.GetByParent(c.Request.Context(), id, fromDate, toDate)
+	items, err := h.UnitGroups.GetByParent(c.Request.Context(), id, fromDate, toDate)
 	if err != nil {
 		respondRepoError(c, "Failed to retrieve unit groups", err)
 		return
@@ -101,7 +101,7 @@ func (h *Handler) GetOccupationGroupsByUnitGroupHandler(c *gin.Context) {
 		return
 	}
 
-	items, err := h.occupationGroups.GetByParent(c.Request.Context(), id, fromDate, toDate)
+	items, err := h.OccupationGroups.GetByParent(c.Request.Context(), id, fromDate, toDate)
 	if err != nil {
 		respondRepoError(c, "Failed to retrieve occupation groups", err)
 		return
@@ -136,7 +136,7 @@ func (h *Handler) CreateMajorGroupHandler(c *gin.Context) {
 		return
 	}
 	item := models.MajorGroup{Name: in.Name, Code: in.Code}
-	if err := h.majorGroups.Create(c.Request.Context(), &item); err != nil {
+	if err := h.MajorGroups.Create(c.Request.Context(), &item); err != nil {
 		respondRepoError(c, "Failed to create major group", err)
 		return
 	}
@@ -149,7 +149,7 @@ func (h *Handler) GetAllMajorGroupsHandler(c *gin.Context) {
 		return
 	}
 
-	items, err := h.majorGroups.GetAll(c.Request.Context(), 0, 0, fromDate, toDate)
+	items, err := h.MajorGroups.GetAll(c.Request.Context(), 0, 0, fromDate, toDate)
 	if err != nil {
 		respondRepoError(c, "Failed to retrieve major groups", err)
 		return
@@ -163,7 +163,7 @@ func (h *Handler) GetMajorGroupByIDHandler(c *gin.Context) {
 	if !ok {
 		return
 	}
-	item, err := h.majorGroups.GetByID(c.Request.Context(), id)
+	item, err := h.MajorGroups.GetByID(c.Request.Context(), id)
 	if err != nil {
 		respondRepoError(c, "Failed to fetch major group", err)
 		return
@@ -188,7 +188,7 @@ func (h *Handler) UpdateMajorGroupHandler(c *gin.Context) {
 	if in.Code != nil {
 		updates["code"] = *in.Code
 	}
-	item, err := h.majorGroups.Update(c.Request.Context(), id, updates)
+	item, err := h.MajorGroups.Update(c.Request.Context(), id, updates)
 	if err != nil {
 		respondRepoError(c, "Failed to update major group", err)
 		return
@@ -201,7 +201,7 @@ func (h *Handler) DeleteMajorGroupHandler(c *gin.Context) {
 	if !ok {
 		return
 	}
-	if err := h.majorGroups.Delete(c.Request.Context(), id); err != nil {
+	if err := h.MajorGroups.Delete(c.Request.Context(), id); err != nil {
 		respondRepoError(c, "Failed to delete major group", err)
 		return
 	}
@@ -233,7 +233,7 @@ func (h *Handler) CreateSubMajorGroupHandler(c *gin.Context) {
 		return
 	}
 	item := models.SubMajorGroup{MajorGroupID: in.MajorGroupID, Name: in.Name, Code: in.Code}
-	if err := h.subMajorGroups.Create(c.Request.Context(), &item); err != nil {
+	if err := h.SubMajorGroups.Create(c.Request.Context(), &item); err != nil {
 		respondRepoError(c, "Failed to create sub major group", err)
 		return
 	}
@@ -241,7 +241,7 @@ func (h *Handler) CreateSubMajorGroupHandler(c *gin.Context) {
 }
 
 func (h *Handler) GetAllSubMajorGroupsHandler(c *gin.Context) {
-	items, err := h.subMajorGroups.GetAll(c.Request.Context(), 0, 0, nil, nil)
+	items, err := h.SubMajorGroups.GetAll(c.Request.Context(), 0, 0, nil, nil)
 	if err != nil {
 		respondError(c, http.StatusInternalServerError, "Failed to fetch sub major groups", err)
 		return
@@ -254,7 +254,7 @@ func (h *Handler) GetSubMajorGroupByIDHandler(c *gin.Context) {
 	if !ok {
 		return
 	}
-	item, err := h.subMajorGroups.GetByID(c.Request.Context(), id)
+	item, err := h.SubMajorGroups.GetByID(c.Request.Context(), id)
 	if err != nil {
 		respondRepoError(c, "Failed to fetch sub major group", err)
 		return
@@ -282,7 +282,7 @@ func (h *Handler) UpdateSubMajorGroupHandler(c *gin.Context) {
 	if in.Code != nil {
 		updates["code"] = *in.Code
 	}
-	item, err := h.subMajorGroups.Update(c.Request.Context(), id, updates)
+	item, err := h.SubMajorGroups.Update(c.Request.Context(), id, updates)
 	if err != nil {
 		respondRepoError(c, "Failed to update sub major group", err)
 		return
@@ -295,7 +295,7 @@ func (h *Handler) DeleteSubMajorGroupHandler(c *gin.Context) {
 	if !ok {
 		return
 	}
-	if err := h.subMajorGroups.Delete(c.Request.Context(), id); err != nil {
+	if err := h.SubMajorGroups.Delete(c.Request.Context(), id); err != nil {
 		respondRepoError(c, "Failed to delete sub major group", err)
 		return
 	}
@@ -327,7 +327,7 @@ func (h *Handler) CreateMinorGroupHandler(c *gin.Context) {
 		return
 	}
 	item := models.MinorGroup{SubMajorGroupID: in.SubMajorGroupID, Name: in.Name, Code: in.Code}
-	if err := h.minorGroups.Create(c.Request.Context(), &item); err != nil {
+	if err := h.MinorGroups.Create(c.Request.Context(), &item); err != nil {
 		respondRepoError(c, "Failed to create minor group", err)
 		return
 	}
@@ -335,7 +335,7 @@ func (h *Handler) CreateMinorGroupHandler(c *gin.Context) {
 }
 
 func (h *Handler) GetAllMinorGroupsHandler(c *gin.Context) {
-	items, err := h.minorGroups.GetAll(c.Request.Context(), 0, 0, nil, nil)
+	items, err := h.MinorGroups.GetAll(c.Request.Context(), 0, 0, nil, nil)
 	if err != nil {
 		respondError(c, http.StatusInternalServerError, "Failed to fetch minor groups", err)
 		return
@@ -348,7 +348,7 @@ func (h *Handler) GetMinorGroupByIDHandler(c *gin.Context) {
 	if !ok {
 		return
 	}
-	item, err := h.minorGroups.GetByID(c.Request.Context(), id)
+	item, err := h.MinorGroups.GetByID(c.Request.Context(), id)
 	if err != nil {
 		respondRepoError(c, "Failed to fetch minor group", err)
 		return
@@ -376,7 +376,7 @@ func (h *Handler) UpdateMinorGroupHandler(c *gin.Context) {
 	if in.Code != nil {
 		updates["code"] = *in.Code
 	}
-	item, err := h.minorGroups.Update(c.Request.Context(), id, updates)
+	item, err := h.MinorGroups.Update(c.Request.Context(), id, updates)
 	if err != nil {
 		respondRepoError(c, "Failed to update minor group", err)
 		return
@@ -389,7 +389,7 @@ func (h *Handler) DeleteMinorGroupHandler(c *gin.Context) {
 	if !ok {
 		return
 	}
-	if err := h.minorGroups.Delete(c.Request.Context(), id); err != nil {
+	if err := h.MinorGroups.Delete(c.Request.Context(), id); err != nil {
 		respondRepoError(c, "Failed to delete minor group", err)
 		return
 	}
@@ -421,7 +421,7 @@ func (h *Handler) CreateUnitGroupHandler(c *gin.Context) {
 		return
 	}
 	item := models.UnitGroup{MinorGroupID: in.MinorGroupID, Name: in.Name, Code: in.Code}
-	if err := h.unitGroups.Create(c.Request.Context(), &item); err != nil {
+	if err := h.UnitGroups.Create(c.Request.Context(), &item); err != nil {
 		respondRepoError(c, "Failed to create unit group", err)
 		return
 	}
@@ -429,7 +429,7 @@ func (h *Handler) CreateUnitGroupHandler(c *gin.Context) {
 }
 
 func (h *Handler) GetAllUnitGroupsHandler(c *gin.Context) {
-	items, err := h.unitGroups.GetAll(c.Request.Context(), 0, 0, nil, nil)
+	items, err := h.UnitGroups.GetAll(c.Request.Context(), 0, 0, nil, nil)
 	if err != nil {
 		respondError(c, http.StatusInternalServerError, "Failed to fetch unit groups", err)
 		return
@@ -442,7 +442,7 @@ func (h *Handler) GetUnitGroupByIDHandler(c *gin.Context) {
 	if !ok {
 		return
 	}
-	item, err := h.unitGroups.GetByID(c.Request.Context(), id)
+	item, err := h.UnitGroups.GetByID(c.Request.Context(), id)
 	if err != nil {
 		respondRepoError(c, "Failed to fetch unit group", err)
 		return
@@ -470,7 +470,7 @@ func (h *Handler) UpdateUnitGroupHandler(c *gin.Context) {
 	if in.Code != nil {
 		updates["code"] = *in.Code
 	}
-	item, err := h.unitGroups.Update(c.Request.Context(), id, updates)
+	item, err := h.UnitGroups.Update(c.Request.Context(), id, updates)
 	if err != nil {
 		respondRepoError(c, "Failed to update unit group", err)
 		return
@@ -483,7 +483,7 @@ func (h *Handler) DeleteUnitGroupHandler(c *gin.Context) {
 	if !ok {
 		return
 	}
-	if err := h.unitGroups.Delete(c.Request.Context(), id); err != nil {
+	if err := h.UnitGroups.Delete(c.Request.Context(), id); err != nil {
 		respondRepoError(c, "Failed to delete unit group", err)
 		return
 	}
@@ -517,7 +517,7 @@ func (h *Handler) CreateOccupationGroupHandler(c *gin.Context) {
 		return
 	}
 	item := models.OccupationGroup{UnitGroupID: in.UnitGroupID, Name: in.Name, Code: in.Code}
-	if err := h.occupationGroups.Create(c.Request.Context(), &item); err != nil {
+	if err := h.OccupationGroups.Create(c.Request.Context(), &item); err != nil {
 		respondRepoError(c, "Failed to create occupation group", err)
 		return
 	}
@@ -542,7 +542,7 @@ func (h *Handler) GetAllOccupationGroupsHandler(c *gin.Context) {
 		}
 	}
 
-	items, err := h.occupationGroups.GetAll(c.Request.Context(), limit, offset, nil, nil)
+	items, err := h.OccupationGroups.GetAll(c.Request.Context(), limit, offset, nil, nil)
 	if err != nil {
 		respondError(c, http.StatusInternalServerError, "Failed to fetch occupation groups", err)
 		return
@@ -556,7 +556,7 @@ func (h *Handler) GetOccupationGroupByIDHandler(c *gin.Context) {
 	if !ok {
 		return
 	}
-	item, err := h.occupationGroups.GetByID(c.Request.Context(), id)
+	item, err := h.OccupationGroups.GetByID(c.Request.Context(), id)
 	if err != nil {
 		respondRepoError(c, "Failed to fetch occupation group", err)
 		return
@@ -584,7 +584,7 @@ func (h *Handler) UpdateOccupationGroupHandler(c *gin.Context) {
 	if in.Code != nil {
 		updates["code"] = *in.Code
 	}
-	item, err := h.occupationGroups.Update(c.Request.Context(), id, updates)
+	item, err := h.OccupationGroups.Update(c.Request.Context(), id, updates)
 	if err != nil {
 		respondRepoError(c, "Failed to update occupation group", err)
 		return
@@ -597,7 +597,7 @@ func (h *Handler) DeleteOccupationGroupHandler(c *gin.Context) {
 	if !ok {
 		return
 	}
-	if err := h.occupationGroups.Delete(c.Request.Context(), id); err != nil {
+	if err := h.OccupationGroups.Delete(c.Request.Context(), id); err != nil {
 		respondRepoError(c, "Failed to delete occupation group", err)
 		return
 	}

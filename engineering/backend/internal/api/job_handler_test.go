@@ -17,6 +17,7 @@ import (
 	"marketlens-go-backend/internal/api"
 	"marketlens-go-backend/internal/models"
 	"marketlens-go-backend/internal/repositories"
+	"marketlens-go-backend/internal/service"
 )
 
 func setupTestDB(t *testing.T) *gorm.DB {
@@ -179,7 +180,7 @@ func doRequest(t *testing.T, router *gin.Engine, method, path string, body inter
 func TestCreateEducationLevelHandler(t *testing.T) {
 	t.Run("valid payload returns 201 with created item", func(t *testing.T) {
 		db := setupTestDB(t)
-		router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+		router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 		w := doRequest(t, router, http.MethodPost, "/education-levels", map[string]string{
 			"level": "Bachelor's Degree",
@@ -203,7 +204,7 @@ func TestCreateEducationLevelHandler(t *testing.T) {
 
 	t.Run("malformed JSON body returns 400", func(t *testing.T) {
 		db := setupTestDB(t)
-		router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+		router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 		req := httptest.NewRequest(http.MethodPost, "/education-levels", bytes.NewReader([]byte("{not valid json")))
 		req.Header.Set("Content-Type", "application/json")
@@ -221,7 +222,7 @@ func TestCreateEducationLevelHandler(t *testing.T) {
 func TestGetAllEducationLevelsHandler(t *testing.T) {
 	t.Run("empty table returns 200 with count 0", func(t *testing.T) {
 		db := setupTestDB(t)
-		router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+		router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 		w := doRequest(t, router, http.MethodGet, "/education-levels", nil)
 
@@ -242,7 +243,7 @@ func TestGetAllEducationLevelsHandler(t *testing.T) {
 		db := setupTestDB(t)
 		db.Create(&models.EducationLevel{Level: "Diploma"})
 		db.Create(&models.EducationLevel{Level: "Master's Degree"})
-		router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+		router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 		w := doRequest(t, router, http.MethodGet, "/education-levels", nil)
 
@@ -267,7 +268,7 @@ func TestGetEducationLevelByIDHandler(t *testing.T) {
 		db := setupTestDB(t)
 		seeded := models.EducationLevel{Level: "PhD"}
 		db.Create(&seeded)
-		router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+		router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 		w := doRequest(t, router, http.MethodGet, fmt.Sprintf("/education-levels/%d", seeded.ID), nil)
 
@@ -286,7 +287,7 @@ func TestGetEducationLevelByIDHandler(t *testing.T) {
 
 	t.Run("non-numeric id returns 400", func(t *testing.T) {
 		db := setupTestDB(t)
-		router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+		router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 		w := doRequest(t, router, http.MethodGet, "/education-levels/abc", nil)
 
@@ -297,7 +298,7 @@ func TestGetEducationLevelByIDHandler(t *testing.T) {
 
 	t.Run("non-existent id returns 404", func(t *testing.T) {
 		db := setupTestDB(t)
-		router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+		router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 		w := doRequest(t, router, http.MethodGet, "/education-levels/999999", nil)
 
@@ -314,7 +315,7 @@ func TestUpdateEducationLevelHandler(t *testing.T) {
 		db := setupTestDB(t)
 		seeded := models.EducationLevel{Level: "Diploma"}
 		db.Create(&seeded)
-		router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+		router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 		w := doRequest(t, router, http.MethodPut, fmt.Sprintf("/education-levels/%d", seeded.ID), map[string]string{
 			"level": "Advanced Diploma",
@@ -335,7 +336,7 @@ func TestUpdateEducationLevelHandler(t *testing.T) {
 
 	t.Run("non-numeric id returns 400", func(t *testing.T) {
 		db := setupTestDB(t)
-		router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+		router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 		w := doRequest(t, router, http.MethodPut, "/education-levels/abc", map[string]string{"level": "X"})
 
@@ -348,7 +349,7 @@ func TestUpdateEducationLevelHandler(t *testing.T) {
 		db := setupTestDB(t)
 		seeded := models.EducationLevel{Level: "Diploma"}
 		db.Create(&seeded)
-		router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+		router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 		req := httptest.NewRequest(http.MethodPut, fmt.Sprintf("/education-levels/%d", seeded.ID), bytes.NewReader([]byte("{bad json")))
 		req.Header.Set("Content-Type", "application/json")
@@ -368,7 +369,7 @@ func TestUpdateEducationLevelHandler(t *testing.T) {
 	// the GET handler has — flag this to your team.
 	t.Run("non-existent id currently returns 500 (not 404)", func(t *testing.T) {
 		db := setupTestDB(t)
-		router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+		router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 		w := doRequest(t, router, http.MethodPut, "/education-levels/999999", map[string]string{
 			"level": "Should Not Apply",
@@ -387,7 +388,7 @@ func TestDeleteEducationLevelHandler(t *testing.T) {
 		db := setupTestDB(t)
 		seeded := models.EducationLevel{Level: "Diploma"}
 		db.Create(&seeded)
-		router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+		router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 		w := doRequest(t, router, http.MethodDelete, fmt.Sprintf("/education-levels/%d", seeded.ID), nil)
 
@@ -404,7 +405,7 @@ func TestDeleteEducationLevelHandler(t *testing.T) {
 
 	t.Run("non-numeric id returns 400", func(t *testing.T) {
 		db := setupTestDB(t)
-		router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+		router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 		w := doRequest(t, router, http.MethodDelete, "/education-levels/abc", nil)
 
@@ -419,7 +420,7 @@ func TestDeleteEducationLevelHandler(t *testing.T) {
 func TestCreateFormalityHandler(t *testing.T) {
 	t.Run("valid payload returns 201 with created item", func(t *testing.T) {
 		db := setupTestDB(t)
-		router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+		router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 		w := doRequest(t, router, http.MethodPost, "/formalities", map[string]string{
 			"formality_type": "Formal",
@@ -443,7 +444,7 @@ func TestCreateFormalityHandler(t *testing.T) {
 
 	t.Run("malformed JSON body returns 400", func(t *testing.T) {
 		db := setupTestDB(t)
-		router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+		router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 		req := httptest.NewRequest(http.MethodPost, "/formalities", bytes.NewReader([]byte("{not valid json")))
 		req.Header.Set("Content-Type", "application/json")
@@ -461,7 +462,7 @@ func TestCreateFormalityHandler(t *testing.T) {
 func TestGetAllFormalitiesHandler(t *testing.T) {
 	t.Run("empty table returns 200 with count 0", func(t *testing.T) {
 		db := setupTestDB(t)
-		router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+		router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 		w := doRequest(t, router, http.MethodGet, "/formalities", nil)
 
@@ -482,7 +483,7 @@ func TestGetAllFormalitiesHandler(t *testing.T) {
 		db := setupTestDB(t)
 		db.Create(&models.Formality{FormalityType: "Formal"})
 		db.Create(&models.Formality{FormalityType: "Informal"})
-		router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+		router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 		w := doRequest(t, router, http.MethodGet, "/formalities", nil)
 
@@ -507,7 +508,7 @@ func TestGetFormalityByIDHandler(t *testing.T) {
 		db := setupTestDB(t)
 		seeded := models.Formality{FormalityType: "Formal"}
 		db.Create(&seeded)
-		router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+		router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 		w := doRequest(t, router, http.MethodGet, fmt.Sprintf("/formalities/%d", seeded.ID), nil)
 
@@ -526,7 +527,7 @@ func TestGetFormalityByIDHandler(t *testing.T) {
 
 	t.Run("non-numeric id returns 400", func(t *testing.T) {
 		db := setupTestDB(t)
-		router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+		router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 		w := doRequest(t, router, http.MethodGet, "/formalities/abc", nil)
 
@@ -537,7 +538,7 @@ func TestGetFormalityByIDHandler(t *testing.T) {
 
 	t.Run("non-existent id returns 404", func(t *testing.T) {
 		db := setupTestDB(t)
-		router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+		router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 		w := doRequest(t, router, http.MethodGet, "/formalities/999999", nil)
 
@@ -554,7 +555,7 @@ func TestUpdateFormalityHandler(t *testing.T) {
 		db := setupTestDB(t)
 		seeded := models.Formality{FormalityType: "Formal"}
 		db.Create(&seeded)
-		router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+		router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 		w := doRequest(t, router, http.MethodPut, fmt.Sprintf("/formalities/%d", seeded.ID), map[string]string{
 			"formality_type": "Semi-Formal",
@@ -575,7 +576,7 @@ func TestUpdateFormalityHandler(t *testing.T) {
 
 	t.Run("non-numeric id returns 400", func(t *testing.T) {
 		db := setupTestDB(t)
-		router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+		router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 		w := doRequest(t, router, http.MethodPut, "/formalities/abc", map[string]string{"formality_type": "X"})
 
@@ -588,7 +589,7 @@ func TestUpdateFormalityHandler(t *testing.T) {
 		db := setupTestDB(t)
 		seeded := models.Formality{FormalityType: "Formal"}
 		db.Create(&seeded)
-		router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+		router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 		req := httptest.NewRequest(http.MethodPut, fmt.Sprintf("/formalities/%d", seeded.ID), bytes.NewReader([]byte("{bad json")))
 		req.Header.Set("Content-Type", "application/json")
@@ -605,7 +606,7 @@ func TestUpdateFormalityHandler(t *testing.T) {
 	// to 500 rather than 404.
 	t.Run("non-existent id currently returns 500 (not 404)", func(t *testing.T) {
 		db := setupTestDB(t)
-		router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+		router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 		w := doRequest(t, router, http.MethodPut, "/formalities/999999", map[string]string{
 			"formality_type": "Should Not Apply",
@@ -624,7 +625,7 @@ func TestDeleteFormalityHandler(t *testing.T) {
 		db := setupTestDB(t)
 		seeded := models.Formality{FormalityType: "Formal"}
 		db.Create(&seeded)
-		router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+		router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 		w := doRequest(t, router, http.MethodDelete, fmt.Sprintf("/formalities/%d", seeded.ID), nil)
 
@@ -641,7 +642,7 @@ func TestDeleteFormalityHandler(t *testing.T) {
 
 	t.Run("non-numeric id returns 400", func(t *testing.T) {
 		db := setupTestDB(t)
-		router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+		router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 		w := doRequest(t, router, http.MethodDelete, "/formalities/abc", nil)
 
@@ -656,7 +657,7 @@ func TestDeleteFormalityHandler(t *testing.T) {
 func TestCreateGenderHandler(t *testing.T) {
 	t.Run("valid payload returns 201", func(t *testing.T) {
 		db := setupTestDB(t)
-		router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+		router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 		w := doRequest(t, router, http.MethodPost, "/genders", map[string]string{"gender_type": "Male"})
 		if w.Code != http.StatusCreated {
@@ -671,7 +672,7 @@ func TestCreateGenderHandler(t *testing.T) {
 
 	t.Run("malformed JSON returns 400", func(t *testing.T) {
 		db := setupTestDB(t)
-		router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+		router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 		req := httptest.NewRequest(http.MethodPost, "/genders", bytes.NewReader([]byte("{bad")))
 		req.Header.Set("Content-Type", "application/json")
@@ -687,7 +688,7 @@ func TestGetAllGendersHandler(t *testing.T) {
 	db := setupTestDB(t)
 	db.Create(&models.Gender{GenderType: "Male"})
 	db.Create(&models.Gender{GenderType: "Female"})
-	router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+	router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 	w := doRequest(t, router, http.MethodGet, "/genders", nil)
 	if w.Code != http.StatusOK {
@@ -705,7 +706,7 @@ func TestGetGenderByIDHandler(t *testing.T) {
 		db := setupTestDB(t)
 		seeded := models.Gender{GenderType: "Male"}
 		db.Create(&seeded)
-		router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+		router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 		w := doRequest(t, router, http.MethodGet, fmt.Sprintf("/genders/%d", seeded.ID), nil)
 		if w.Code != http.StatusOK {
@@ -715,7 +716,7 @@ func TestGetGenderByIDHandler(t *testing.T) {
 
 	t.Run("non-numeric id returns 400", func(t *testing.T) {
 		db := setupTestDB(t)
-		router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+		router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 		w := doRequest(t, router, http.MethodGet, "/genders/abc", nil)
 		if w.Code != http.StatusBadRequest {
@@ -725,7 +726,7 @@ func TestGetGenderByIDHandler(t *testing.T) {
 
 	t.Run("non-existent id returns 404", func(t *testing.T) {
 		db := setupTestDB(t)
-		router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+		router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 		w := doRequest(t, router, http.MethodGet, "/genders/999999", nil)
 		if w.Code != http.StatusNotFound {
@@ -738,7 +739,7 @@ func TestUpdateGenderHandler(t *testing.T) {
 	db := setupTestDB(t)
 	seeded := models.Gender{GenderType: "Male"}
 	db.Create(&seeded)
-	router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+	router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 	w := doRequest(t, router, http.MethodPut, fmt.Sprintf("/genders/%d", seeded.ID), map[string]string{"gender_type": "Female"})
 	if w.Code != http.StatusOK {
@@ -750,7 +751,7 @@ func TestDeleteGenderHandler(t *testing.T) {
 	db := setupTestDB(t)
 	seeded := models.Gender{GenderType: "Male"}
 	db.Create(&seeded)
-	router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+	router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 	w := doRequest(t, router, http.MethodDelete, fmt.Sprintf("/genders/%d", seeded.ID), nil)
 	if w.Code != http.StatusOK {
@@ -762,7 +763,7 @@ func TestDeleteGenderHandler(t *testing.T) {
 
 func TestCreateEmploymentSectorHandler(t *testing.T) {
 	db := setupTestDB(t)
-	router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+	router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 	w := doRequest(t, router, http.MethodPost, "/employment-sectors", map[string]string{"sector": "Private"})
 	if w.Code != http.StatusCreated {
@@ -773,7 +774,7 @@ func TestCreateEmploymentSectorHandler(t *testing.T) {
 func TestGetAllEmploymentSectorsHandler(t *testing.T) {
 	db := setupTestDB(t)
 	db.Create(&models.EmploymentSector{Sector: "Private"})
-	router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+	router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 	w := doRequest(t, router, http.MethodGet, "/employment-sectors", nil)
 	if w.Code != http.StatusOK {
@@ -784,7 +785,7 @@ func TestGetAllEmploymentSectorsHandler(t *testing.T) {
 func TestGetEmploymentSectorByIDHandler(t *testing.T) {
 	t.Run("non-existent id returns 404", func(t *testing.T) {
 		db := setupTestDB(t)
-		router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+		router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 		w := doRequest(t, router, http.MethodGet, "/employment-sectors/999999", nil)
 		if w.Code != http.StatusNotFound {
@@ -797,7 +798,7 @@ func TestUpdateEmploymentSectorHandler(t *testing.T) {
 	db := setupTestDB(t)
 	seeded := models.EmploymentSector{Sector: "Private"}
 	db.Create(&seeded)
-	router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+	router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 	w := doRequest(t, router, http.MethodPut, fmt.Sprintf("/employment-sectors/%d", seeded.ID), map[string]string{"sector": "Government"})
 	if w.Code != http.StatusOK {
@@ -809,7 +810,7 @@ func TestDeleteEmploymentSectorHandler(t *testing.T) {
 	db := setupTestDB(t)
 	seeded := models.EmploymentSector{Sector: "Private"}
 	db.Create(&seeded)
-	router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+	router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 	w := doRequest(t, router, http.MethodDelete, fmt.Sprintf("/employment-sectors/%d", seeded.ID), nil)
 	if w.Code != http.StatusOK {
@@ -821,7 +822,7 @@ func TestDeleteEmploymentSectorHandler(t *testing.T) {
 
 func TestCreateVocationalEducationHandler(t *testing.T) {
 	db := setupTestDB(t)
-	router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+	router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 	w := doRequest(t, router, http.MethodPost, "/vocational-educations", map[string]string{"level": "NVQ 3"})
 	if w.Code != http.StatusCreated {
@@ -832,7 +833,7 @@ func TestCreateVocationalEducationHandler(t *testing.T) {
 func TestGetAllVocationalEducationsHandler(t *testing.T) {
 	db := setupTestDB(t)
 	db.Create(&models.VocationalEducation{Level: "NVQ 3"})
-	router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+	router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 	w := doRequest(t, router, http.MethodGet, "/vocational-educations", nil)
 	if w.Code != http.StatusOK {
@@ -843,7 +844,7 @@ func TestGetAllVocationalEducationsHandler(t *testing.T) {
 func TestGetVocationalEducationByIDHandler(t *testing.T) {
 	t.Run("non-existent id returns 404", func(t *testing.T) {
 		db := setupTestDB(t)
-		router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+		router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 		w := doRequest(t, router, http.MethodGet, "/vocational-educations/999999", nil)
 		if w.Code != http.StatusNotFound {
@@ -856,7 +857,7 @@ func TestUpdateVocationalEducationHandler(t *testing.T) {
 	db := setupTestDB(t)
 	seeded := models.VocationalEducation{Level: "NVQ 3"}
 	db.Create(&seeded)
-	router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+	router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 	w := doRequest(t, router, http.MethodPut, fmt.Sprintf("/vocational-educations/%d", seeded.ID), map[string]string{"level": "NVQ 5"})
 	if w.Code != http.StatusOK {
@@ -868,7 +869,7 @@ func TestDeleteVocationalEducationHandler(t *testing.T) {
 	db := setupTestDB(t)
 	seeded := models.VocationalEducation{Level: "NVQ 3"}
 	db.Create(&seeded)
-	router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+	router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 	w := doRequest(t, router, http.MethodDelete, fmt.Sprintf("/vocational-educations/%d", seeded.ID), nil)
 	if w.Code != http.StatusOK {
@@ -881,7 +882,7 @@ func TestDeleteVocationalEducationHandler(t *testing.T) {
 
 func TestCreateExperienceHandler(t *testing.T) {
 	db := setupTestDB(t)
-	router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+	router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 	w := doRequest(t, router, http.MethodPost, "/experiences", map[string]string{"name": "Entry Level"})
 	if w.Code != http.StatusCreated {
@@ -894,7 +895,7 @@ func TestGetExperienceByIDHandler(t *testing.T) {
 		db := setupTestDB(t)
 		seeded := models.Experience{Name: "Entry Level"}
 		db.Create(&seeded)
-		router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+		router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 		w := doRequest(t, router, http.MethodGet, fmt.Sprintf("/experiences/%d", seeded.ID), nil)
 		if w.Code != http.StatusOK {
@@ -904,7 +905,7 @@ func TestGetExperienceByIDHandler(t *testing.T) {
 
 	t.Run("non-existent id returns 404", func(t *testing.T) {
 		db := setupTestDB(t)
-		router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+		router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 		w := doRequest(t, router, http.MethodGet, "/experiences/999999", nil)
 		if w.Code != http.StatusNotFound {
@@ -917,7 +918,7 @@ func TestUpdateExperienceHandler(t *testing.T) {
 	db := setupTestDB(t)
 	seeded := models.Experience{Name: "Entry Level"}
 	db.Create(&seeded)
-	router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+	router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 	w := doRequest(t, router, http.MethodPut, fmt.Sprintf("/experiences/%d", seeded.ID), map[string]string{"name": "Senior"})
 	if w.Code != http.StatusOK {
@@ -929,7 +930,7 @@ func TestDeleteExperienceHandler(t *testing.T) {
 	db := setupTestDB(t)
 	seeded := models.Experience{Name: "Entry Level"}
 	db.Create(&seeded)
-	router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+	router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 	w := doRequest(t, router, http.MethodDelete, fmt.Sprintf("/experiences/%d", seeded.ID), nil)
 	if w.Code != http.StatusOK {
@@ -941,7 +942,7 @@ func TestDeleteExperienceHandler(t *testing.T) {
 
 func TestCreateMajorGroupHandler(t *testing.T) {
 	db := setupTestDB(t)
-	router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+	router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 	w := doRequest(t, router, http.MethodPost, "/major-groups", map[string]string{"name": "Managers", "code": "1"})
 	if w.Code != http.StatusCreated {
@@ -953,7 +954,7 @@ func TestGetAllMajorGroupsHandler(t *testing.T) {
 	t.Run("no date params returns all rows", func(t *testing.T) {
 		db := setupTestDB(t)
 		db.Create(&models.MajorGroup{Name: "Managers", Code: "1"})
-		router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+		router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 		w := doRequest(t, router, http.MethodGet, "/major-groups", nil)
 		if w.Code != http.StatusOK {
@@ -969,7 +970,7 @@ func TestGetAllMajorGroupsHandler(t *testing.T) {
 	t.Run("valid from-date/to-date returns filtered rows", func(t *testing.T) {
 		db := setupTestDB(t)
 		db.Create(&models.MajorGroup{Name: "Managers", Code: "1"})
-		router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+		router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 		today := time.Now().Format("2006-01-02")
 		w := doRequest(t, router, http.MethodGet, fmt.Sprintf("/major-groups?from-date=%s&to-date=%s", today, today), nil)
@@ -980,7 +981,7 @@ func TestGetAllMajorGroupsHandler(t *testing.T) {
 
 	t.Run("invalid from-date format returns 400", func(t *testing.T) {
 		db := setupTestDB(t)
-		router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+		router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 		w := doRequest(t, router, http.MethodGet, "/major-groups?from-date=not-a-date&to-date=2024-01-01", nil)
 		if w.Code != http.StatusBadRequest {
@@ -990,7 +991,7 @@ func TestGetAllMajorGroupsHandler(t *testing.T) {
 
 	t.Run("invalid to-date format returns 400", func(t *testing.T) {
 		db := setupTestDB(t)
-		router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+		router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 		w := doRequest(t, router, http.MethodGet, "/major-groups?from-date=2024-01-01&to-date=not-a-date", nil)
 		if w.Code != http.StatusBadRequest {
@@ -1000,7 +1001,7 @@ func TestGetAllMajorGroupsHandler(t *testing.T) {
 
 	t.Run("to-date before from-date returns 400", func(t *testing.T) {
 		db := setupTestDB(t)
-		router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+		router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 		w := doRequest(t, router, http.MethodGet, "/major-groups?from-date=2024-06-01&to-date=2024-01-01", nil)
 		if w.Code != http.StatusBadRequest {
@@ -1012,7 +1013,7 @@ func TestGetAllMajorGroupsHandler(t *testing.T) {
 func TestGetMajorGroupByIDHandler(t *testing.T) {
 	t.Run("non-existent id returns 404", func(t *testing.T) {
 		db := setupTestDB(t)
-		router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+		router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 		w := doRequest(t, router, http.MethodGet, "/major-groups/999999", nil)
 		if w.Code != http.StatusNotFound {
@@ -1025,7 +1026,7 @@ func TestUpdateMajorGroupHandler(t *testing.T) {
 	db := setupTestDB(t)
 	seeded := models.MajorGroup{Name: "Managers", Code: "1"}
 	db.Create(&seeded)
-	router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+	router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 	w := doRequest(t, router, http.MethodPut, fmt.Sprintf("/major-groups/%d", seeded.ID), map[string]string{"name": "Senior Managers"})
 	if w.Code != http.StatusOK {
@@ -1037,7 +1038,7 @@ func TestDeleteMajorGroupHandler(t *testing.T) {
 	db := setupTestDB(t)
 	seeded := models.MajorGroup{Name: "Managers", Code: "1"}
 	db.Create(&seeded)
-	router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+	router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 	w := doRequest(t, router, http.MethodDelete, fmt.Sprintf("/major-groups/%d", seeded.ID), nil)
 	if w.Code != http.StatusOK {
@@ -1051,7 +1052,7 @@ func TestCreateSubMajorGroupHandler(t *testing.T) {
 	db := setupTestDB(t)
 	parent := models.MajorGroup{Name: "Managers", Code: "1"}
 	db.Create(&parent)
-	router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+	router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 	w := doRequest(t, router, http.MethodPost, "/sub-major-groups", map[string]interface{}{
 		"major_group_id": parent.ID, "name": "Chief Executives", "code": "11",
@@ -1066,7 +1067,7 @@ func TestGetAllSubMajorGroupsHandler(t *testing.T) {
 	parent := models.MajorGroup{Name: "Managers", Code: "1"}
 	db.Create(&parent)
 	db.Create(&models.SubMajorGroup{MajorGroupID: parent.ID, Name: "Chief Executives", Code: "11"})
-	router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+	router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 	w := doRequest(t, router, http.MethodGet, "/sub-major-groups", nil)
 	if w.Code != http.StatusOK {
@@ -1077,7 +1078,7 @@ func TestGetAllSubMajorGroupsHandler(t *testing.T) {
 func TestGetSubMajorGroupByIDHandler(t *testing.T) {
 	t.Run("non-existent id returns 404", func(t *testing.T) {
 		db := setupTestDB(t)
-		router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+		router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 		w := doRequest(t, router, http.MethodGet, "/sub-major-groups/999999", nil)
 		if w.Code != http.StatusNotFound {
@@ -1092,7 +1093,7 @@ func TestUpdateSubMajorGroupHandler(t *testing.T) {
 	db.Create(&parent)
 	seeded := models.SubMajorGroup{MajorGroupID: parent.ID, Name: "Chief Executives", Code: "11"}
 	db.Create(&seeded)
-	router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+	router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 	w := doRequest(t, router, http.MethodPut, fmt.Sprintf("/sub-major-groups/%d", seeded.ID), map[string]string{"name": "Senior Executives"})
 	if w.Code != http.StatusOK {
@@ -1106,7 +1107,7 @@ func TestDeleteSubMajorGroupHandler(t *testing.T) {
 	db.Create(&parent)
 	seeded := models.SubMajorGroup{MajorGroupID: parent.ID, Name: "Chief Executives", Code: "11"}
 	db.Create(&seeded)
-	router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+	router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 	w := doRequest(t, router, http.MethodDelete, fmt.Sprintf("/sub-major-groups/%d", seeded.ID), nil)
 	if w.Code != http.StatusOK {
@@ -1128,7 +1129,7 @@ func seedMinorGroupParent(t *testing.T, db *gorm.DB) uint {
 func TestCreateMinorGroupHandler(t *testing.T) {
 	db := setupTestDB(t)
 	subID := seedMinorGroupParent(t, db)
-	router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+	router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 	w := doRequest(t, router, http.MethodPost, "/minor-groups", map[string]interface{}{
 		"sub_major_group_id": subID, "name": "Legislators", "code": "111",
@@ -1142,7 +1143,7 @@ func TestGetAllMinorGroupsHandler(t *testing.T) {
 	db := setupTestDB(t)
 	subID := seedMinorGroupParent(t, db)
 	db.Create(&models.MinorGroup{SubMajorGroupID: subID, Name: "Legislators", Code: "111"})
-	router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+	router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 	w := doRequest(t, router, http.MethodGet, "/minor-groups", nil)
 	if w.Code != http.StatusOK {
@@ -1153,7 +1154,7 @@ func TestGetAllMinorGroupsHandler(t *testing.T) {
 func TestGetMinorGroupByIDHandler(t *testing.T) {
 	t.Run("non-existent id returns 404", func(t *testing.T) {
 		db := setupTestDB(t)
-		router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+		router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 		w := doRequest(t, router, http.MethodGet, "/minor-groups/999999", nil)
 		if w.Code != http.StatusNotFound {
@@ -1167,7 +1168,7 @@ func TestUpdateMinorGroupHandler(t *testing.T) {
 	subID := seedMinorGroupParent(t, db)
 	seeded := models.MinorGroup{SubMajorGroupID: subID, Name: "Legislators", Code: "111"}
 	db.Create(&seeded)
-	router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+	router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 	w := doRequest(t, router, http.MethodPut, fmt.Sprintf("/minor-groups/%d", seeded.ID), map[string]string{"name": "Senior Legislators"})
 	if w.Code != http.StatusOK {
@@ -1180,7 +1181,7 @@ func TestDeleteMinorGroupHandler(t *testing.T) {
 	subID := seedMinorGroupParent(t, db)
 	seeded := models.MinorGroup{SubMajorGroupID: subID, Name: "Legislators", Code: "111"}
 	db.Create(&seeded)
-	router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+	router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 	w := doRequest(t, router, http.MethodDelete, fmt.Sprintf("/minor-groups/%d", seeded.ID), nil)
 	if w.Code != http.StatusOK {
@@ -1201,7 +1202,7 @@ func seedUnitGroupParent(t *testing.T, db *gorm.DB) uint {
 func TestCreateUnitGroupHandler(t *testing.T) {
 	db := setupTestDB(t)
 	minorID := seedUnitGroupParent(t, db)
-	router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+	router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 	w := doRequest(t, router, http.MethodPost, "/unit-groups", map[string]interface{}{
 		"minor_group_id": minorID, "name": "Senior Officials", "code": "1111",
@@ -1215,7 +1216,7 @@ func TestGetAllUnitGroupsHandler(t *testing.T) {
 	db := setupTestDB(t)
 	minorID := seedUnitGroupParent(t, db)
 	db.Create(&models.UnitGroup{MinorGroupID: minorID, Name: "Senior Officials", Code: "1111"})
-	router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+	router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 	w := doRequest(t, router, http.MethodGet, "/unit-groups", nil)
 	if w.Code != http.StatusOK {
@@ -1226,7 +1227,7 @@ func TestGetAllUnitGroupsHandler(t *testing.T) {
 func TestGetUnitGroupByIDHandler(t *testing.T) {
 	t.Run("non-existent id returns 404", func(t *testing.T) {
 		db := setupTestDB(t)
-		router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+		router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 		w := doRequest(t, router, http.MethodGet, "/unit-groups/999999", nil)
 		if w.Code != http.StatusNotFound {
@@ -1240,7 +1241,7 @@ func TestUpdateUnitGroupHandler(t *testing.T) {
 	minorID := seedUnitGroupParent(t, db)
 	seeded := models.UnitGroup{MinorGroupID: minorID, Name: "Senior Officials", Code: "1111"}
 	db.Create(&seeded)
-	router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+	router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 	w := doRequest(t, router, http.MethodPut, fmt.Sprintf("/unit-groups/%d", seeded.ID), map[string]string{"name": "Senior Govt Officials"})
 	if w.Code != http.StatusOK {
@@ -1253,7 +1254,7 @@ func TestDeleteUnitGroupHandler(t *testing.T) {
 	minorID := seedUnitGroupParent(t, db)
 	seeded := models.UnitGroup{MinorGroupID: minorID, Name: "Senior Officials", Code: "1111"}
 	db.Create(&seeded)
-	router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+	router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 	w := doRequest(t, router, http.MethodDelete, fmt.Sprintf("/unit-groups/%d", seeded.ID), nil)
 	if w.Code != http.StatusOK {
@@ -1274,7 +1275,7 @@ func seedOccupationGroupParent(t *testing.T, db *gorm.DB) uint {
 func TestCreateOccupationGroupHandler(t *testing.T) {
 	db := setupTestDB(t)
 	unitID := seedOccupationGroupParent(t, db)
-	router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+	router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 	w := doRequest(t, router, http.MethodPost, "/occupation-groups", map[string]interface{}{
 		"unit_group_id": unitID, "name": "Legislator", "code": "11111",
@@ -1291,7 +1292,7 @@ func TestGetAllOccupationGroupsHandler(t *testing.T) {
 		for i := 0; i < 5; i++ {
 			db.Create(&models.OccupationGroup{UnitGroupID: unitID, Name: "Group", Code: "X"})
 		}
-		router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+		router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 		w := doRequest(t, router, http.MethodGet, "/occupation-groups", nil)
 		if w.Code != http.StatusOK {
@@ -1311,7 +1312,7 @@ func TestGetAllOccupationGroupsHandler(t *testing.T) {
 		db := setupTestDB(t)
 		unitID := seedOccupationGroupParent(t, db)
 		db.Create(&models.OccupationGroup{UnitGroupID: unitID, Name: "Group", Code: "X"})
-		router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+		router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 		w := doRequest(t, router, http.MethodGet, "/occupation-groups?limit=500", nil)
 		if w.Code != http.StatusOK {
@@ -1330,7 +1331,7 @@ func TestGetAllOccupationGroupsHandler(t *testing.T) {
 		for i := 0; i < 3; i++ {
 			db.Create(&models.OccupationGroup{UnitGroupID: unitID, Name: "Group", Code: "X"})
 		}
-		router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+		router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 		w := doRequest(t, router, http.MethodGet, "/occupation-groups?offset=2", nil)
 		if w.Code != http.StatusOK {
@@ -1347,7 +1348,7 @@ func TestGetAllOccupationGroupsHandler(t *testing.T) {
 func TestGetOccupationGroupByIDHandler(t *testing.T) {
 	t.Run("non-existent id returns 404", func(t *testing.T) {
 		db := setupTestDB(t)
-		router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+		router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 		w := doRequest(t, router, http.MethodGet, "/occupation-groups/999999", nil)
 		if w.Code != http.StatusNotFound {
@@ -1361,7 +1362,7 @@ func TestUpdateOccupationGroupHandler(t *testing.T) {
 	unitID := seedOccupationGroupParent(t, db)
 	seeded := models.OccupationGroup{UnitGroupID: unitID, Name: "Legislator", Code: "11111"}
 	db.Create(&seeded)
-	router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+	router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 	w := doRequest(t, router, http.MethodPut, fmt.Sprintf("/occupation-groups/%d", seeded.ID), map[string]string{"name": "Senior Legislator"})
 	if w.Code != http.StatusOK {
@@ -1374,7 +1375,7 @@ func TestDeleteOccupationGroupHandler(t *testing.T) {
 	unitID := seedOccupationGroupParent(t, db)
 	seeded := models.OccupationGroup{UnitGroupID: unitID, Name: "Legislator", Code: "11111"}
 	db.Create(&seeded)
-	router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+	router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 	w := doRequest(t, router, http.MethodDelete, fmt.Sprintf("/occupation-groups/%d", seeded.ID), nil)
 	if w.Code != http.StatusOK {
@@ -1386,7 +1387,7 @@ func TestDeleteOccupationGroupHandler(t *testing.T) {
 
 func TestCreateIndustrySectorHandler(t *testing.T) {
 	db := setupTestDB(t)
-	router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+	router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 	w := doRequest(t, router, http.MethodPost, "/industry-sectors", map[string]string{"name": "Agriculture", "code": "A"})
 	if w.Code != http.StatusCreated {
@@ -1398,7 +1399,7 @@ func TestGetAllIndustrySectorsHandler(t *testing.T) {
 	t.Run("no date params returns all rows", func(t *testing.T) {
 		db := setupTestDB(t)
 		db.Create(&models.IndustrySector{Name: "Agriculture", Code: "A"})
-		router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+		router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 		w := doRequest(t, router, http.MethodGet, "/industry-sectors", nil)
 		if w.Code != http.StatusOK {
@@ -1408,7 +1409,7 @@ func TestGetAllIndustrySectorsHandler(t *testing.T) {
 
 	t.Run("invalid from-date format returns 400", func(t *testing.T) {
 		db := setupTestDB(t)
-		router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+		router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 		w := doRequest(t, router, http.MethodGet, "/industry-sectors?from-date=bad&to-date=2024-01-01", nil)
 		if w.Code != http.StatusBadRequest {
@@ -1418,7 +1419,7 @@ func TestGetAllIndustrySectorsHandler(t *testing.T) {
 
 	t.Run("to-date before from-date returns 400", func(t *testing.T) {
 		db := setupTestDB(t)
-		router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+		router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 		w := doRequest(t, router, http.MethodGet, "/industry-sectors?from-date=2024-06-01&to-date=2024-01-01", nil)
 		if w.Code != http.StatusBadRequest {
@@ -1430,7 +1431,7 @@ func TestGetAllIndustrySectorsHandler(t *testing.T) {
 func TestGetIndustrySectorByIDHandler(t *testing.T) {
 	t.Run("non-existent id returns 404", func(t *testing.T) {
 		db := setupTestDB(t)
-		router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+		router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 		w := doRequest(t, router, http.MethodGet, "/industry-sectors/999999", nil)
 		if w.Code != http.StatusNotFound {
@@ -1443,7 +1444,7 @@ func TestUpdateIndustrySectorHandler(t *testing.T) {
 	db := setupTestDB(t)
 	seeded := models.IndustrySector{Name: "Agriculture", Code: "A"}
 	db.Create(&seeded)
-	router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+	router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 	w := doRequest(t, router, http.MethodPut, fmt.Sprintf("/industry-sectors/%d", seeded.ID), map[string]string{"name": "Agri & Fisheries"})
 	if w.Code != http.StatusOK {
@@ -1455,7 +1456,7 @@ func TestDeleteIndustrySectorHandler(t *testing.T) {
 	db := setupTestDB(t)
 	seeded := models.IndustrySector{Name: "Agriculture", Code: "A"}
 	db.Create(&seeded)
-	router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+	router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 	w := doRequest(t, router, http.MethodDelete, fmt.Sprintf("/industry-sectors/%d", seeded.ID), nil)
 	if w.Code != http.StatusOK {
@@ -1469,7 +1470,7 @@ func TestCreateIndustryDivisionHandler(t *testing.T) {
 	db := setupTestDB(t)
 	sector := models.IndustrySector{Name: "Agriculture", Code: "A"}
 	db.Create(&sector)
-	router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+	router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 	w := doRequest(t, router, http.MethodPost, "/industry-divisions", map[string]interface{}{
 		"industry_sector_id": sector.ID, "name": "Crop Farming", "code": "01",
@@ -1484,7 +1485,7 @@ func TestGetAllIndustryDivisionsHandler(t *testing.T) {
 	sector := models.IndustrySector{Name: "Agriculture", Code: "A"}
 	db.Create(&sector)
 	db.Create(&models.IndustryDivision{IndustrySectorID: sector.ID, Name: "Crop Farming", Code: "01"})
-	router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+	router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 	w := doRequest(t, router, http.MethodGet, "/industry-divisions", nil)
 	if w.Code != http.StatusOK {
@@ -1495,7 +1496,7 @@ func TestGetAllIndustryDivisionsHandler(t *testing.T) {
 func TestGetIndustryDivisionByIDHandler(t *testing.T) {
 	t.Run("non-existent id returns 404", func(t *testing.T) {
 		db := setupTestDB(t)
-		router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+		router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 		w := doRequest(t, router, http.MethodGet, "/industry-divisions/999999", nil)
 		if w.Code != http.StatusNotFound {
@@ -1510,7 +1511,7 @@ func TestUpdateIndustryDivisionHandler(t *testing.T) {
 	db.Create(&sector)
 	seeded := models.IndustryDivision{IndustrySectorID: sector.ID, Name: "Crop Farming", Code: "01"}
 	db.Create(&seeded)
-	router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+	router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 	w := doRequest(t, router, http.MethodPut, fmt.Sprintf("/industry-divisions/%d", seeded.ID), map[string]string{"name": "Arable Farming"})
 	if w.Code != http.StatusOK {
@@ -1524,7 +1525,7 @@ func TestDeleteIndustryDivisionHandler(t *testing.T) {
 	db.Create(&sector)
 	seeded := models.IndustryDivision{IndustrySectorID: sector.ID, Name: "Crop Farming", Code: "01"}
 	db.Create(&seeded)
-	router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+	router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 	w := doRequest(t, router, http.MethodDelete, fmt.Sprintf("/industry-divisions/%d", seeded.ID), nil)
 	if w.Code != http.StatusOK {
@@ -1546,7 +1547,7 @@ func seedIndustryGroupParent(t *testing.T, db *gorm.DB) uint {
 func TestCreateIndustryGroupHandler(t *testing.T) {
 	db := setupTestDB(t)
 	divisionID := seedIndustryGroupParent(t, db)
-	router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+	router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 	w := doRequest(t, router, http.MethodPost, "/industry-groups", map[string]interface{}{
 		"industry_division_id": divisionID, "name": "Cereal Growing", "code": "011",
@@ -1560,7 +1561,7 @@ func TestGetAllIndustryGroupsHandler(t *testing.T) {
 	db := setupTestDB(t)
 	divisionID := seedIndustryGroupParent(t, db)
 	db.Create(&models.IndustryGroup{IndustryDivisionID: divisionID, Name: "Cereal Growing", Code: "011"})
-	router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+	router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 	w := doRequest(t, router, http.MethodGet, "/industry-groups", nil)
 	if w.Code != http.StatusOK {
@@ -1571,7 +1572,7 @@ func TestGetAllIndustryGroupsHandler(t *testing.T) {
 func TestGetIndustryGroupByIDHandler(t *testing.T) {
 	t.Run("non-existent id returns 404", func(t *testing.T) {
 		db := setupTestDB(t)
-		router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+		router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 		w := doRequest(t, router, http.MethodGet, "/industry-groups/999999", nil)
 		if w.Code != http.StatusNotFound {
@@ -1585,7 +1586,7 @@ func TestUpdateIndustryGroupHandler(t *testing.T) {
 	divisionID := seedIndustryGroupParent(t, db)
 	seeded := models.IndustryGroup{IndustryDivisionID: divisionID, Name: "Cereal Growing", Code: "011"}
 	db.Create(&seeded)
-	router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+	router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 	w := doRequest(t, router, http.MethodPut, fmt.Sprintf("/industry-groups/%d", seeded.ID), map[string]string{"name": "Grain Growing"})
 	if w.Code != http.StatusOK {
@@ -1598,7 +1599,7 @@ func TestDeleteIndustryGroupHandler(t *testing.T) {
 	divisionID := seedIndustryGroupParent(t, db)
 	seeded := models.IndustryGroup{IndustryDivisionID: divisionID, Name: "Cereal Growing", Code: "011"}
 	db.Create(&seeded)
-	router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+	router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 	w := doRequest(t, router, http.MethodDelete, fmt.Sprintf("/industry-groups/%d", seeded.ID), nil)
 	if w.Code != http.StatusOK {
@@ -1619,7 +1620,7 @@ func seedIndustryClassParent(t *testing.T, db *gorm.DB) uint {
 func TestCreateIndustryClassHandler(t *testing.T) {
 	db := setupTestDB(t)
 	groupID := seedIndustryClassParent(t, db)
-	router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+	router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 	w := doRequest(t, router, http.MethodPost, "/industry-classes", map[string]interface{}{
 		"industry_group_id": groupID, "name": "Rice Growing", "code": "0111",
@@ -1633,7 +1634,7 @@ func TestGetAllIndustryClassesHandler(t *testing.T) {
 	db := setupTestDB(t)
 	groupID := seedIndustryClassParent(t, db)
 	db.Create(&models.IndustryClass{IndustryGroupID: groupID, Name: "Rice Growing", Code: "0111"})
-	router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+	router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 	w := doRequest(t, router, http.MethodGet, "/industry-classes", nil)
 	if w.Code != http.StatusOK {
@@ -1644,7 +1645,7 @@ func TestGetAllIndustryClassesHandler(t *testing.T) {
 func TestGetIndustryClassByIDHandler(t *testing.T) {
 	t.Run("non-existent id returns 404", func(t *testing.T) {
 		db := setupTestDB(t)
-		router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+		router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 		w := doRequest(t, router, http.MethodGet, "/industry-classes/999999", nil)
 		if w.Code != http.StatusNotFound {
@@ -1658,7 +1659,7 @@ func TestUpdateIndustryClassHandler(t *testing.T) {
 	groupID := seedIndustryClassParent(t, db)
 	seeded := models.IndustryClass{IndustryGroupID: groupID, Name: "Rice Growing", Code: "0111"}
 	db.Create(&seeded)
-	router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+	router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 	w := doRequest(t, router, http.MethodPut, fmt.Sprintf("/industry-classes/%d", seeded.ID), map[string]string{"name": "Paddy Growing"})
 	if w.Code != http.StatusOK {
@@ -1671,7 +1672,7 @@ func TestDeleteIndustryClassHandler(t *testing.T) {
 	groupID := seedIndustryClassParent(t, db)
 	seeded := models.IndustryClass{IndustryGroupID: groupID, Name: "Rice Growing", Code: "0111"}
 	db.Create(&seeded)
-	router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+	router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 	w := doRequest(t, router, http.MethodDelete, fmt.Sprintf("/industry-classes/%d", seeded.ID), nil)
 	if w.Code != http.StatusOK {
@@ -1692,7 +1693,7 @@ func seedIndustrySubclassParent(t *testing.T, db *gorm.DB) uint {
 func TestCreateIndustrySubclassHandler(t *testing.T) {
 	db := setupTestDB(t)
 	classID := seedIndustrySubclassParent(t, db)
-	router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+	router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 	w := doRequest(t, router, http.MethodPost, "/industry-subclasses", map[string]interface{}{
 		"industry_class_id": classID, "name": "Rice Milling", "code": "01111",
@@ -1709,7 +1710,7 @@ func TestGetAllIndustrySubclassesHandler(t *testing.T) {
 		for i := 0; i < 5; i++ {
 			db.Create(&models.IndustrySubclass{IndustryClassID: classID, Name: "Subclass", Code: "X"})
 		}
-		router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+		router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 		w := doRequest(t, router, http.MethodGet, "/industry-subclasses", nil)
 		if w.Code != http.StatusOK {
@@ -1729,7 +1730,7 @@ func TestGetAllIndustrySubclassesHandler(t *testing.T) {
 		db := setupTestDB(t)
 		classID := seedIndustrySubclassParent(t, db)
 		db.Create(&models.IndustrySubclass{IndustryClassID: classID, Name: "Subclass", Code: "X"})
-		router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+		router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 		w := doRequest(t, router, http.MethodGet, "/industry-subclasses?limit=500", nil)
 		if w.Code != http.StatusOK {
@@ -1746,7 +1747,7 @@ func TestGetAllIndustrySubclassesHandler(t *testing.T) {
 func TestGetIndustrySubclassByIDHandler(t *testing.T) {
 	t.Run("non-existent id returns 404", func(t *testing.T) {
 		db := setupTestDB(t)
-		router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+		router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 		w := doRequest(t, router, http.MethodGet, "/industry-subclasses/999999", nil)
 		if w.Code != http.StatusNotFound {
@@ -1760,7 +1761,7 @@ func TestUpdateIndustrySubclassHandler(t *testing.T) {
 	classID := seedIndustrySubclassParent(t, db)
 	seeded := models.IndustrySubclass{IndustryClassID: classID, Name: "Rice Milling", Code: "01111"}
 	db.Create(&seeded)
-	router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+	router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 	w := doRequest(t, router, http.MethodPut, fmt.Sprintf("/industry-subclasses/%d", seeded.ID), map[string]string{"name": "Paddy Milling"})
 	if w.Code != http.StatusOK {
@@ -1773,7 +1774,7 @@ func TestDeleteIndustrySubclassHandler(t *testing.T) {
 	classID := seedIndustrySubclassParent(t, db)
 	seeded := models.IndustrySubclass{IndustryClassID: classID, Name: "Rice Milling", Code: "01111"}
 	db.Create(&seeded)
-	router := setupRouter(api.NewHandler(repositories.NewStore(db), nil))
+	router := setupRouter(api.NewHandler(repositories.NewStore(db), service.NewServices(repositories.NewStore(db)), nil))
 
 	w := doRequest(t, router, http.MethodDelete, fmt.Sprintf("/industry-subclasses/%d", seeded.ID), nil)
 	if w.Code != http.StatusOK {

@@ -28,7 +28,7 @@ func (h *Handler) CreateGenderHandler(c *gin.Context) {
 		return
 	}
 	item := models.Gender{GenderType: in.GenderType}
-	if err := h.genders.Create(c.Request.Context(), &item); err != nil {
+	if err := h.Genders.Create(c.Request.Context(), &item); err != nil {
 		respondRepoError(c, "Failed to create gender", err)
 		return
 	}
@@ -36,7 +36,7 @@ func (h *Handler) CreateGenderHandler(c *gin.Context) {
 }
 
 func (h *Handler) GetAllGendersHandler(c *gin.Context) {
-	items, err := h.genders.GetAll(c.Request.Context(), 0, 0, nil, nil)
+	items, err := h.Genders.GetAll(c.Request.Context(), 0, 0, nil, nil)
 	if err != nil {
 		respondError(c, http.StatusInternalServerError, "Failed to fetch genders", err)
 		return
@@ -49,7 +49,7 @@ func (h *Handler) GetGenderByIDHandler(c *gin.Context) {
 	if !ok {
 		return
 	}
-	item, err := h.genders.GetByID(c.Request.Context(), id)
+	item, err := h.Genders.GetByID(c.Request.Context(), id)
 	if err != nil {
 		respondRepoError(c, "Failed to fetch gender", err)
 		return
@@ -67,7 +67,7 @@ func (h *Handler) UpdateGenderHandler(c *gin.Context) {
 		respondError(c, http.StatusBadRequest, "Invalid request payload", err)
 		return
 	}
-	item, err := h.genders.Update(c.Request.Context(), id, map[string]interface{}{"gender_type": in.GenderType})
+	item, err := h.Genders.Update(c.Request.Context(), id, map[string]interface{}{"gender_type": in.GenderType})
 	if err != nil {
 		respondRepoError(c, "Failed to update gender", err)
 		return
@@ -80,7 +80,7 @@ func (h *Handler) DeleteGenderHandler(c *gin.Context) {
 	if !ok {
 		return
 	}
-	if err := h.genders.Delete(c.Request.Context(), id); err != nil {
+	if err := h.Genders.Delete(c.Request.Context(), id); err != nil {
 		respondRepoError(c, "Failed to delete gender", err)
 		return
 	}

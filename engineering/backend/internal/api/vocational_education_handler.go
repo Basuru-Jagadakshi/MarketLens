@@ -28,7 +28,7 @@ func (h *Handler) CreateVocationalEducationHandler(c *gin.Context) {
 		return
 	}
 	item := models.VocationalEducation{Level: in.Level}
-	if err := h.vocationalEducations.Create(c.Request.Context(), &item); err != nil {
+	if err := h.VocationalEducations.Create(c.Request.Context(), &item); err != nil {
 		respondRepoError(c, "Failed to create vocational education", err)
 		return
 	}
@@ -36,7 +36,7 @@ func (h *Handler) CreateVocationalEducationHandler(c *gin.Context) {
 }
 
 func (h *Handler) GetAllVocationalEducationsHandler(c *gin.Context) {
-	items, err := h.vocationalEducations.GetAll(c.Request.Context(), 0, 0, nil, nil)
+	items, err := h.VocationalEducations.GetAll(c.Request.Context(), 0, 0, nil, nil)
 	if err != nil {
 		respondError(c, http.StatusInternalServerError, "Failed to fetch vocational education levels", err)
 		return
@@ -49,7 +49,7 @@ func (h *Handler) GetVocationalEducationByIDHandler(c *gin.Context) {
 	if !ok {
 		return
 	}
-	item, err := h.vocationalEducations.GetByID(c.Request.Context(), id)
+	item, err := h.VocationalEducations.GetByID(c.Request.Context(), id)
 	if err != nil {
 		respondRepoError(c, "Failed to fetch vocational education", err)
 		return
@@ -67,7 +67,7 @@ func (h *Handler) UpdateVocationalEducationHandler(c *gin.Context) {
 		respondError(c, http.StatusBadRequest, "Invalid request payload", err)
 		return
 	}
-	item, err := h.vocationalEducations.Update(c.Request.Context(), id, map[string]interface{}{"level": in.Level})
+	item, err := h.VocationalEducations.Update(c.Request.Context(), id, map[string]interface{}{"level": in.Level})
 	if err != nil {
 		respondRepoError(c, "Failed to update vocational education", err)
 		return
@@ -80,7 +80,7 @@ func (h *Handler) DeleteVocationalEducationHandler(c *gin.Context) {
 	if !ok {
 		return
 	}
-	if err := h.vocationalEducations.Delete(c.Request.Context(), id); err != nil {
+	if err := h.VocationalEducations.Delete(c.Request.Context(), id); err != nil {
 		respondRepoError(c, "Failed to delete vocational education", err)
 		return
 	}

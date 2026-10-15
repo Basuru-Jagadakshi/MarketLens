@@ -18,7 +18,7 @@ func (h *Handler) GetJobsByBucketKeysHandler(c *gin.Context) {
 		return
 	}
 
-	matchingJobs, err := h.jobPosts.GetJobsByBucketKeys(c.Request.Context(), req.BucketKeys)
+	matchingJobs, err := h.JobPosts.GetJobsByBucketKeys(c.Request.Context(), req.BucketKeys)
 	if err != nil {
 		respondError(c, http.StatusInternalServerError, "LSH bucket radar execution sequence encountered a processing exception", err)
 		return
@@ -63,7 +63,7 @@ func (h *Handler) ReconcileStaleVacanciesHandler(c *gin.Context) {
 		return
 	}
 
-	closedCount, err := h.jobPosts.ReconcileStaleVacancies(c.Request.Context(), payload.CrawlerRunID)
+	closedCount, err := h.JobPosts.ReconcileStaleVacancies(c.Request.Context(), payload.CrawlerRunID)
 	if err != nil {
 		respondError(c, http.StatusInternalServerError, "Global snapshot reconciliation sweeping routine failed", err)
 		return

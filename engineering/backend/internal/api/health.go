@@ -19,7 +19,7 @@ func (h *Handler) HealthzHandler(c *gin.Context) {
 
 // ReadyzHandler confirms the database connection is reachable - used for Kubernetes readiness probes
 func (h *Handler) ReadyzHandler(c *gin.Context) {
-	if err := h.repo.Ping(c.Request.Context()); err != nil {
+	if err := h.pinger.Ping(c.Request.Context()); err != nil {
 		log.Printf("readiness check failed: %v", err)
 		c.JSON(http.StatusServiceUnavailable, statusResponse{Status: "not ready", Message: "database unreachable"})
 		return

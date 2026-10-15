@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+
+	"marketlens-go-backend/internal/service"
 )
 
 // parseDateRange parses a plain from/to date pair. Date-order validation is
@@ -26,7 +28,7 @@ func parseDateRange(fromStr, toStr string) (time.Time, time.Time, error) {
 	return from, to, nil
 }
 
-func registerAnalysisTools(server *mcp.Server, svcs *services) {
+func registerAnalysisTools(server *mcp.Server, svcs *service.Services) {
 	// Occupation skills (occupation only - no industry equivalent exists)
 
 	mcp.AddTool(server, &mcp.Tool{
@@ -42,7 +44,7 @@ func registerAnalysisTools(server *mcp.Server, svcs *services) {
 		if err != nil {
 			return nil, nil, err
 		}
-		out, err := svcs.analytics.GetTop15SkillsByOccupationLevel(ctx, in.Level, in.ID, from, to)
+		out, err := svcs.Analytics.GetTop15SkillsByOccupationLevel(ctx, in.Level, in.ID, from, to)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -68,7 +70,7 @@ func registerAnalysisTools(server *mcp.Server, svcs *services) {
 		if limit <= 0 {
 			limit = 20
 		}
-		items, total, err := svcs.analytics.GetAllSkillsByOccupationLevel(ctx, in.Level, in.ID, from, to, limit, in.Offset)
+		items, total, err := svcs.Analytics.GetAllSkillsByOccupationLevel(ctx, in.Level, in.ID, from, to, limit, in.Offset)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -88,7 +90,7 @@ func registerAnalysisTools(server *mcp.Server, svcs *services) {
 		if err != nil {
 			return nil, nil, err
 		}
-		out, err := svcs.analytics.GetTopHiringEmployersByOccupationLevel(ctx, in.Level, in.ID, from, to)
+		out, err := svcs.Analytics.GetTopHiringEmployersByOccupationLevel(ctx, in.Level, in.ID, from, to)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -114,10 +116,10 @@ func registerAnalysisTools(server *mcp.Server, svcs *services) {
 		)
 		if diffDays < 60 {
 			granularity = "weekly"
-			data, err = svcs.analytics.GetVacancyTrendDaily(ctx, from, to)
+			data, err = svcs.Analytics.GetVacancyTrendDaily(ctx, from, to)
 		} else {
 			granularity = "monthly"
-			data, err = svcs.analytics.GetVacancyTrendMonthly(ctx, from, to)
+			data, err = svcs.Analytics.GetVacancyTrendMonthly(ctx, from, to)
 		}
 		if err != nil {
 			return nil, nil, err
@@ -133,7 +135,7 @@ func registerAnalysisTools(server *mcp.Server, svcs *services) {
 		if err != nil {
 			return nil, nil, err
 		}
-		total, err := svcs.analytics.GetTotalVacancyCount(ctx, from, to)
+		total, err := svcs.Analytics.GetTotalVacancyCount(ctx, from, to)
 		return nil, map[string]any{"total_vacancies": total}, err
 	})
 
@@ -147,7 +149,7 @@ func registerAnalysisTools(server *mcp.Server, svcs *services) {
 		if err != nil {
 			return nil, nil, err
 		}
-		out, err := svcs.analytics.GetOccupationJobCountByDateRange(ctx, from, to)
+		out, err := svcs.Analytics.GetOccupationJobCountByDateRange(ctx, from, to)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -162,7 +164,7 @@ func registerAnalysisTools(server *mcp.Server, svcs *services) {
 		if err != nil {
 			return nil, nil, err
 		}
-		out, err := svcs.analytics.GetIndustryJobCountByDateRange(ctx, from, to)
+		out, err := svcs.Analytics.GetIndustryJobCountByDateRange(ctx, from, to)
 		if err != nil {
 			return nil, nil, err
 		}

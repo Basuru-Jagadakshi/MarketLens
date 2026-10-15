@@ -22,7 +22,7 @@ type experienceListResponse struct {
 
 // Experience CRUD
 func (h *Handler) GetAllExperiencesHandler(c *gin.Context) {
-	experiences, err := h.experiences.GetAll(c.Request.Context(), 0, 0, nil, nil)
+	experiences, err := h.Experiences.GetAll(c.Request.Context(), 0, 0, nil, nil)
 	if err != nil {
 		respondError(c, http.StatusInternalServerError, "Failed to retrieve experience levels", err)
 		return
@@ -37,7 +37,7 @@ func (h *Handler) CreateExperienceHandler(c *gin.Context) {
 		return
 	}
 	item := models.Experience{Name: in.Name}
-	if err := h.experiences.Create(c.Request.Context(), &item); err != nil {
+	if err := h.Experiences.Create(c.Request.Context(), &item); err != nil {
 		respondRepoError(c, "Failed to create experience", err)
 		return
 	}
@@ -49,7 +49,7 @@ func (h *Handler) GetExperienceByIDHandler(c *gin.Context) {
 	if !ok {
 		return
 	}
-	item, err := h.experiences.GetByID(c.Request.Context(), id)
+	item, err := h.Experiences.GetByID(c.Request.Context(), id)
 	if err != nil {
 		respondRepoError(c, "Failed to fetch experience", err)
 		return
@@ -67,7 +67,7 @@ func (h *Handler) UpdateExperienceHandler(c *gin.Context) {
 		respondError(c, http.StatusBadRequest, "Invalid request payload", err)
 		return
 	}
-	item, err := h.experiences.Update(c.Request.Context(), id, map[string]interface{}{"name": in.Name})
+	item, err := h.Experiences.Update(c.Request.Context(), id, map[string]interface{}{"name": in.Name})
 	if err != nil {
 		respondRepoError(c, "Failed to update experience", err)
 		return
@@ -80,7 +80,7 @@ func (h *Handler) DeleteExperienceHandler(c *gin.Context) {
 	if !ok {
 		return
 	}
-	if err := h.experiences.Delete(c.Request.Context(), id); err != nil {
+	if err := h.Experiences.Delete(c.Request.Context(), id); err != nil {
 		respondRepoError(c, "Failed to delete experience", err)
 		return
 	}

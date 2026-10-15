@@ -6,6 +6,7 @@ import (
 	"marketlens-go-backend/internal/config"
 	"marketlens-go-backend/internal/mcpserver"
 	"marketlens-go-backend/internal/repositories"
+	"marketlens-go-backend/internal/service"
 )
 
 // This is its own binary/process (separate from cmd/api), so an MCP
@@ -17,8 +18,9 @@ func main() {
 		log.Fatalf("database connection failed: %v", err)
 	}
 	store := repositories.NewStore(db)
+	services := service.NewServices(store)
 
-	mcpServer := mcpserver.New(store)
+	mcpServer := mcpserver.New(services)
 
 	log.Println("MCP server listening on :9090/mcp")
 	if err := mcpserver.StartHTTP(mcpServer, ":9090"); err != nil {

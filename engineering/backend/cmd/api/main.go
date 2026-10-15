@@ -15,11 +15,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// ginMode decides gin's run mode from GIN_MODE, defaulting to release
-// unless it's explicitly set to debug or test. gin.Default()'s debug mode
-// logs every registered route and request — fine for local development,
-// but a minor information leak in production, so it's opt-in rather than
-// the default.
+
 func ginMode() string {
 	if m := os.Getenv("GIN_MODE"); m == gin.DebugMode || m == gin.TestMode {
 		return m
@@ -35,35 +31,36 @@ func main() {
 	gin.SetMode(ginMode())
 
 	store := repositories.NewStore(db)
+	services := service.NewServices(store)
 
 	llmClient := ingestion.NewDeepSeekClient(http.DefaultClient)
 	industryClassifier := ingestion.NewIndustryClassifier(
-		service.NewIndustrySectorService(store),
-		service.NewIndustryDivisionService(store),
-		service.NewIndustryGroupService(store),
-		service.NewIndustryClassService(store),
-		service.NewIndustrySubclassService(store),
+		services.IndustrySectors,
+		services.IndustryDivisions,
+		services.IndustryGroups,
+		services.IndustryClasses,
+		services.IndustrySubclasses,
 		llmClient,
 	)
 	occupationClassifier := ingestion.NewOccupationClassifier(
-		service.NewMajorGroupService(store),
-		service.NewSubMajorGroupService(store),
-		service.NewMinorGroupService(store),
-		service.NewUnitGroupService(store),
-		service.NewOccupationGroupService(store),
+		services.MajorGroups,
+		services.SubMajorGroups,
+		services.MinorGroups,
+		services.UnitGroups,
+		services.OccupationGroups,
 		llmClient,
 	)
 	metadataBuilder := ingestion.NewMetadataBuilder(
-		service.NewFormalityService(store),
-		service.NewGenderService(store),
-		service.NewVocationalEducationService(store),
-		service.NewEmploymentSectorService(store),
-		service.NewEducationLevelService(store),
-		service.NewExperienceService(store),
+		services.Formalities,
+		services.Genders,
+		services.VocationalEducations,
+		services.EmploymentSectors,
+		services.EducationLevels,
+		services.Experiences,
 		30*time.Minute,
 	)
 	ingestionSvc := ingestion.NewIngestionService(
-		service.NewJobPostService(store),
+		services.JobPosts,
 		llmClient,
 		industryClassifier,
 		occupationClassifier,
@@ -71,7 +68,7 @@ func main() {
 		0.65,
 	)
 
-	h := api.NewHandler(store, ingestionSvc)
+	h := api.NewHandler(store, services, ingestionSvc)
 
 	r := gin.New()
 	r.Use(gin.Logger(), gin.Recovery())

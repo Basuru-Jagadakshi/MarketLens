@@ -11,66 +11,8 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
-	"marketlens-go-backend/internal/models"
-	"marketlens-go-backend/internal/repositories"
 	"marketlens-go-backend/internal/service"
 )
-
-// services bundles every service the MCP tools call — the same
-// service.CRUDService/AnalyticsService instances the HTTP handlers use, so
-// validation and business rules live in exactly one place regardless of
-// which transport a request comes in on.
-type services struct {
-	analytics *service.AnalyticsService
-
-	experiences          *service.CRUDService[models.Experience]
-	geoData              *service.CRUDService[models.GeoData]
-	jobTypes             *service.CRUDService[models.JobType]
-	employmentSectors    *service.CRUDService[models.EmploymentSector]
-	educationLevels      *service.CRUDService[models.EducationLevel]
-	formalities          *service.CRUDService[models.Formality]
-	genders              *service.CRUDService[models.Gender]
-	vocationalEducations *service.CRUDService[models.VocationalEducation]
-
-	majorGroups      *service.CRUDService[models.MajorGroup]
-	subMajorGroups   *service.CRUDService[models.SubMajorGroup]
-	minorGroups      *service.CRUDService[models.MinorGroup]
-	unitGroups       *service.CRUDService[models.UnitGroup]
-	occupationGroups *service.CRUDService[models.OccupationGroup]
-
-	industrySectors    *service.CRUDService[models.IndustrySector]
-	industryDivisions  *service.CRUDService[models.IndustryDivision]
-	industryGroups     *service.CRUDService[models.IndustryGroup]
-	industryClasses    *service.CRUDService[models.IndustryClass]
-	industrySubclasses *service.CRUDService[models.IndustrySubclass]
-}
-
-func newServices(store *repositories.Store) *services {
-	return &services{
-		analytics: service.NewAnalyticsService(store),
-
-		experiences:          service.NewExperienceService(store),
-		geoData:              service.NewGeoDataService(store),
-		jobTypes:             service.NewJobTypeService(store),
-		employmentSectors:    service.NewEmploymentSectorService(store),
-		educationLevels:      service.NewEducationLevelService(store),
-		formalities:          service.NewFormalityService(store),
-		genders:              service.NewGenderService(store),
-		vocationalEducations: service.NewVocationalEducationService(store),
-
-		majorGroups:      service.NewMajorGroupService(store),
-		subMajorGroups:   service.NewSubMajorGroupService(store),
-		minorGroups:      service.NewMinorGroupService(store),
-		unitGroups:       service.NewUnitGroupService(store),
-		occupationGroups: service.NewOccupationGroupService(store),
-
-		industrySectors:    service.NewIndustrySectorService(store),
-		industryDivisions:  service.NewIndustryDivisionService(store),
-		industryGroups:     service.NewIndustryGroupService(store),
-		industryClasses:    service.NewIndustryClassService(store),
-		industrySubclasses: service.NewIndustrySubclassService(store),
-	}
-}
 
 const (
 	protectedResPath = "/.well-known/oauth-protected-resource/mcp"
@@ -129,14 +71,13 @@ func requireValidToken(next http.Handler) http.Handler {
 }
 
 // New builds the MCP server and registers every read-only (GET-equivalent)
-// tool against the given repository's services.
-func New(repo *repositories.Store) *mcp.Server {
+// tool against the given services.
+func New(svcs *service.Services) *mcp.Server {
 	server := mcp.NewServer(&mcp.Implementation{
 		Name:    "marketlens-mcp",
 		Version: "v1.0.0",
 	}, nil)
 
-	svcs := newServices(repo)
 	registerLookupTools(server, svcs)
 	registerHierarchyTools(server, svcs)
 	registerAnalysisTools(server, svcs)
@@ -240,28 +181,28 @@ func plainGetAll[T any](getAll func(ctx context.Context, limit, offset int, from
 	}
 }
 
-func registerLookupTools(server *mcp.Server, svcs *services) {
+func registerLookupTools(server *mcp.Server, svcs *service.Services) {
 	registerNoArgTool(server, "get_experiences", "List all experience levels.",
-		plainGetAll(svcs.experiences.GetAll))
+		plainGetAll(svcs.Experiences.GetAll))
 
 	registerNoArgTool(server, "get_provinces", "List all Sri Lankan provinces used for geo-tagging job posts.",
-		plainGetAll(svcs.geoData.GetAll))
+		plainGetAll(svcs.GeoData.GetAll))
 
 	registerNoArgTool(server, "get_job_types", "List all job types (Full Time, Part Time, Contract, Internship).",
-		plainGetAll(svcs.jobTypes.GetAll))
+		plainGetAll(svcs.JobTypes.GetAll))
 
 	registerNoArgTool(server, "get_employment_sectors", "List all employment sectors (Government, Private, NGO, etc.).",
-		plainGetAll(svcs.employmentSectors.GetAll))
+		plainGetAll(svcs.EmploymentSectors.GetAll))
 
 	registerNoArgTool(server, "get_education_levels", "List all education level categories.",
-		plainGetAll(svcs.educationLevels.GetAll))
+		plainGetAll(svcs.EducationLevels.GetAll))
 
 	registerNoArgTool(server, "get_formalities", "List all formality categories (Formal / Informal sector).",
-		plainGetAll(svcs.formalities.GetAll))
+		plainGetAll(svcs.Formalities.GetAll))
 
 	registerNoArgTool(server, "get_genders", "List all gender categories used in job postings.",
-		plainGetAll(svcs.genders.GetAll))
+		plainGetAll(svcs.Genders.GetAll))
 
 	registerNoArgTool(server, "get_vocational_educations", "List all vocational education (NVQ) levels.",
-		plainGetAll(svcs.vocationalEducations.GetAll))
+		plainGetAll(svcs.VocationalEducations.GetAll))
 }

@@ -8,7 +8,7 @@ import (
 )
 
 func (h *Handler) StartCrawlerRunHandler(c *gin.Context) {
-	run, err := h.crawlerRuns.CreateCrawlerRun(c.Request.Context())
+	run, err := h.CrawlerRuns.CreateCrawlerRun(c.Request.Context())
 	if err != nil {
 		respondError(c, http.StatusInternalServerError, "Failed to initialize new tracker session initialization block", err)
 		return
@@ -30,7 +30,7 @@ func (h *Handler) CompleteCrawlerRunHandler(c *gin.Context) {
 		return
 	}
 
-	if err := h.crawlerRuns.CompleteCrawlerRun(c.Request.Context(), id, req.Status); err != nil {
+	if err := h.CrawlerRuns.CompleteCrawlerRun(c.Request.Context(), id, req.Status); err != nil {
 		respondRepoError(c, "Failed to execute closure metrics logic sequence", err)
 		return
 	}
