@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 )
@@ -83,6 +84,26 @@ func (s *CRUDService[T]) GetByID(ctx context.Context, id uint) (T, error) {
 }
 
 func (s *CRUDService[T]) Update(ctx context.Context, id uint, updates map[string]interface{}) (T, error) {
+	if s.validate != nil {
+		current, err := s.getByID(ctx, id)
+		if err != nil {
+			var zero T
+			return zero, err
+		}
+		b, err := json.Marshal(updates)
+		if err != nil {
+			var zero T
+			return zero, err
+		}
+		if err := json.Unmarshal(b, &current); err != nil {
+			var zero T
+			return zero, err
+		}
+		if err := s.validate(ctx, &current); err != nil {
+			var zero T
+			return zero, err
+		}
+	}
 	return s.update(ctx, id, updates)
 }
 
