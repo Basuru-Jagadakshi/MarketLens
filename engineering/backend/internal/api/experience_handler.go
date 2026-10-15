@@ -33,7 +33,7 @@ func (h *Handler) GetAllExperiencesHandler(c *gin.Context) {
 func (h *Handler) CreateExperienceHandler(c *gin.Context) {
 	var in createExperienceInput
 	if err := c.ShouldBindJSON(&in); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request payload", "details": err.Error()})
+		respondError(c, http.StatusBadRequest, "Invalid request payload", err)
 		return
 	}
 	item := models.Experience{Name: in.Name}
@@ -64,7 +64,7 @@ func (h *Handler) UpdateExperienceHandler(c *gin.Context) {
 	}
 	var in updateExperienceInput
 	if err := c.ShouldBindJSON(&in); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request payload", "details": err.Error()})
+		respondError(c, http.StatusBadRequest, "Invalid request payload", err)
 		return
 	}
 	item, err := h.experiences.Update(c.Request.Context(), id, map[string]interface{}{"name": in.Name})

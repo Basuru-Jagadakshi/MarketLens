@@ -137,7 +137,7 @@ type industrySectorListResponse struct {
 func (h *Handler) CreateIndustrySectorHandler(c *gin.Context) {
 	var in createIndustrySectorInput
 	if err := c.ShouldBindJSON(&in); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request payload", "details": err.Error()})
+		respondError(c, http.StatusBadRequest, "Invalid request payload", err)
 		return
 	}
 	item := models.IndustrySector{Name: in.Name, Code: in.Code}
@@ -183,7 +183,7 @@ func (h *Handler) UpdateIndustrySectorHandler(c *gin.Context) {
 	}
 	var in updateIndustrySectorInput
 	if err := c.ShouldBindJSON(&in); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request payload", "details": err.Error()})
+		respondError(c, http.StatusBadRequest, "Invalid request payload", err)
 		return
 	}
 	updates := map[string]interface{}{}
@@ -234,7 +234,7 @@ type industryDivisionListResponse struct {
 func (h *Handler) CreateIndustryDivisionHandler(c *gin.Context) {
 	var in createIndustryDivisionInput
 	if err := c.ShouldBindJSON(&in); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request payload", "details": err.Error()})
+		respondError(c, http.StatusBadRequest, "Invalid request payload", err)
 		return
 	}
 	item := models.IndustryDivision{IndustrySectorID: in.IndustrySectorID, Name: in.Name, Code: in.Code}
@@ -274,7 +274,7 @@ func (h *Handler) UpdateIndustryDivisionHandler(c *gin.Context) {
 	}
 	var in updateIndustryDivisionInput
 	if err := c.ShouldBindJSON(&in); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request payload", "details": err.Error()})
+		respondError(c, http.StatusBadRequest, "Invalid request payload", err)
 		return
 	}
 	updates := map[string]interface{}{}
@@ -328,7 +328,7 @@ type industryGroupListResponse struct {
 func (h *Handler) CreateIndustryGroupHandler(c *gin.Context) {
 	var in createIndustryGroupInput
 	if err := c.ShouldBindJSON(&in); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request payload", "details": err.Error()})
+		respondError(c, http.StatusBadRequest, "Invalid request payload", err)
 		return
 	}
 	item := models.IndustryGroup{IndustryDivisionID: in.IndustryDivisionID, Name: in.Name, Code: in.Code}
@@ -368,7 +368,7 @@ func (h *Handler) UpdateIndustryGroupHandler(c *gin.Context) {
 	}
 	var in updateIndustryGroupInput
 	if err := c.ShouldBindJSON(&in); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request payload", "details": err.Error()})
+		respondError(c, http.StatusBadRequest, "Invalid request payload", err)
 		return
 	}
 	updates := map[string]interface{}{}
@@ -422,7 +422,7 @@ type industryClassListResponse struct {
 func (h *Handler) CreateIndustryClassHandler(c *gin.Context) {
 	var in createIndustryClassInput
 	if err := c.ShouldBindJSON(&in); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request payload", "details": err.Error()})
+		respondError(c, http.StatusBadRequest, "Invalid request payload", err)
 		return
 	}
 	item := models.IndustryClass{IndustryGroupID: in.IndustryGroupID, Name: in.Name, Code: in.Code}
@@ -462,7 +462,7 @@ func (h *Handler) UpdateIndustryClassHandler(c *gin.Context) {
 	}
 	var in updateIndustryClassInput
 	if err := c.ShouldBindJSON(&in); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request payload", "details": err.Error()})
+		respondError(c, http.StatusBadRequest, "Invalid request payload", err)
 		return
 	}
 	updates := map[string]interface{}{}
@@ -518,7 +518,7 @@ type industrySubclassPaginatedResponse struct {
 func (h *Handler) CreateIndustrySubclassHandler(c *gin.Context) {
 	var in createIndustrySubclassInput
 	if err := c.ShouldBindJSON(&in); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request payload", "details": err.Error()})
+		respondError(c, http.StatusBadRequest, "Invalid request payload", err)
 		return
 	}
 	item := models.IndustrySubclass{IndustryClassID: in.IndustryClassID, Name: in.Name, Code: in.Code}
@@ -576,7 +576,7 @@ func (h *Handler) UpdateIndustrySubclassHandler(c *gin.Context) {
 	}
 	var in updateIndustrySubclassInput
 	if err := c.ShouldBindJSON(&in); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request payload", "details": err.Error()})
+		respondError(c, http.StatusBadRequest, "Invalid request payload", err)
 		return
 	}
 	updates := map[string]interface{}{}

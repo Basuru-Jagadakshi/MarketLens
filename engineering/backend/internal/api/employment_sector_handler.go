@@ -24,7 +24,7 @@ type employmentSectorListResponse struct {
 func (h *Handler) CreateEmploymentSectorHandler(c *gin.Context) {
 	var in createEmploymentSectorInput
 	if err := c.ShouldBindJSON(&in); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request payload", "details": err.Error()})
+		respondError(c, http.StatusBadRequest, "Invalid request payload", err)
 		return
 	}
 	item := models.EmploymentSector{Sector: in.Sector}
@@ -64,7 +64,7 @@ func (h *Handler) UpdateEmploymentSectorHandler(c *gin.Context) {
 	}
 	var in updateEmploymentSectorInput
 	if err := c.ShouldBindJSON(&in); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request payload", "details": err.Error()})
+		respondError(c, http.StatusBadRequest, "Invalid request payload", err)
 		return
 	}
 	item, err := h.employmentSectors.Update(c.Request.Context(), id, map[string]interface{}{"sector": in.Sector})

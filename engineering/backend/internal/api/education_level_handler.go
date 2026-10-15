@@ -24,7 +24,7 @@ type educationLevelListResponse struct {
 func (h *Handler) CreateEducationLevelHandler(c *gin.Context) {
 	var in createEducationLevelInput
 	if err := c.ShouldBindJSON(&in); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request payload", "details": err.Error()})
+		respondError(c, http.StatusBadRequest, "Invalid request payload", err)
 		return
 	}
 	item := models.EducationLevel{Level: in.Level}
@@ -64,7 +64,7 @@ func (h *Handler) UpdateEducationLevelHandler(c *gin.Context) {
 	}
 	var in updateEducationLevelInput
 	if err := c.ShouldBindJSON(&in); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request payload", "details": err.Error()})
+		respondError(c, http.StatusBadRequest, "Invalid request payload", err)
 		return
 	}
 	item, err := h.educationLevels.Update(c.Request.Context(), id, map[string]interface{}{"level": in.Level})

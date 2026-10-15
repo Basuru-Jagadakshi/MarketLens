@@ -24,7 +24,7 @@ type genderListResponse struct {
 func (h *Handler) CreateGenderHandler(c *gin.Context) {
 	var in createGenderInput
 	if err := c.ShouldBindJSON(&in); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request payload", "details": err.Error()})
+		respondError(c, http.StatusBadRequest, "Invalid request payload", err)
 		return
 	}
 	item := models.Gender{GenderType: in.GenderType}
@@ -64,7 +64,7 @@ func (h *Handler) UpdateGenderHandler(c *gin.Context) {
 	}
 	var in updateGenderInput
 	if err := c.ShouldBindJSON(&in); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request payload", "details": err.Error()})
+		respondError(c, http.StatusBadRequest, "Invalid request payload", err)
 		return
 	}
 	item, err := h.genders.Update(c.Request.Context(), id, map[string]interface{}{"gender_type": in.GenderType})

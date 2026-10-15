@@ -24,7 +24,7 @@ type vocationalEducationListResponse struct {
 func (h *Handler) CreateVocationalEducationHandler(c *gin.Context) {
 	var in createVocationalEducationInput
 	if err := c.ShouldBindJSON(&in); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request payload", "details": err.Error()})
+		respondError(c, http.StatusBadRequest, "Invalid request payload", err)
 		return
 	}
 	item := models.VocationalEducation{Level: in.Level}
@@ -64,7 +64,7 @@ func (h *Handler) UpdateVocationalEducationHandler(c *gin.Context) {
 	}
 	var in updateVocationalEducationInput
 	if err := c.ShouldBindJSON(&in); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request payload", "details": err.Error()})
+		respondError(c, http.StatusBadRequest, "Invalid request payload", err)
 		return
 	}
 	item, err := h.vocationalEducations.Update(c.Request.Context(), id, map[string]interface{}{"level": in.Level})

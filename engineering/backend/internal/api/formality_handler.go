@@ -24,7 +24,7 @@ type formalityListResponse struct {
 func (h *Handler) CreateFormalityHandler(c *gin.Context) {
 	var in createFormalityInput
 	if err := c.ShouldBindJSON(&in); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request payload", "details": err.Error()})
+		respondError(c, http.StatusBadRequest, "Invalid request payload", err)
 		return
 	}
 	item := models.Formality{FormalityType: in.FormalityType}
@@ -64,7 +64,7 @@ func (h *Handler) UpdateFormalityHandler(c *gin.Context) {
 	}
 	var in updateFormalityInput
 	if err := c.ShouldBindJSON(&in); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request payload", "details": err.Error()})
+		respondError(c, http.StatusBadRequest, "Invalid request payload", err)
 		return
 	}
 	item, err := h.formalities.Update(c.Request.Context(), id, map[string]interface{}{"formality_type": in.FormalityType})

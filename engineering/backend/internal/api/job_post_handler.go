@@ -14,10 +14,7 @@ func (h *Handler) GetJobsByBucketKeysHandler(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error":   "Invalid request structure payload mapping",
-			"details": err.Error(),
-		})
+		respondError(c, http.StatusBadRequest, "Invalid request structure payload mapping", err)
 		return
 	}
 
@@ -40,15 +37,12 @@ type batchSaveJobsResponse struct {
 func (h *Handler) BatchSaveJobsHandler(c *gin.Context) {
 	var rawJobs []ingestion.RawJobInput
 	if err := c.ShouldBindJSON(&rawJobs); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error":   "Invalid request body structural mapping",
-			"details": err.Error(),
-		})
+		respondError(c, http.StatusBadRequest, "Invalid request body structural mapping", err)
 		return
 	}
 
 	if len(rawJobs) == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "The job batch cannot be empty"})
+		respondError(c, http.StatusBadRequest, "The job batch cannot be empty", nil)
 		return
 	}
 
@@ -65,10 +59,7 @@ type reconcileStaleVacanciesResponse struct {
 func (h *Handler) ReconcileStaleVacanciesHandler(c *gin.Context) {
 	var payload models.ReconciliationPayload
 	if err := c.ShouldBindJSON(&payload); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error":   "Missing active execution tracking sequence identifier criteria",
-			"details": err.Error(),
-		})
+		respondError(c, http.StatusBadRequest, "Missing active execution tracking sequence identifier criteria", err)
 		return
 	}
 

@@ -3,7 +3,6 @@ package api
 import (
 	"fmt"
 	"net/http"
-	"strconv"
 
 	"github.com/gin-gonic/gin"
 )
@@ -18,9 +17,8 @@ func (h *Handler) StartCrawlerRunHandler(c *gin.Context) {
 }
 
 func (h *Handler) CompleteCrawlerRunHandler(c *gin.Context) {
-	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid crawler run ID parameter"})
+	id, ok := parseIDParamMsg(c, "Invalid crawler run ID parameter")
+	if !ok {
 		return
 	}
 
@@ -28,11 +26,11 @@ func (h *Handler) CompleteCrawlerRunHandler(c *gin.Context) {
 		Status string `json:"status" binding:"required"` // 'COMPLETED' or 'FAILED'
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing state status flag criteria"})
+		respondError(c, http.StatusBadRequest, "Missing state status flag criteria", err)
 		return
 	}
 
-	if err := h.crawlerRuns.CompleteCrawlerRun(c.Request.Context(), uint(id), req.Status); err != nil {
+	if err := h.crawlerRuns.CompleteCrawlerRun(c.Request.Context(), id, req.Status); err != nil {
 		respondRepoError(c, "Failed to execute closure metrics logic sequence", err)
 		return
 	}

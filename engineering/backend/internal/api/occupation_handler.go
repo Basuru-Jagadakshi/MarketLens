@@ -132,7 +132,7 @@ type majorGroupListResponse struct {
 func (h *Handler) CreateMajorGroupHandler(c *gin.Context) {
 	var in createMajorGroupInput
 	if err := c.ShouldBindJSON(&in); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request payload", "details": err.Error()})
+		respondError(c, http.StatusBadRequest, "Invalid request payload", err)
 		return
 	}
 	item := models.MajorGroup{Name: in.Name, Code: in.Code}
@@ -178,7 +178,7 @@ func (h *Handler) UpdateMajorGroupHandler(c *gin.Context) {
 	}
 	var in updateMajorGroupInput
 	if err := c.ShouldBindJSON(&in); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request payload", "details": err.Error()})
+		respondError(c, http.StatusBadRequest, "Invalid request payload", err)
 		return
 	}
 	updates := map[string]interface{}{}
@@ -229,7 +229,7 @@ type subMajorGroupListResponse struct {
 func (h *Handler) CreateSubMajorGroupHandler(c *gin.Context) {
 	var in createSubMajorGroupInput
 	if err := c.ShouldBindJSON(&in); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request payload", "details": err.Error()})
+		respondError(c, http.StatusBadRequest, "Invalid request payload", err)
 		return
 	}
 	item := models.SubMajorGroup{MajorGroupID: in.MajorGroupID, Name: in.Name, Code: in.Code}
@@ -269,7 +269,7 @@ func (h *Handler) UpdateSubMajorGroupHandler(c *gin.Context) {
 	}
 	var in updateSubMajorGroupInput
 	if err := c.ShouldBindJSON(&in); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request payload", "details": err.Error()})
+		respondError(c, http.StatusBadRequest, "Invalid request payload", err)
 		return
 	}
 	updates := map[string]interface{}{}
@@ -323,7 +323,7 @@ type minorGroupListResponse struct {
 func (h *Handler) CreateMinorGroupHandler(c *gin.Context) {
 	var in createMinorGroupInput
 	if err := c.ShouldBindJSON(&in); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request payload", "details": err.Error()})
+		respondError(c, http.StatusBadRequest, "Invalid request payload", err)
 		return
 	}
 	item := models.MinorGroup{SubMajorGroupID: in.SubMajorGroupID, Name: in.Name, Code: in.Code}
@@ -363,7 +363,7 @@ func (h *Handler) UpdateMinorGroupHandler(c *gin.Context) {
 	}
 	var in updateMinorGroupInput
 	if err := c.ShouldBindJSON(&in); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request payload", "details": err.Error()})
+		respondError(c, http.StatusBadRequest, "Invalid request payload", err)
 		return
 	}
 	updates := map[string]interface{}{}
@@ -417,7 +417,7 @@ type unitGroupListResponse struct {
 func (h *Handler) CreateUnitGroupHandler(c *gin.Context) {
 	var in createUnitGroupInput
 	if err := c.ShouldBindJSON(&in); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request payload", "details": err.Error()})
+		respondError(c, http.StatusBadRequest, "Invalid request payload", err)
 		return
 	}
 	item := models.UnitGroup{MinorGroupID: in.MinorGroupID, Name: in.Name, Code: in.Code}
@@ -457,7 +457,7 @@ func (h *Handler) UpdateUnitGroupHandler(c *gin.Context) {
 	}
 	var in updateUnitGroupInput
 	if err := c.ShouldBindJSON(&in); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request payload", "details": err.Error()})
+		respondError(c, http.StatusBadRequest, "Invalid request payload", err)
 		return
 	}
 	updates := map[string]interface{}{}
@@ -513,7 +513,7 @@ type occupationGroupPaginatedResponse struct {
 func (h *Handler) CreateOccupationGroupHandler(c *gin.Context) {
 	var in createOccupationGroupInput
 	if err := c.ShouldBindJSON(&in); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request payload", "details": err.Error()})
+		respondError(c, http.StatusBadRequest, "Invalid request payload", err)
 		return
 	}
 	item := models.OccupationGroup{UnitGroupID: in.UnitGroupID, Name: in.Name, Code: in.Code}
@@ -571,7 +571,7 @@ func (h *Handler) UpdateOccupationGroupHandler(c *gin.Context) {
 	}
 	var in updateOccupationGroupInput
 	if err := c.ShouldBindJSON(&in); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request payload", "details": err.Error()})
+		respondError(c, http.StatusBadRequest, "Invalid request payload", err)
 		return
 	}
 	updates := map[string]interface{}{}
