@@ -2,31 +2,11 @@ package mcpserver
 
 import (
 	"context"
-	"fmt"
-	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"marketlens-go-backend/internal/service"
 )
-
-// parseDateRange parses a plain from/to date pair. Date-order validation is
-// the service layer's job, since it's a business rule shared with the HTTP
-// handlers, not a parsing concern.
-func parseDateRange(fromStr, toStr string) (time.Time, time.Time, error) {
-	if fromStr == "" || toStr == "" {
-		return time.Time{}, time.Time{}, fmt.Errorf("from_date and to_date are both required (format YYYY-MM-DD)")
-	}
-	from, err := time.Parse("2006-01-02", fromStr)
-	if err != nil {
-		return time.Time{}, time.Time{}, fmt.Errorf("invalid from_date: %w", err)
-	}
-	to, err := time.Parse("2006-01-02", toStr)
-	if err != nil {
-		return time.Time{}, time.Time{}, fmt.Errorf("invalid to_date: %w", err)
-	}
-	return from, to, nil
-}
 
 func registerAnalysisTools(server *mcp.Server, svcs *service.Services) {
 	// Occupation skills (occupation only - no industry equivalent exists)
@@ -40,7 +20,7 @@ func registerAnalysisTools(server *mcp.Server, svcs *service.Services) {
 		FromDate string `json:"from_date" jsonschema:"start date, format YYYY-MM-DD"`
 		ToDate   string `json:"to_date" jsonschema:"end date, format YYYY-MM-DD"`
 	}) (*mcp.CallToolResult, any, error) {
-		from, to, err := parseDateRange(in.FromDate, in.ToDate)
+		from, to, err := service.ParseDateRange(in.FromDate, in.ToDate)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -62,7 +42,7 @@ func registerAnalysisTools(server *mcp.Server, svcs *service.Services) {
 		Limit    int    `json:"limit" jsonschema:"max rows to return, default 20"`
 		Offset   int    `json:"offset" jsonschema:"rows to skip, default 0"`
 	}) (*mcp.CallToolResult, any, error) {
-		from, to, err := parseDateRange(in.FromDate, in.ToDate)
+		from, to, err := service.ParseDateRange(in.FromDate, in.ToDate)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -86,7 +66,7 @@ func registerAnalysisTools(server *mcp.Server, svcs *service.Services) {
 		FromDate string `json:"from_date" jsonschema:"start date, format YYYY-MM-DD"`
 		ToDate   string `json:"to_date" jsonschema:"end date, format YYYY-MM-DD"`
 	}) (*mcp.CallToolResult, any, error) {
-		from, to, err := parseDateRange(in.FromDate, in.ToDate)
+		from, to, err := service.ParseDateRange(in.FromDate, in.ToDate)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -101,26 +81,14 @@ func registerAnalysisTools(server *mcp.Server, svcs *service.Services) {
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name: "get_vacancy_trend",
-		Description: "Get the national vacancy trend over a date range. Automatically buckets weekly " +
+		Description: "Get the national vacancy trend over a date range. Automatically buckets daily " +
 			"for ranges under 60 days, or monthly for longer ranges - matching GET /vacancy-trend.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, in dateRangeInput) (*mcp.CallToolResult, any, error) {
-		from, to, err := parseDateRange(in.FromDate, in.ToDate)
+		from, to, err := service.ParseDateRange(in.FromDate, in.ToDate)
 		if err != nil {
 			return nil, nil, err
 		}
-
-		diffDays := int(to.Sub(from).Hours() / 24)
-		var (
-			data        any
-			granularity string
-		)
-		if diffDays < 60 {
-			granularity = "weekly"
-			data, err = svcs.Analytics.GetVacancyTrendDaily(ctx, from, to)
-		} else {
-			granularity = "monthly"
-			data, err = svcs.Analytics.GetVacancyTrendMonthly(ctx, from, to)
-		}
+		data, granularity, err := svcs.Analytics.GetVacancyTrend(ctx, from, to)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -131,7 +99,7 @@ func registerAnalysisTools(server *mcp.Server, svcs *service.Services) {
 		Name:        "get_vacancy_total",
 		Description: "Get the total national vacancy count for a date range.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, in dateRangeInput) (*mcp.CallToolResult, any, error) {
-		from, to, err := parseDateRange(in.FromDate, in.ToDate)
+		from, to, err := service.ParseDateRange(in.FromDate, in.ToDate)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -145,7 +113,7 @@ func registerAnalysisTools(server *mcp.Server, svcs *service.Services) {
 		Name:        "get_occupations_by_date_range",
 		Description: "Get vacancy counts grouped by occupation major group for a date range.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, in dateRangeInput) (*mcp.CallToolResult, any, error) {
-		from, to, err := parseDateRange(in.FromDate, in.ToDate)
+		from, to, err := service.ParseDateRange(in.FromDate, in.ToDate)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -160,7 +128,7 @@ func registerAnalysisTools(server *mcp.Server, svcs *service.Services) {
 		Name:        "get_industries_by_date_range",
 		Description: "Get vacancy counts grouped by industry sector for a date range.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, in dateRangeInput) (*mcp.CallToolResult, any, error) {
-		from, to, err := parseDateRange(in.FromDate, in.ToDate)
+		from, to, err := service.ParseDateRange(in.FromDate, in.ToDate)
 		if err != nil {
 			return nil, nil, err
 		}

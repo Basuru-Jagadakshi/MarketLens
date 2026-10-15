@@ -140,7 +140,7 @@ type levelInput struct {
 // order) are the service layer's job, since they're business rules shared
 // with the HTTP handlers, not a parsing concern.
 func parseLevelInput(in levelInput) (uint, time.Time, time.Time, error) {
-	from, to, err := parseDateRange(in.FromDate, in.ToDate)
+	from, to, err := service.ParseDateRange(in.FromDate, in.ToDate)
 	if err != nil {
 		return 0, time.Time{}, time.Time{}, err
 	}

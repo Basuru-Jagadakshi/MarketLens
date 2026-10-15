@@ -225,16 +225,17 @@ func (s *AnalyticsService) GetTotalVacancyCount(ctx context.Context, fromDate, t
 	return s.store.GetTotalVacancyCount(ctx, fromDate, toDate)
 }
 
-func (s *AnalyticsService) GetVacancyTrendDaily(ctx context.Context, fromDate, toDate time.Time) ([]models.VacancyTrendPoint, error) {
-	if err := validateDateRange(fromDate, toDate); err != nil {
-		return nil, err
-	}
-	return s.store.GetVacancyTrendDaily(ctx, fromDate, toDate)
-}
+const vacancyTrendDailyThresholdDays = 60
 
-func (s *AnalyticsService) GetVacancyTrendMonthly(ctx context.Context, fromDate, toDate time.Time) ([]models.VacancyTrendPoint, error) {
+func (s *AnalyticsService) GetVacancyTrend(ctx context.Context, fromDate, toDate time.Time) ([]models.VacancyTrendPoint, string, error) {
 	if err := validateDateRange(fromDate, toDate); err != nil {
-		return nil, err
+		return nil, "", err
 	}
-	return s.store.GetVacancyTrendMonthly(ctx, fromDate, toDate)
+	diffDays := int(toDate.Sub(fromDate).Hours() / 24)
+	if diffDays < vacancyTrendDailyThresholdDays {
+		points, err := s.store.GetVacancyTrendDaily(ctx, fromDate, toDate)
+		return points, "daily", err
+	}
+	points, err := s.store.GetVacancyTrendMonthly(ctx, fromDate, toDate)
+	return points, "monthly", err
 }

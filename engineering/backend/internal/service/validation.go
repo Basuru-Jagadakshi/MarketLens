@@ -27,6 +27,31 @@ func requireNonEmptyField[T any](fieldName string, get func(*T) string) func(con
 	}
 }
 
+// ParseDateRange parses a required from/to date pair (format YYYY-MM-DD) —
+// the one place this parsing lives, called by both the HTTP handlers (via
+// api.parseDateRangeQuery) and the MCP tools, instead of each transport
+// reimplementing it. It only parses; the "to must not be before from" rule
+// stays in validateDateRange, which callers that need it already run
+// downstream.
+func ParseDateRange(fromStr, toStr string) (time.Time, time.Time, error) {
+	if fromStr == "" {
+		return time.Time{}, time.Time{}, ValidationErrorf("from-date is required (format YYYY-MM-DD)")
+	}
+	if toStr == "" {
+		return time.Time{}, time.Time{}, ValidationErrorf("to-date is required (format YYYY-MM-DD)")
+	}
+	const layout = "2006-01-02"
+	from, err := time.Parse(layout, fromStr)
+	if err != nil {
+		return time.Time{}, time.Time{}, ValidationErrorf("invalid from-date, expected YYYY-MM-DD: %v", err)
+	}
+	to, err := time.Parse(layout, toStr)
+	if err != nil {
+		return time.Time{}, time.Time{}, ValidationErrorf("invalid to-date, expected YYYY-MM-DD: %v", err)
+	}
+	return from, to, nil
+}
+
 // validateParentExists turns a parent lookup's "not found" into a
 // validation error naming the offending field; any other error (a real DB
 // problem) passes through unchanged so it surfaces as a 500, not a

@@ -46,41 +46,19 @@ type dateRange struct {
 
 // parseDateRangeQuery reads and parses the required "from-date"/"to-date"
 // query params (format YYYY-MM-DD), writing the 400 response itself on any
-// failure. ok is false iff it already wrote a response.
+// failure. ok is false iff it already wrote a response. The actual parsing
+// lives in service.ParseDateRange, shared with the MCP tools.
 func parseDateRangeQuery(c *gin.Context) (dateRange, bool) {
 	fromDateStr := c.Query("from-date")
 	toDateStr := c.Query("to-date")
 
-	if fromDateStr == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "from-date query parameter is required"})
-		return dateRange{}, false
-	}
-	if toDateStr == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "to-date query parameter is required"})
-		return dateRange{}, false
-	}
-
-	const layout = "2006-01-02"
-
-	fromDate, err := time.Parse(layout, fromDateStr)
+	from, to, err := service.ParseDateRange(fromDateStr, toDateStr)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error":   "invalid from-date format, expected YYYY-MM-DD",
-			"details": err.Error(),
-		})
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return dateRange{}, false
 	}
 
-	toDate, err := time.Parse(layout, toDateStr)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error":   "invalid to-date format, expected YYYY-MM-DD",
-			"details": err.Error(),
-		})
-		return dateRange{}, false
-	}
-
-	return dateRange{FromStr: fromDateStr, ToStr: toDateStr, From: fromDate, To: toDate}, true
+	return dateRange{FromStr: fromDateStr, ToStr: toDateStr, From: from, To: to}, true
 }
 
 // parseOptionalDateRangeQuery is parseDateRangeQuery, but treats both

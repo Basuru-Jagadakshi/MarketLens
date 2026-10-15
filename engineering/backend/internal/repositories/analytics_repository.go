@@ -680,7 +680,7 @@ func (r *Store) GetVacancyTrendDaily(ctx context.Context, fromDate, toDate time.
 	results := make([]models.VacancyTrendPoint, 0, len(rows))
 	for _, row := range rows {
 		results = append(results, models.VacancyTrendPoint{
-			Label:        formatWeekLabel(row.PeriodStart),
+			Label:        formatDayLabel(row.PeriodStart),
 			OpenJobCount: row.OpenJobCount,
 		})
 	}
@@ -753,6 +753,6 @@ func (r *Store) GetVacancyTrendMonthly(ctx context.Context, fromDate, toDate tim
 	return results, nil
 }
 
-func formatWeekLabel(t time.Time) string {
+func formatDayLabel(t time.Time) string {
 	return t.Format("Jan 2")
 }

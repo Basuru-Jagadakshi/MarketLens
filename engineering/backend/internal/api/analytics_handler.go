@@ -558,31 +558,16 @@ type vacancyTrendResponse struct {
 }
 
 // This function returns vacancy counts over a date range with granularity that adapts
-// to the range's length: 7-day set under 60 days, monthly otherwise
+// to the range's length: daily under 60 days, monthly otherwise
 func (h *Handler) GetVacancyTrendHandler(c *gin.Context) {
 	dr, ok := parseDateRangeQuery(c)
 	if !ok {
 		return
 	}
 
-	diffDays := int(dr.To.Sub(dr.From).Hours() / 24)
-
-	var (
-		results     []models.VacancyTrendPoint
-		granularity string
-		repoErr     error
-	)
-
-	if diffDays < 60 {
-		granularity = "weekly"
-		results, repoErr = h.Analytics.GetVacancyTrendDaily(c.Request.Context(), dr.From, dr.To)
-	} else {
-		granularity = "monthly"
-		results, repoErr = h.Analytics.GetVacancyTrendMonthly(c.Request.Context(), dr.From, dr.To)
-	}
-
-	if repoErr != nil {
-		respondRepoError(c, "Failed to retrieve vacancy trend data", repoErr)
+	results, granularity, err := h.Analytics.GetVacancyTrend(c.Request.Context(), dr.From, dr.To)
+	if err != nil {
+		respondRepoError(c, "Failed to retrieve vacancy trend data", err)
 		return
 	}
 
