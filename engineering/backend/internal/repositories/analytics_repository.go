@@ -218,32 +218,6 @@ func (r *Store) GetAllSkillsByOccupationLevel(ctx context.Context, level string,
 	return results, total, nil
 }
 
-// This function returns the top 15 skills (by summed vacancy count) for jobs
-// under the given occupation hierarchy level and id, filtered by date range.
-func (r *Store) GetTop15SkillsByOccupationLevel(ctx context.Context, level string, id uint, fromDate, toDate time.Time) ([]models.SkillDemand, error) {
-	jobPostIDs, err := r.buildJobPostIDsForLevel(ctx, "occupation", level, id, fromDate, toDate)
-	if err != nil {
-		return nil, err
-	}
-
-	var results []models.SkillDemand
-	err = r.db.WithContext(ctx).Table("skills").
-		Select("skills.id, skills.skill, COALESCE(SUM(job_post.no_of_vacancies), 0) AS open_job_count").
-		Joins("JOIN job_post_skills ON job_post_skills.skill_id = skills.id").
-		Joins("JOIN job_post ON job_post.id = job_post_skills.job_post_id").
-		Where("job_post.id IN (?)", jobPostIDs).
-		Group("skills.id, skills.skill").
-		Order("open_job_count DESC").
-		Limit(15).
-		Scan(&results).Error
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to query top 15 skills for occupation/%s/%d: %w", level, id, err)
-	}
-
-	return results, nil
-}
-
 // This function returns job type breakdown (with job counts) for the given
 // occupation/industry hierarchy level and id, filtered by date range.
 func (r *Store) GetJobTypeByLevel(ctx context.Context, standard, level string, id uint, fromDate, toDate time.Time) ([]models.JobTypeJobCount, error) {

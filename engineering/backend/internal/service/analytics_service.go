@@ -39,16 +39,6 @@ func (s *AnalyticsService) GetAllSkillsByOccupationLevel(ctx context.Context, le
 	return s.store.GetAllSkillsByOccupationLevel(ctx, level, id, fromDate, toDate, limit, offset)
 }
 
-func (s *AnalyticsService) GetTop15SkillsByOccupationLevel(ctx context.Context, level string, id uint, fromDate, toDate time.Time) ([]models.SkillDemand, error) {
-	if err := validateStandardAndLevel("occupation", level); err != nil {
-		return nil, err
-	}
-	if err := validateDateRange(fromDate, toDate); err != nil {
-		return nil, err
-	}
-	return s.store.GetTop15SkillsByOccupationLevel(ctx, level, id, fromDate, toDate)
-}
-
 func (s *AnalyticsService) GetJobTypeByLevel(ctx context.Context, standard, level string, id uint, fromDate, toDate time.Time) ([]models.JobTypeJobCount, error) {
 	if err := validateStandardAndLevel(standard, level); err != nil {
 		return nil, err

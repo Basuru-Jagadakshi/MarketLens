@@ -90,37 +90,6 @@ func (h *Handler) GetAllSkillsByOccupationLevelHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, skillsPaginatedResponse{Level: level, ID: id, FromDate: dr.FromStr, ToDate: dr.ToStr, Count: len(results), Total: total, Limit: limit, Offset: offset, Skills: results})
 }
 
-type top15SkillsResponse struct {
-	Level    string               `json:"level"`
-	ID       uint                 `json:"id"`
-	FromDate string               `json:"from_date"`
-	ToDate   string               `json:"to_date"`
-	Count    int                  `json:"count"`
-	Skills   []models.SkillDemand `json:"skills"`
-}
-
-// This function returns the top 15 skills for a given occupation hierarchy
-// level and id, filtered by date range.
-func (h *Handler) GetTop15SkillsByOccupationLevelHandler(c *gin.Context) {
-	level := c.Param("level")
-	id, ok := parseIDParamMsg(c, "invalid id parameter, must be a positive integer")
-	if !ok {
-		return
-	}
-	dr, ok := parseDateRangeQuery(c)
-	if !ok {
-		return
-	}
-
-	results, err := h.Analytics.GetTop15SkillsByOccupationLevel(c.Request.Context(), level, id, dr.From, dr.To)
-	if err != nil {
-		respondRepoError(c, "Failed to retrieve top 15 skills", err)
-		return
-	}
-
-	c.JSON(http.StatusOK, top15SkillsResponse{Level: level, ID: id, FromDate: dr.FromStr, ToDate: dr.ToStr, Count: len(results), Skills: results})
-}
-
 type jobTypeByLevelResponse struct {
 	Standard string                     `json:"standard"`
 	Level    string                     `json:"level"`

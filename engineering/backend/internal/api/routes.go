@@ -49,8 +49,7 @@ func RegisterRoutes(r *gin.Engine, h *Handler) {
 		v1.GET("/:standard/:level/:id/vocational-education", h.GetVocationalEducationByLevelHandler)
 		v1.GET("/:standard/:level/:id/remote-onsite-hybrid", h.GetRemoteOnSiteHybridByLevelHandler)
 		v1.GET("/:standard/:level/:id/job-type", h.GetJobTypeByLevelHandler)
-		v1.GET("/occupation/:level/:id/top-15-skills", h.GetTop15SkillsByOccupationLevelHandler)
-		v1.GET("/occupation/:level/:id/all-skills", h.GetAllSkillsByOccupationLevelHandler)
+		v1.GET("/occupation/:level/:id/skills", h.GetAllSkillsByOccupationLevelHandler)
 		v1.GET("/occupation/:level/:id/top-hiring-employers", h.GetTopHiringEmployersByOccupationLevelHandler)
 
 		// Crawler/ingestion pipeline (authenticated)

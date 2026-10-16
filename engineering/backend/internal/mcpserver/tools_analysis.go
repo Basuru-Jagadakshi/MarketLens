@@ -12,26 +12,6 @@ func registerAnalysisTools(server *mcp.Server, svcs *service.Services) {
 	// Occupation skills (occupation only - no industry equivalent exists)
 
 	mcp.AddTool(server, &mcp.Tool{
-		Name:        "get_top_15_skills_by_occupation",
-		Description: "Get the top 15 in-demand skills for a given occupation hierarchy level and id, within a date range.",
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, in struct {
-		Level    string `json:"level" jsonschema:"occupation hierarchy level, e.g. 'major-group'"`
-		ID       uint   `json:"id" jsonschema:"the numeric id at that level"`
-		FromDate string `json:"from_date" jsonschema:"start date, format YYYY-MM-DD"`
-		ToDate   string `json:"to_date" jsonschema:"end date, format YYYY-MM-DD"`
-	}) (*mcp.CallToolResult, any, error) {
-		from, to, err := service.ParseDateRange(in.FromDate, in.ToDate)
-		if err != nil {
-			return nil, nil, err
-		}
-		out, err := svcs.Analytics.GetTop15SkillsByOccupationLevel(ctx, in.Level, in.ID, from, to)
-		if err != nil {
-			return nil, nil, err
-		}
-		return nil, wrapIfList(out), nil
-	})
-
-	mcp.AddTool(server, &mcp.Tool{
 		Name:        "get_all_skills_by_occupation",
 		Description: "Get all skills (paginated) for a given occupation hierarchy level and id, within a date range.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, in struct {
