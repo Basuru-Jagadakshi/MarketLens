@@ -117,7 +117,7 @@ func registerAnalysisTools(server *mcp.Server, svcs *service.Services) {
 		if err != nil {
 			return nil, nil, err
 		}
-		out, err := svcs.Analytics.GetOccupationJobCountByDateRange(ctx, from, to)
+		out, err := svcs.Analytics.GetJobCountByDateRange(ctx, "occupation", from, to)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -132,7 +132,7 @@ func registerAnalysisTools(server *mcp.Server, svcs *service.Services) {
 		if err != nil {
 			return nil, nil, err
 		}
-		out, err := svcs.Analytics.GetIndustryJobCountByDateRange(ctx, from, to)
+		out, err := svcs.Analytics.GetJobCountByDateRange(ctx, "industry", from, to)
 		if err != nil {
 			return nil, nil, err
 		}

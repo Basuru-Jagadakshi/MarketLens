@@ -7,48 +7,6 @@ import (
 	"time"
 )
 
-// validOccupationLevels / validIndustryLevels / leafLevels are the single
-// canonical copy of these rules — the HTTP handlers and the MCP tools both
-// call through AnalyticsService, so neither transport needs (or should
-// keep) its own copy of "what's a valid level".
-var validOccupationLevels = map[string]bool{
-	"major-group":      true,
-	"sub-major-group":  true,
-	"minor-group":      true,
-	"unit-group":       true,
-	"occupation-group": true,
-}
-
-var validIndustryLevels = map[string]bool{
-	"industry-sector":   true,
-	"industry-division": true,
-	"industry-group":    true,
-	"industry-class":    true,
-	"industry-subclass": true,
-}
-
-// leafLevels marks the bottom of each hierarchy, which has no children to return.
-var leafLevels = map[string]bool{
-	"occupation-group":  true,
-	"industry-subclass": true,
-}
-
-func validateStandardAndLevel(standard, level string) error {
-	switch standard {
-	case "occupation":
-		if !validOccupationLevels[level] {
-			return ValidationErrorf("invalid level %q for standard 'occupation'", level)
-		}
-	case "industry":
-		if !validIndustryLevels[level] {
-			return ValidationErrorf("invalid level %q for standard 'industry'", level)
-		}
-	default:
-		return ValidationErrorf("invalid standard %q, must be 'occupation' or 'industry'", standard)
-	}
-	return nil
-}
-
 // AnalyticsService fronts the Store's read-only aggregation queries,
 // validating the standard/level/date-range inputs they all share — the
 // one place this is checked, instead of the HTTP handlers and MCP tools
@@ -204,18 +162,14 @@ func (s *AnalyticsService) GetTotalJobCountByLevel(ctx context.Context, standard
 	return s.store.GetTotalJobCountByLevel(ctx, standard, level, id, fromDate, toDate)
 }
 
-func (s *AnalyticsService) GetIndustryJobCountByDateRange(ctx context.Context, fromDate, toDate time.Time) ([]models.IndustryJobCount, error) {
+func (s *AnalyticsService) GetJobCountByDateRange(ctx context.Context, standard string, fromDate, toDate time.Time) ([]models.RootJobCount, error) {
+	if err := validateStandard(standard); err != nil {
+		return nil, err
+	}
 	if err := validateDateRange(fromDate, toDate); err != nil {
 		return nil, err
 	}
-	return s.store.GetIndustryJobCountByDateRange(ctx, fromDate, toDate)
-}
-
-func (s *AnalyticsService) GetOccupationJobCountByDateRange(ctx context.Context, fromDate, toDate time.Time) ([]models.OccupationJobCount, error) {
-	if err := validateDateRange(fromDate, toDate); err != nil {
-		return nil, err
-	}
-	return s.store.GetOccupationJobCountByDateRange(ctx, fromDate, toDate)
+	return s.store.GetJobCountByStandardDateRange(ctx, standard, fromDate, toDate)
 }
 
 func (s *AnalyticsService) GetTotalVacancyCount(ctx context.Context, fromDate, toDate time.Time) (int64, error) {

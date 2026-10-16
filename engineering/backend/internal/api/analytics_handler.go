@@ -483,50 +483,31 @@ func (h *Handler) GetTotalJobCountByLevelHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, totalJobCountByLevelResponse{Standard: standard, Level: level, ID: id, FromDate: dr.FromStr, ToDate: dr.ToStr, TotalJobCount: total})
 }
 
-type industryJobCountResponse struct {
-	FromDate   string                     `json:"from_date"`
-	ToDate     string                     `json:"to_date"`
-	Count      int                        `json:"count"`
-	Industries []models.IndustryJobCount `json:"industries"`
+type jobCountByDateRangeResponse struct {
+	Standard string                `json:"standard"`
+	FromDate string                `json:"from_date"`
+	ToDate   string                `json:"to_date"`
+	Count    int                   `json:"count"`
+	Data     []models.RootJobCount `json:"data"`
 }
 
-// This function returns vacancy counts grouped by industry sector, for a given date range
-func (h *Handler) GetIndustryJobCountByDateRangeHandler(c *gin.Context) {
+// This function returns vacancy counts grouped by the root level of the given
+// hierarchy ("occupation" -> major group, "industry" -> industry sector), for
+// a given date range
+func (h *Handler) GetJobCountByDateRangeHandler(c *gin.Context) {
+	standard := c.Param("standard")
 	dr, ok := parseDateRangeQuery(c)
 	if !ok {
 		return
 	}
 
-	results, err := h.Analytics.GetIndustryJobCountByDateRange(c.Request.Context(), dr.From, dr.To)
+	results, err := h.Analytics.GetJobCountByDateRange(c.Request.Context(), standard, dr.From, dr.To)
 	if err != nil {
-		respondRepoError(c, "Failed to retrieve industry job counts", err)
+		respondRepoError(c, "Failed to retrieve job counts", err)
 		return
 	}
 
-	c.JSON(http.StatusOK, industryJobCountResponse{FromDate: dr.FromStr, ToDate: dr.ToStr, Count: len(results), Industries: results})
-}
-
-type occupationJobCountResponse struct {
-	FromDate    string                       `json:"from_date"`
-	ToDate      string                       `json:"to_date"`
-	Count       int                          `json:"count"`
-	Occupations []models.OccupationJobCount `json:"occupations"`
-}
-
-// This function returns vacancy counts grouped by major group (occupation), for a given date range
-func (h *Handler) GetOccupationJobCountByDateRangeHandler(c *gin.Context) {
-	dr, ok := parseDateRangeQuery(c)
-	if !ok {
-		return
-	}
-
-	results, err := h.Analytics.GetOccupationJobCountByDateRange(c.Request.Context(), dr.From, dr.To)
-	if err != nil {
-		respondRepoError(c, "Failed to retrieve occupation job counts", err)
-		return
-	}
-
-	c.JSON(http.StatusOK, occupationJobCountResponse{FromDate: dr.FromStr, ToDate: dr.ToStr, Count: len(results), Occupations: results})
+	c.JSON(http.StatusOK, jobCountByDateRangeResponse{Standard: standard, FromDate: dr.FromStr, ToDate: dr.ToStr, Count: len(results), Data: results})
 }
 
 type totalVacancyCountResponse struct {

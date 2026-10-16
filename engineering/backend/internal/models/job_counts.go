@@ -26,13 +26,7 @@ type EmployerDemand struct {
 	OpenJobCount int64  `json:"open_job_count"`
 }
 
-type OccupationJobCount struct {
-	ID           uint   `json:"id"`
-	Name         string `json:"name"`
-	OpenJobCount int64  `json:"open_job_count"`
-}
-
-type IndustryJobCount struct {
+type RootJobCount struct {
 	ID           uint   `json:"id"`
 	Name         string `json:"name"`
 	OpenJobCount int64  `json:"open_job_count"`

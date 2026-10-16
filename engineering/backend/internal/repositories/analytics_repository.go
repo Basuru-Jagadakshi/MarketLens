@@ -591,53 +591,72 @@ func (r *Store) GetTotalJobCountByLevel(ctx context.Context, standard, level str
 	return total, nil
 }
 
-// This function returns vacancy counts grouped by industry sector, for jobs posted within the given date range
-func (r *Store) GetIndustryJobCountByDateRange(ctx context.Context, fromDate, toDate time.Time) ([]models.IndustryJobCount, error) {
-	var results []models.IndustryJobCount
-	toDateExclusive := exclusiveUpperBound(toDate)
-
-	err := r.db.WithContext(ctx).Table("industry_sector").
-		Select("industry_sector.id, industry_sector.name, COALESCE(SUM(job_post.no_of_vacancies), 0) AS open_job_count").
-		Where("industry_sector.created_at < ?", toDateExclusive).
-		Where("industry_sector.deleted_at IS NULL OR industry_sector.deleted_at >= ?", fromDate).
-		Joins("LEFT JOIN industry_division ON industry_division.industry_sector_id = industry_sector.id").
-		Joins("LEFT JOIN industry_group ON industry_group.industry_division_id = industry_division.id").
-		Joins("LEFT JOIN industry_class ON industry_class.industry_group_id = industry_group.id").
-		Joins("LEFT JOIN industry_subclass ON industry_subclass.industry_class_id = industry_class.id").
-		Joins("LEFT JOIN meta_data ON meta_data.industry_subclass_id = industry_subclass.id AND meta_data.posted_at >= ? AND meta_data.posted_at < ?", fromDate, toDateExclusive).
-		Joins("LEFT JOIN job_post ON job_post.id = meta_data.job_post_id").
-		Group("industry_sector.id, industry_sector.name").
-		Order("open_job_count DESC").
-		Scan(&results).Error
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to query industry job count by date range: %w", err)
-	}
-
-	return results, nil
+// hierarchyChain describes one hierarchy's root table and the LEFT JOINs
+// down to the leaf level where meta_data attaches — the one shape shared by
+// GetJobCountByStandardDateRange's occupation and industry queries.
+type hierarchyChain struct {
+	rootTable string
+	joins     []string
+	leafJoin  string
 }
 
-// This function returns vacancy counts grouped by major group (occupation), for jobs posted within the given date range
-func (r *Store) GetOccupationJobCountByDateRange(ctx context.Context, fromDate, toDate time.Time) ([]models.OccupationJobCount, error) {
-	var results []models.OccupationJobCount
+// jobCountByRoot groups vacancy counts by a hierarchy's root level, for jobs
+// posted within the given date range.
+func (r *Store) jobCountByRoot(ctx context.Context, h hierarchyChain, fromDate, toDate time.Time, dest any) error {
 	toDateExclusive := exclusiveUpperBound(toDate)
 
-	err := r.db.WithContext(ctx).Table("major_group").
-		Select("major_group.id, major_group.name, COALESCE(SUM(job_post.no_of_vacancies), 0) AS open_job_count").
-		Where("major_group.created_at < ?", toDateExclusive).
-		Where("major_group.deleted_at IS NULL OR major_group.deleted_at >= ?", fromDate).
-		Joins("LEFT JOIN sub_major_group ON sub_major_group.major_group_id = major_group.id").
-		Joins("LEFT JOIN minor_group ON minor_group.sub_major_group_id = sub_major_group.id").
-		Joins("LEFT JOIN unit_group ON unit_group.minor_group_id = minor_group.id").
-		Joins("LEFT JOIN occupation_group ON occupation_group.unit_group_id = unit_group.id").
-		Joins("LEFT JOIN meta_data ON meta_data.occupation_group_id = occupation_group.id AND meta_data.posted_at >= ? AND meta_data.posted_at < ?", fromDate, toDateExclusive).
-		Joins("LEFT JOIN job_post ON job_post.id = meta_data.job_post_id").
-		Group("major_group.id, major_group.name").
-		Order("open_job_count DESC").
-		Scan(&results).Error
+	query := r.db.WithContext(ctx).Table(h.rootTable).
+		Select(fmt.Sprintf("%s.id, %s.name, COALESCE(SUM(job_post.no_of_vacancies), 0) AS open_job_count", h.rootTable, h.rootTable)).
+		Where(h.rootTable+".created_at < ?", toDateExclusive).
+		Where(h.rootTable+".deleted_at IS NULL OR "+h.rootTable+".deleted_at >= ?", fromDate)
 
-	if err != nil {
-		return nil, fmt.Errorf("failed to query occupation job count by date range: %w", err)
+	for _, j := range h.joins {
+		query = query.Joins(j)
+	}
+
+	return query.
+		Joins("LEFT JOIN meta_data ON "+h.leafJoin+" AND meta_data.posted_at >= ? AND meta_data.posted_at < ?", fromDate, toDateExclusive).
+		Joins("LEFT JOIN job_post ON job_post.id = meta_data.job_post_id").
+		Group(h.rootTable + ".id, " + h.rootTable + ".name").
+		Order("open_job_count DESC").
+		Scan(dest).Error
+}
+
+// GetJobCountByStandardDateRange returns vacancy counts grouped by the root
+// level of the given hierarchy ("occupation" -> major_group, "industry" ->
+// industry_sector), for jobs posted within the given date range.
+func (r *Store) GetJobCountByStandardDateRange(ctx context.Context, standard string, fromDate, toDate time.Time) ([]models.RootJobCount, error) {
+	var h hierarchyChain
+	switch standard {
+	case "occupation":
+		h = hierarchyChain{
+			rootTable: "major_group",
+			joins: []string{
+				"LEFT JOIN sub_major_group ON sub_major_group.major_group_id = major_group.id",
+				"LEFT JOIN minor_group ON minor_group.sub_major_group_id = sub_major_group.id",
+				"LEFT JOIN unit_group ON unit_group.minor_group_id = minor_group.id",
+				"LEFT JOIN occupation_group ON occupation_group.unit_group_id = unit_group.id",
+			},
+			leafJoin: "meta_data.occupation_group_id = occupation_group.id",
+		}
+	case "industry":
+		h = hierarchyChain{
+			rootTable: "industry_sector",
+			joins: []string{
+				"LEFT JOIN industry_division ON industry_division.industry_sector_id = industry_sector.id",
+				"LEFT JOIN industry_group ON industry_group.industry_division_id = industry_division.id",
+				"LEFT JOIN industry_class ON industry_class.industry_group_id = industry_group.id",
+				"LEFT JOIN industry_subclass ON industry_subclass.industry_class_id = industry_class.id",
+			},
+			leafJoin: "meta_data.industry_subclass_id = industry_subclass.id",
+		}
+	default:
+		return nil, fmt.Errorf("invalid standard '%s', must be 'occupation' or 'industry'", standard)
+	}
+
+	var results []models.RootJobCount
+	if err := r.jobCountByRoot(ctx, h, fromDate, toDate, &results); err != nil {
+		return nil, fmt.Errorf("failed to query %s job count by date range: %w", standard, err)
 	}
 
 	return results, nil
