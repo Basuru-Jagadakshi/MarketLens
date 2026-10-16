@@ -18,10 +18,49 @@ func exclusiveUpperBound(toDate time.Time) time.Time {
 	return toDate.AddDate(0, 0, 1)
 }
 
+// levelTables maps each occupation/industry hierarchy level name to the
+// table that backs it, for levelRowExists.
+var levelTables = map[string]string{
+	"major-group":      "major_group",
+	"sub-major-group":  "sub_major_group",
+	"minor-group":      "minor_group",
+	"unit-group":       "unit_group",
+	"occupation-group": "occupation_group",
+
+	"industry-sector":   "industry_sector",
+	"industry-division": "industry_division",
+	"industry-group":    "industry_group",
+	"industry-class":    "industry_class",
+	"industry-subclass": "industry_subclass",
+}
+
+// levelRowExists reports whether id existed, at some point during
+// [fromDate, toDate], in the table backing the given hierarchy level — not
+// just whether it's active right now, so a since-deleted row still counts
+// for a date range that predates its deletion.
+func (r *Store) levelRowExists(ctx context.Context, level string, id uint, fromDate, toDate time.Time) (bool, error) {
+	table := levelTables[level]
+	toDateExclusive := exclusiveUpperBound(toDate)
+	var exists bool
+	err := r.db.WithContext(ctx).Raw(
+		"SELECT EXISTS(SELECT 1 FROM "+table+" WHERE id = ? AND created_at < ? AND (deleted_at IS NULL OR deleted_at >= ?))",
+		id, toDateExclusive, fromDate,
+	).Scan(&exists).Error
+	return exists, err
+}
+
 // This function builds a subquery of job_post.ids that fall under the given
 // occupation/industry hierarchy level and id — used to scope other aggregations
 // (like employment sector breakdown) to that level.
 func (r *Store) buildJobPostIDsForLevel(ctx context.Context, standard, level string, id uint, fromDate, toDate time.Time) (*gorm.DB, error) {
+	exists, err := r.levelRowExists(ctx, level, id, fromDate, toDate)
+	if err != nil {
+		return nil, fmt.Errorf("checking %s %d exists: %w", level, id, err)
+	}
+	if !exists {
+		return nil, gorm.ErrRecordNotFound
+	}
+
 	toDateExclusive := exclusiveUpperBound(toDate)
 
 	if standard == "occupation" {
@@ -410,6 +449,14 @@ func (r *Store) GetEmploymentSectorByLevel(ctx context.Context, standard, level 
 // This function returns the immediate child-level entities under a given occupation/industry
 // hierarchy level and id, each with its aggregated job count for the given date range.
 func (r *Store) GetLevelChildren(ctx context.Context, standard, level string, id uint, fromDate, toDate time.Time) ([]models.LevelChildJobCount, string, error) {
+	exists, err := r.levelRowExists(ctx, level, id, fromDate, toDate)
+	if err != nil {
+		return nil, "", fmt.Errorf("checking %s %d exists: %w", level, id, err)
+	}
+	if !exists {
+		return nil, "", gorm.ErrRecordNotFound
+	}
+
 	var results []models.LevelChildJobCount
 	var childLevel, childTable string
 	var query *gorm.DB
@@ -544,7 +591,7 @@ func (r *Store) GetLevelChildren(ctx context.Context, standard, level string, id
 		return nil, "", fmt.Errorf("invalid standard '%s', must be 'occupation' or 'industry'", standard)
 	}
 
-	err := query.Order("open_job_count DESC, " + childTable + ".id ASC").Scan(&results).Error
+	err = query.Order("open_job_count DESC, " + childTable + ".id ASC").Scan(&results).Error
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to query children for %s/%s/%d: %w", standard, level, id, err)
 	}
