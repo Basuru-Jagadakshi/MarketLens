@@ -9,11 +9,20 @@ import (
 	"gorm.io/gorm"
 )
 
+// exclusiveUpperBound converts an inclusive end-of-range date (toDate,
+// always midnight UTC) into the exclusive upper bound used by every date
+// range comparison in this file — the start of the next calendar day. This
+// avoids the sub-second gap of toDate.Add(23h59m59s) + "<=" against a
+// microsecond-precision TIMESTAMPTZ column.
+func exclusiveUpperBound(toDate time.Time) time.Time {
+	return toDate.AddDate(0, 0, 1)
+}
+
 // This function builds a subquery of job_post.ids that fall under the given
 // occupation/industry hierarchy level and id — used to scope other aggregations
 // (like employment sector breakdown) to that level.
 func (r *Store) buildJobPostIDsForLevel(ctx context.Context, standard, level string, id uint, fromDate, toDate time.Time) (*gorm.DB, error) {
-	toDateExclusive := toDate.AddDate(0, 0, 1)
+	toDateExclusive := exclusiveUpperBound(toDate)
 
 	if standard == "occupation" {
 		switch level {
@@ -128,11 +137,11 @@ func (r *Store) buildJobPostIDsForLevel(ctx context.Context, standard, level str
 // Province and job type don't fit this shape (geo_data/job_type have
 // extra columns or no soft-delete) and keep their own query bodies.
 func (r *Store) breakdownByLevel(ctx context.Context, jobPostIDs *gorm.DB, table, displayColumn, fkColumn string, fromDate, toDate time.Time, dest any) error {
-	endOfToDate := toDate.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
+	toDateExclusive := exclusiveUpperBound(toDate)
 
 	return r.db.WithContext(ctx).Table(table).
 		Select(fmt.Sprintf("%s.id, %s.%s, COALESCE(SUM(job_post.no_of_vacancies), 0) AS open_job_count", table, table, displayColumn)).
-		Where(table+".created_at <= ?", endOfToDate).
+		Where(table+".created_at < ?", toDateExclusive).
 		Where(table+".deleted_at IS NULL OR "+table+".deleted_at >= ?", fromDate).
 		Joins(
 			fmt.Sprintf("LEFT JOIN meta_data ON meta_data.%s = %s.id AND meta_data.job_post_id IN (?)", fkColumn, table),
@@ -431,7 +440,7 @@ func (r *Store) GetLevelChildren(ctx context.Context, standard, level string, id
 	var childLevel string
 	var query *gorm.DB
 
-	toDateExclusive := toDate.AddDate(0, 0, 1)
+	toDateExclusive := exclusiveUpperBound(toDate)
 
 	if standard == "occupation" {
 		switch level {
@@ -439,7 +448,7 @@ func (r *Store) GetLevelChildren(ctx context.Context, standard, level string, id
 			childLevel = "sub-major-group"
 			query = r.db.WithContext(ctx).Table("sub_major_group").
 				Select("sub_major_group.id, sub_major_group.name, sub_major_group.code, COALESCE(SUM(job_post.no_of_vacancies), 0) AS open_job_count").
-				Where("sub_major_group.created_at <= ?", toDate.Add(23*time.Hour+59*time.Minute+59*time.Second)).
+				Where("sub_major_group.created_at < ?", toDateExclusive).
 				Where("sub_major_group.deleted_at IS NULL OR sub_major_group.deleted_at >= ?", fromDate).
 				Joins("LEFT JOIN minor_group ON minor_group.sub_major_group_id = sub_major_group.id").
 				Joins("LEFT JOIN unit_group ON unit_group.minor_group_id = minor_group.id").
@@ -453,7 +462,7 @@ func (r *Store) GetLevelChildren(ctx context.Context, standard, level string, id
 			childLevel = "minor-group"
 			query = r.db.WithContext(ctx).Table("minor_group").
 				Select("minor_group.id, minor_group.name, minor_group.code, COALESCE(SUM(job_post.no_of_vacancies), 0) AS open_job_count").
-				Where("minor_group.created_at <= ?", toDate.Add(23*time.Hour+59*time.Minute+59*time.Second)).
+				Where("minor_group.created_at < ?", toDateExclusive).
 				Where("minor_group.deleted_at IS NULL OR minor_group.deleted_at >= ?", fromDate).
 				Joins("LEFT JOIN unit_group ON unit_group.minor_group_id = minor_group.id").
 				Joins("LEFT JOIN occupation_group ON occupation_group.unit_group_id = unit_group.id").
@@ -466,7 +475,7 @@ func (r *Store) GetLevelChildren(ctx context.Context, standard, level string, id
 			childLevel = "unit-group"
 			query = r.db.WithContext(ctx).Table("unit_group").
 				Select("unit_group.id, unit_group.name, unit_group.code, COALESCE(SUM(job_post.no_of_vacancies), 0) AS open_job_count").
-				Where("unit_group.created_at <= ?", toDate.Add(23*time.Hour+59*time.Minute+59*time.Second)).
+				Where("unit_group.created_at < ?", toDateExclusive).
 				Where("unit_group.deleted_at IS NULL OR unit_group.deleted_at >= ?", fromDate).
 				Joins("LEFT JOIN occupation_group ON occupation_group.unit_group_id = unit_group.id").
 				Joins("LEFT JOIN meta_data ON meta_data.occupation_group_id = occupation_group.id AND meta_data.posted_at >= ? AND meta_data.posted_at < ?", fromDate, toDateExclusive).
@@ -478,7 +487,7 @@ func (r *Store) GetLevelChildren(ctx context.Context, standard, level string, id
 			childLevel = "occupation-group"
 			query = r.db.WithContext(ctx).Table("occupation_group").
 				Select("occupation_group.id, occupation_group.name, occupation_group.code, COALESCE(SUM(job_post.no_of_vacancies), 0) AS open_job_count").
-				Where("occupation_group.created_at <= ?", toDate.Add(23*time.Hour+59*time.Minute+59*time.Second)).
+				Where("occupation_group.created_at < ?", toDateExclusive).
 				Where("occupation_group.deleted_at IS NULL OR occupation_group.deleted_at >= ?", fromDate).
 				Joins("LEFT JOIN meta_data ON meta_data.occupation_group_id = occupation_group.id AND meta_data.posted_at >= ? AND meta_data.posted_at < ?", fromDate, toDateExclusive).
 				Joins("LEFT JOIN job_post ON job_post.id = meta_data.job_post_id").
@@ -497,7 +506,7 @@ func (r *Store) GetLevelChildren(ctx context.Context, standard, level string, id
 			childLevel = "industry-division"
 			query = r.db.WithContext(ctx).Table("industry_division").
 				Select("industry_division.id, industry_division.name, industry_division.code, COALESCE(SUM(job_post.no_of_vacancies), 0) AS open_job_count").
-				Where("industry_division.created_at <= ?", toDate.Add(23*time.Hour+59*time.Minute+59*time.Second)).
+				Where("industry_division.created_at < ?", toDateExclusive).
 				Where("industry_division.deleted_at IS NULL OR industry_division.deleted_at >= ?", fromDate).
 				Joins("LEFT JOIN industry_group ON industry_group.industry_division_id = industry_division.id").
 				Joins("LEFT JOIN industry_class ON industry_class.industry_group_id = industry_group.id").
@@ -511,7 +520,7 @@ func (r *Store) GetLevelChildren(ctx context.Context, standard, level string, id
 			childLevel = "industry-group"
 			query = r.db.WithContext(ctx).Table("industry_group").
 				Select("industry_group.id, industry_group.name, industry_group.code, COALESCE(SUM(job_post.no_of_vacancies), 0) AS open_job_count").
-				Where("industry_group.created_at <= ?", toDate.Add(23*time.Hour+59*time.Minute+59*time.Second)).
+				Where("industry_group.created_at < ?", toDateExclusive).
 				Where("industry_group.deleted_at IS NULL OR industry_group.deleted_at >= ?", fromDate).
 				Joins("LEFT JOIN industry_class ON industry_class.industry_group_id = industry_group.id").
 				Joins("LEFT JOIN industry_subclass ON industry_subclass.industry_class_id = industry_class.id").
@@ -524,7 +533,7 @@ func (r *Store) GetLevelChildren(ctx context.Context, standard, level string, id
 			childLevel = "industry-class"
 			query = r.db.WithContext(ctx).Table("industry_class").
 				Select("industry_class.id, industry_class.name, industry_class.code, COALESCE(SUM(job_post.no_of_vacancies), 0) AS open_job_count").
-				Where("industry_class.created_at <= ?", toDate.Add(23*time.Hour+59*time.Minute+59*time.Second)).
+				Where("industry_class.created_at < ?", toDateExclusive).
 				Where("industry_class.deleted_at IS NULL OR industry_class.deleted_at >= ?", fromDate).
 				Joins("LEFT JOIN industry_subclass ON industry_subclass.industry_class_id = industry_class.id").
 				Joins("LEFT JOIN meta_data ON meta_data.industry_subclass_id = industry_subclass.id AND meta_data.posted_at >= ? AND meta_data.posted_at < ?", fromDate, toDateExclusive).
@@ -536,7 +545,7 @@ func (r *Store) GetLevelChildren(ctx context.Context, standard, level string, id
 			childLevel = "industry-subclass"
 			query = r.db.WithContext(ctx).Table("industry_subclass").
 				Select("industry_subclass.id, industry_subclass.name, industry_subclass.code, COALESCE(SUM(job_post.no_of_vacancies), 0) AS open_job_count").
-				Where("industry_subclass.created_at <= ?", toDate.Add(23*time.Hour+59*time.Minute+59*time.Second)).
+				Where("industry_subclass.created_at < ?", toDateExclusive).
 				Where("industry_subclass.deleted_at IS NULL OR industry_subclass.deleted_at >= ?", fromDate).
 				Joins("LEFT JOIN meta_data ON meta_data.industry_subclass_id = industry_subclass.id AND meta_data.posted_at >= ? AND meta_data.posted_at < ?", fromDate, toDateExclusive).
 				Joins("LEFT JOIN job_post ON job_post.id = meta_data.job_post_id").
@@ -585,12 +594,11 @@ func (r *Store) GetTotalJobCountByLevel(ctx context.Context, standard, level str
 // This function returns vacancy counts grouped by industry sector, for jobs posted within the given date range
 func (r *Store) GetIndustryJobCountByDateRange(ctx context.Context, fromDate, toDate time.Time) ([]models.IndustryJobCount, error) {
 	var results []models.IndustryJobCount
-	endOfToDate := toDate.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
-	toDateExclusive := toDate.AddDate(0, 0, 1)
+	toDateExclusive := exclusiveUpperBound(toDate)
 
 	err := r.db.WithContext(ctx).Table("industry_sector").
 		Select("industry_sector.id, industry_sector.name, COALESCE(SUM(job_post.no_of_vacancies), 0) AS open_job_count").
-		Where("industry_sector.created_at <= ?", endOfToDate).
+		Where("industry_sector.created_at < ?", toDateExclusive).
 		Where("industry_sector.deleted_at IS NULL OR industry_sector.deleted_at >= ?", fromDate).
 		Joins("LEFT JOIN industry_division ON industry_division.industry_sector_id = industry_sector.id").
 		Joins("LEFT JOIN industry_group ON industry_group.industry_division_id = industry_division.id").
@@ -612,12 +620,11 @@ func (r *Store) GetIndustryJobCountByDateRange(ctx context.Context, fromDate, to
 // This function returns vacancy counts grouped by major group (occupation), for jobs posted within the given date range
 func (r *Store) GetOccupationJobCountByDateRange(ctx context.Context, fromDate, toDate time.Time) ([]models.OccupationJobCount, error) {
 	var results []models.OccupationJobCount
-	endOfToDate := toDate.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
-	toDateExclusive := toDate.AddDate(0, 0, 1)
+	toDateExclusive := exclusiveUpperBound(toDate)
 
 	err := r.db.WithContext(ctx).Table("major_group").
 		Select("major_group.id, major_group.name, COALESCE(SUM(job_post.no_of_vacancies), 0) AS open_job_count").
-		Where("major_group.created_at <= ?", endOfToDate).
+		Where("major_group.created_at < ?", toDateExclusive).
 		Where("major_group.deleted_at IS NULL OR major_group.deleted_at >= ?", fromDate).
 		Joins("LEFT JOIN sub_major_group ON sub_major_group.major_group_id = major_group.id").
 		Joins("LEFT JOIN minor_group ON minor_group.sub_major_group_id = sub_major_group.id").
@@ -639,7 +646,7 @@ func (r *Store) GetOccupationJobCountByDateRange(ctx context.Context, fromDate, 
 // This function returns the total sum of no_of_vacancies for jobs posted within the given date range
 func (r *Store) GetTotalVacancyCount(ctx context.Context, fromDate, toDate time.Time) (int64, error) {
 	var total int64
-	toDateExclusive := toDate.AddDate(0, 0, 1)
+	toDateExclusive := exclusiveUpperBound(toDate)
 
 	err := r.db.WithContext(ctx).Table("job_post").
 		Select("COALESCE(SUM(job_post.no_of_vacancies), 0)").
