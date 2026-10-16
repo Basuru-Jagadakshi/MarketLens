@@ -17,7 +17,7 @@ func (h *Handler) StartCrawlerRunHandler(c *gin.Context) {
 }
 
 func (h *Handler) CompleteCrawlerRunHandler(c *gin.Context) {
-	id, ok := parseIDParamMsg(c, "Invalid crawler run ID parameter")
+	id, ok := parseIDParamMsg(c, "id", "Invalid crawler run ID parameter")
 	if !ok {
 		return
 	}

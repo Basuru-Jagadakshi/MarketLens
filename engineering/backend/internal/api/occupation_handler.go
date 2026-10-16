@@ -35,7 +35,7 @@ type occupationGroupsByParentResponse struct {
 // Methods needed for multi-level filtering in the crawler
 // Occupation levels by parent ids
 func (h *Handler) GetSubMajorGroupsByMajorGroupHandler(c *gin.Context) {
-	id, ok := parseIDParamMsg(c, "Invalid major group id parameter")
+	id, ok := parseIDParamMsg(c, "id", "Invalid major group id parameter")
 	if !ok {
 		return
 	}
@@ -54,7 +54,7 @@ func (h *Handler) GetSubMajorGroupsByMajorGroupHandler(c *gin.Context) {
 }
 
 func (h *Handler) GetMinorGroupsBySubMajorGroupHandler(c *gin.Context) {
-	id, ok := parseIDParamMsg(c, "Invalid sub major group id parameter")
+	id, ok := parseIDParamMsg(c, "id", "Invalid sub major group id parameter")
 	if !ok {
 		return
 	}
@@ -73,7 +73,7 @@ func (h *Handler) GetMinorGroupsBySubMajorGroupHandler(c *gin.Context) {
 }
 
 func (h *Handler) GetUnitGroupsByMinorGroupHandler(c *gin.Context) {
-	id, ok := parseIDParamMsg(c, "Invalid minor group id parameter")
+	id, ok := parseIDParamMsg(c, "id", "Invalid minor group id parameter")
 	if !ok {
 		return
 	}
@@ -92,7 +92,7 @@ func (h *Handler) GetUnitGroupsByMinorGroupHandler(c *gin.Context) {
 }
 
 func (h *Handler) GetOccupationGroupsByUnitGroupHandler(c *gin.Context) {
-	id, ok := parseIDParamMsg(c, "Invalid unit group id parameter")
+	id, ok := parseIDParamMsg(c, "id", "Invalid unit group id parameter")
 	if !ok {
 		return
 	}
@@ -159,7 +159,7 @@ func (h *Handler) GetAllMajorGroupsHandler(c *gin.Context) {
 }
 
 func (h *Handler) GetMajorGroupByIDHandler(c *gin.Context) {
-	id, ok := parseIDParam(c)
+	id, ok := parseIDParam(c, "id")
 	if !ok {
 		return
 	}
@@ -172,7 +172,7 @@ func (h *Handler) GetMajorGroupByIDHandler(c *gin.Context) {
 }
 
 func (h *Handler) UpdateMajorGroupHandler(c *gin.Context) {
-	id, ok := parseIDParam(c)
+	id, ok := parseIDParam(c, "id")
 	if !ok {
 		return
 	}
@@ -197,7 +197,7 @@ func (h *Handler) UpdateMajorGroupHandler(c *gin.Context) {
 }
 
 func (h *Handler) DeleteMajorGroupHandler(c *gin.Context) {
-	id, ok := parseIDParam(c)
+	id, ok := parseIDParam(c, "id")
 	if !ok {
 		return
 	}
@@ -250,7 +250,7 @@ func (h *Handler) GetAllSubMajorGroupsHandler(c *gin.Context) {
 }
 
 func (h *Handler) GetSubMajorGroupByIDHandler(c *gin.Context) {
-	id, ok := parseIDParam(c)
+	id, ok := parseIDParam(c, "id")
 	if !ok {
 		return
 	}
@@ -263,7 +263,7 @@ func (h *Handler) GetSubMajorGroupByIDHandler(c *gin.Context) {
 }
 
 func (h *Handler) UpdateSubMajorGroupHandler(c *gin.Context) {
-	id, ok := parseIDParam(c)
+	id, ok := parseIDParam(c, "id")
 	if !ok {
 		return
 	}
@@ -291,7 +291,7 @@ func (h *Handler) UpdateSubMajorGroupHandler(c *gin.Context) {
 }
 
 func (h *Handler) DeleteSubMajorGroupHandler(c *gin.Context) {
-	id, ok := parseIDParam(c)
+	id, ok := parseIDParam(c, "id")
 	if !ok {
 		return
 	}
@@ -344,7 +344,7 @@ func (h *Handler) GetAllMinorGroupsHandler(c *gin.Context) {
 }
 
 func (h *Handler) GetMinorGroupByIDHandler(c *gin.Context) {
-	id, ok := parseIDParam(c)
+	id, ok := parseIDParam(c, "id")
 	if !ok {
 		return
 	}
@@ -357,7 +357,7 @@ func (h *Handler) GetMinorGroupByIDHandler(c *gin.Context) {
 }
 
 func (h *Handler) UpdateMinorGroupHandler(c *gin.Context) {
-	id, ok := parseIDParam(c)
+	id, ok := parseIDParam(c, "id")
 	if !ok {
 		return
 	}
@@ -385,7 +385,7 @@ func (h *Handler) UpdateMinorGroupHandler(c *gin.Context) {
 }
 
 func (h *Handler) DeleteMinorGroupHandler(c *gin.Context) {
-	id, ok := parseIDParam(c)
+	id, ok := parseIDParam(c, "id")
 	if !ok {
 		return
 	}
@@ -438,7 +438,7 @@ func (h *Handler) GetAllUnitGroupsHandler(c *gin.Context) {
 }
 
 func (h *Handler) GetUnitGroupByIDHandler(c *gin.Context) {
-	id, ok := parseIDParam(c)
+	id, ok := parseIDParam(c, "id")
 	if !ok {
 		return
 	}
@@ -451,7 +451,7 @@ func (h *Handler) GetUnitGroupByIDHandler(c *gin.Context) {
 }
 
 func (h *Handler) UpdateUnitGroupHandler(c *gin.Context) {
-	id, ok := parseIDParam(c)
+	id, ok := parseIDParam(c, "id")
 	if !ok {
 		return
 	}
@@ -479,7 +479,7 @@ func (h *Handler) UpdateUnitGroupHandler(c *gin.Context) {
 }
 
 func (h *Handler) DeleteUnitGroupHandler(c *gin.Context) {
-	id, ok := parseIDParam(c)
+	id, ok := parseIDParam(c, "id")
 	if !ok {
 		return
 	}
@@ -552,7 +552,7 @@ func (h *Handler) GetAllOccupationGroupsHandler(c *gin.Context) {
 }
 
 func (h *Handler) GetOccupationGroupByIDHandler(c *gin.Context) {
-	id, ok := parseIDParam(c)
+	id, ok := parseIDParam(c, "id")
 	if !ok {
 		return
 	}
@@ -565,7 +565,7 @@ func (h *Handler) GetOccupationGroupByIDHandler(c *gin.Context) {
 }
 
 func (h *Handler) UpdateOccupationGroupHandler(c *gin.Context) {
-	id, ok := parseIDParam(c)
+	id, ok := parseIDParam(c, "id")
 	if !ok {
 		return
 	}
@@ -593,7 +593,7 @@ func (h *Handler) UpdateOccupationGroupHandler(c *gin.Context) {
 }
 
 func (h *Handler) DeleteOccupationGroupHandler(c *gin.Context) {
-	id, ok := parseIDParam(c)
+	id, ok := parseIDParam(c, "id")
 	if !ok {
 		return
 	}

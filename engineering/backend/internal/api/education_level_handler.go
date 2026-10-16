@@ -45,7 +45,7 @@ func (h *Handler) GetAllEducationLevelsHandler(c *gin.Context) {
 }
 
 func (h *Handler) GetEducationLevelByIDHandler(c *gin.Context) {
-	id, ok := parseIDParam(c)
+	id, ok := parseIDParam(c, "id")
 	if !ok {
 		return
 	}
@@ -58,7 +58,7 @@ func (h *Handler) GetEducationLevelByIDHandler(c *gin.Context) {
 }
 
 func (h *Handler) UpdateEducationLevelHandler(c *gin.Context) {
-	id, ok := parseIDParam(c)
+	id, ok := parseIDParam(c, "id")
 	if !ok {
 		return
 	}
@@ -76,7 +76,7 @@ func (h *Handler) UpdateEducationLevelHandler(c *gin.Context) {
 }
 
 func (h *Handler) DeleteEducationLevelHandler(c *gin.Context) {
-	id, ok := parseIDParam(c)
+	id, ok := parseIDParam(c, "id")
 	if !ok {
 		return
 	}

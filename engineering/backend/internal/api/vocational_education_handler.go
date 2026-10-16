@@ -45,7 +45,7 @@ func (h *Handler) GetAllVocationalEducationsHandler(c *gin.Context) {
 }
 
 func (h *Handler) GetVocationalEducationByIDHandler(c *gin.Context) {
-	id, ok := parseIDParam(c)
+	id, ok := parseIDParam(c, "id")
 	if !ok {
 		return
 	}
@@ -58,7 +58,7 @@ func (h *Handler) GetVocationalEducationByIDHandler(c *gin.Context) {
 }
 
 func (h *Handler) UpdateVocationalEducationHandler(c *gin.Context) {
-	id, ok := parseIDParam(c)
+	id, ok := parseIDParam(c, "id")
 	if !ok {
 		return
 	}
@@ -76,7 +76,7 @@ func (h *Handler) UpdateVocationalEducationHandler(c *gin.Context) {
 }
 
 func (h *Handler) DeleteVocationalEducationHandler(c *gin.Context) {
-	id, ok := parseIDParam(c)
+	id, ok := parseIDParam(c, "id")
 	if !ok {
 		return
 	}

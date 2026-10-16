@@ -45,7 +45,7 @@ func (h *Handler) GetAllFormalitiesHandler(c *gin.Context) {
 }
 
 func (h *Handler) GetFormalityByIDHandler(c *gin.Context) {
-	id, ok := parseIDParam(c)
+	id, ok := parseIDParam(c, "id")
 	if !ok {
 		return
 	}
@@ -58,7 +58,7 @@ func (h *Handler) GetFormalityByIDHandler(c *gin.Context) {
 }
 
 func (h *Handler) UpdateFormalityHandler(c *gin.Context) {
-	id, ok := parseIDParam(c)
+	id, ok := parseIDParam(c, "id")
 	if !ok {
 		return
 	}
@@ -76,7 +76,7 @@ func (h *Handler) UpdateFormalityHandler(c *gin.Context) {
 }
 
 func (h *Handler) DeleteFormalityHandler(c *gin.Context) {
-	id, ok := parseIDParam(c)
+	id, ok := parseIDParam(c, "id")
 	if !ok {
 		return
 	}

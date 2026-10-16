@@ -14,18 +14,17 @@ import (
 	"gorm.io/gorm"
 )
 
-// parseIDParam reads and validates the ":id" path param used by every
-// CRUD handler's GetByID/Update/Delete, writing the 400 response itself
-// on failure.
-func parseIDParam(c *gin.Context) (uint, bool) {
-	return parseIDParamMsg(c, "Invalid id parameter")
+// parseIDParam reads and validates the given path param key, writing the
+// 400 response itself on failure.
+func parseIDParam(c *gin.Context, key string) (uint, bool) {
+	return parseIDParamMsg(c, key, "Invalid id parameter")
 }
 
 // parseIDParamMsg is parseIDParam with a caller-chosen error message, for
 // the handlers that name the parent entity in their 400 (e.g. "Invalid
 // major group id parameter").
-func parseIDParamMsg(c *gin.Context, message string) (uint, bool) {
-	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+func parseIDParamMsg(c *gin.Context, key, message string) (uint, bool) {
+	id, err := strconv.ParseUint(c.Param(key), 10, 64)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": message})
 		return 0, false

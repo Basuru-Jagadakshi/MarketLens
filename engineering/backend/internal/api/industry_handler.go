@@ -36,7 +36,7 @@ type industrySubclassesByParentResponse struct {
 //This function returns industry divisions under an industry sector, currently-active by default,
 //or active during a given date range if from-date and to-date query params are provided
 func (h *Handler) GetIndustryDivisionsByIndustrySectorHandler(c *gin.Context) {
-	id, ok := parseIDParamMsg(c, "Invalid industry sector id parameter")
+	id, ok := parseIDParamMsg(c, "id", "Invalid industry sector id parameter")
 	if !ok {
 		return
 	}
@@ -57,7 +57,7 @@ func (h *Handler) GetIndustryDivisionsByIndustrySectorHandler(c *gin.Context) {
 //This function returns industry groups under an industry division, currently-active by default,
 //or active during a given date range if from-date and to-date query params are provided
 func (h *Handler) GetIndustryGroupsByIndustryDivisionHandler(c *gin.Context) {
-	id, ok := parseIDParamMsg(c, "Invalid industry division id parameter")
+	id, ok := parseIDParamMsg(c, "id", "Invalid industry division id parameter")
 	if !ok {
 		return
 	}
@@ -78,7 +78,7 @@ func (h *Handler) GetIndustryGroupsByIndustryDivisionHandler(c *gin.Context) {
 //This function returns industry classes under an industry group, currently-active by default,
 //or active during a given date range if from-date and to-date query params are provided
 func (h *Handler) GetIndustryClassesByIndustryGroupHandler(c *gin.Context) {
-	id, ok := parseIDParamMsg(c, "Invalid industry group id parameter")
+	id, ok := parseIDParamMsg(c, "id", "Invalid industry group id parameter")
 	if !ok {
 		return
 	}
@@ -99,7 +99,7 @@ func (h *Handler) GetIndustryClassesByIndustryGroupHandler(c *gin.Context) {
 //This function returns industry subclasses under an industry class, currently-active by default,
 //or active during a given date range if from-date and to-date query params are provided
 func (h *Handler) GetIndustrySubclassesByIndustryClassHandler(c *gin.Context) {
-	id, ok := parseIDParamMsg(c, "Invalid industry class id parameter")
+	id, ok := parseIDParamMsg(c, "id", "Invalid industry class id parameter")
 	if !ok {
 		return
 	}
@@ -164,7 +164,7 @@ func (h *Handler) GetAllIndustrySectorsHandler(c *gin.Context) {
 }
 
 func (h *Handler) GetIndustrySectorByIDHandler(c *gin.Context) {
-	id, ok := parseIDParam(c)
+	id, ok := parseIDParam(c, "id")
 	if !ok {
 		return
 	}
@@ -177,7 +177,7 @@ func (h *Handler) GetIndustrySectorByIDHandler(c *gin.Context) {
 }
 
 func (h *Handler) UpdateIndustrySectorHandler(c *gin.Context) {
-	id, ok := parseIDParam(c)
+	id, ok := parseIDParam(c, "id")
 	if !ok {
 		return
 	}
@@ -202,7 +202,7 @@ func (h *Handler) UpdateIndustrySectorHandler(c *gin.Context) {
 }
 
 func (h *Handler) DeleteIndustrySectorHandler(c *gin.Context) {
-	id, ok := parseIDParam(c)
+	id, ok := parseIDParam(c, "id")
 	if !ok {
 		return
 	}
@@ -255,7 +255,7 @@ func (h *Handler) GetAllIndustryDivisionsHandler(c *gin.Context) {
 }
 
 func (h *Handler) GetIndustryDivisionByIDHandler(c *gin.Context) {
-	id, ok := parseIDParam(c)
+	id, ok := parseIDParam(c, "id")
 	if !ok {
 		return
 	}
@@ -268,7 +268,7 @@ func (h *Handler) GetIndustryDivisionByIDHandler(c *gin.Context) {
 }
 
 func (h *Handler) UpdateIndustryDivisionHandler(c *gin.Context) {
-	id, ok := parseIDParam(c)
+	id, ok := parseIDParam(c, "id")
 	if !ok {
 		return
 	}
@@ -296,7 +296,7 @@ func (h *Handler) UpdateIndustryDivisionHandler(c *gin.Context) {
 }
 
 func (h *Handler) DeleteIndustryDivisionHandler(c *gin.Context) {
-	id, ok := parseIDParam(c)
+	id, ok := parseIDParam(c, "id")
 	if !ok {
 		return
 	}
@@ -349,7 +349,7 @@ func (h *Handler) GetAllIndustryGroupsHandler(c *gin.Context) {
 }
 
 func (h *Handler) GetIndustryGroupByIDHandler(c *gin.Context) {
-	id, ok := parseIDParam(c)
+	id, ok := parseIDParam(c, "id")
 	if !ok {
 		return
 	}
@@ -362,7 +362,7 @@ func (h *Handler) GetIndustryGroupByIDHandler(c *gin.Context) {
 }
 
 func (h *Handler) UpdateIndustryGroupHandler(c *gin.Context) {
-	id, ok := parseIDParam(c)
+	id, ok := parseIDParam(c, "id")
 	if !ok {
 		return
 	}
@@ -390,7 +390,7 @@ func (h *Handler) UpdateIndustryGroupHandler(c *gin.Context) {
 }
 
 func (h *Handler) DeleteIndustryGroupHandler(c *gin.Context) {
-	id, ok := parseIDParam(c)
+	id, ok := parseIDParam(c, "id")
 	if !ok {
 		return
 	}
@@ -443,7 +443,7 @@ func (h *Handler) GetAllIndustryClassesHandler(c *gin.Context) {
 }
 
 func (h *Handler) GetIndustryClassByIDHandler(c *gin.Context) {
-	id, ok := parseIDParam(c)
+	id, ok := parseIDParam(c, "id")
 	if !ok {
 		return
 	}
@@ -456,7 +456,7 @@ func (h *Handler) GetIndustryClassByIDHandler(c *gin.Context) {
 }
 
 func (h *Handler) UpdateIndustryClassHandler(c *gin.Context) {
-	id, ok := parseIDParam(c)
+	id, ok := parseIDParam(c, "id")
 	if !ok {
 		return
 	}
@@ -484,7 +484,7 @@ func (h *Handler) UpdateIndustryClassHandler(c *gin.Context) {
 }
 
 func (h *Handler) DeleteIndustryClassHandler(c *gin.Context) {
-	id, ok := parseIDParam(c)
+	id, ok := parseIDParam(c, "id")
 	if !ok {
 		return
 	}
@@ -557,7 +557,7 @@ func (h *Handler) GetAllIndustrySubclassesHandler(c *gin.Context) {
 }
 
 func (h *Handler) GetIndustrySubclassByIDHandler(c *gin.Context) {
-	id, ok := parseIDParam(c)
+	id, ok := parseIDParam(c, "id")
 	if !ok {
 		return
 	}
@@ -570,7 +570,7 @@ func (h *Handler) GetIndustrySubclassByIDHandler(c *gin.Context) {
 }
 
 func (h *Handler) UpdateIndustrySubclassHandler(c *gin.Context) {
-	id, ok := parseIDParam(c)
+	id, ok := parseIDParam(c, "id")
 	if !ok {
 		return
 	}
@@ -598,7 +598,7 @@ func (h *Handler) UpdateIndustrySubclassHandler(c *gin.Context) {
 }
 
 func (h *Handler) DeleteIndustrySubclassHandler(c *gin.Context) {
-	id, ok := parseIDParam(c)
+	id, ok := parseIDParam(c, "id")
 	if !ok {
 		return
 	}

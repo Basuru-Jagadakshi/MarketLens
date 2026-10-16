@@ -45,7 +45,7 @@ func (h *Handler) GetAllEmploymentSectorsHandler(c *gin.Context) {
 }
 
 func (h *Handler) GetEmploymentSectorByIDHandler(c *gin.Context) {
-	id, ok := parseIDParam(c)
+	id, ok := parseIDParam(c, "id")
 	if !ok {
 		return
 	}
@@ -58,7 +58,7 @@ func (h *Handler) GetEmploymentSectorByIDHandler(c *gin.Context) {
 }
 
 func (h *Handler) UpdateEmploymentSectorHandler(c *gin.Context) {
-	id, ok := parseIDParam(c)
+	id, ok := parseIDParam(c, "id")
 	if !ok {
 		return
 	}
@@ -76,7 +76,7 @@ func (h *Handler) UpdateEmploymentSectorHandler(c *gin.Context) {
 }
 
 func (h *Handler) DeleteEmploymentSectorHandler(c *gin.Context) {
-	id, ok := parseIDParam(c)
+	id, ok := parseIDParam(c, "id")
 	if !ok {
 		return
 	}

@@ -45,7 +45,7 @@ func (h *Handler) GetAllGendersHandler(c *gin.Context) {
 }
 
 func (h *Handler) GetGenderByIDHandler(c *gin.Context) {
-	id, ok := parseIDParam(c)
+	id, ok := parseIDParam(c, "id")
 	if !ok {
 		return
 	}
@@ -58,7 +58,7 @@ func (h *Handler) GetGenderByIDHandler(c *gin.Context) {
 }
 
 func (h *Handler) UpdateGenderHandler(c *gin.Context) {
-	id, ok := parseIDParam(c)
+	id, ok := parseIDParam(c, "id")
 	if !ok {
 		return
 	}
@@ -76,7 +76,7 @@ func (h *Handler) UpdateGenderHandler(c *gin.Context) {
 }
 
 func (h *Handler) DeleteGenderHandler(c *gin.Context) {
-	id, ok := parseIDParam(c)
+	id, ok := parseIDParam(c, "id")
 	if !ok {
 		return
 	}
