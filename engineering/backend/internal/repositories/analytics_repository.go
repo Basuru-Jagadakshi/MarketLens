@@ -149,7 +149,7 @@ func (r *Store) breakdownByLevel(ctx context.Context, jobPostIDs *gorm.DB, table
 		).
 		Joins("LEFT JOIN job_post ON job_post.id = meta_data.job_post_id").
 		Group(fmt.Sprintf("%s.id, %s.%s", table, table, displayColumn)).
-		Order("open_job_count DESC").
+		Order("open_job_count DESC, " + table + ".id ASC").
 		Scan(dest).Error
 }
 
@@ -167,7 +167,7 @@ func (r *Store) GetTopHiringEmployersByOccupationLevel(ctx context.Context, leve
 		Joins("JOIN job_post ON job_post.employer_id = employer.id").
 		Where("job_post.id IN (?)", jobPostIDs).
 		Group("employer.id, employer.name").
-		Order("open_job_count DESC").
+		Order("open_job_count DESC, employer.id ASC").
 		Limit(5).
 		Scan(&results).Error
 
@@ -202,7 +202,7 @@ func (r *Store) GetAllSkillsByOccupationLevel(ctx context.Context, level string,
 	query := baseQuery.Session(&gorm.Session{}).
 		Select("skills.id, skills.skill, SUM(job_post.no_of_vacancies) AS open_job_count").
 		Group("skills.id, skills.skill").
-		Order("open_job_count DESC")
+		Order("open_job_count DESC, skills.id ASC")
 
 	if limit > 0 {
 		query = query.Limit(limit)
@@ -234,7 +234,7 @@ func (r *Store) GetJobTypeByLevel(ctx context.Context, standard, level string, i
 			jobPostIDs,
 		).
 		Group("job_type.id, job_type.type").
-		Order("open_job_count DESC").
+		Order("open_job_count DESC, job_type.id ASC").
 		Scan(&results).Error
 
 	if err != nil {
@@ -365,7 +365,7 @@ func (r *Store) GetProvinceByLevel(ctx context.Context, standard, level string, 
 		).
 		Joins("LEFT JOIN job_post ON job_post.id = meta_data.job_post_id").
 		Group("geo_data.id, geo_data.province, geo_data.latitude, geo_data.longitude").
-		Order("open_job_count DESC").
+		Order("open_job_count DESC, geo_data.id ASC").
 		Scan(&results).Error
 
 	if err != nil {
@@ -411,7 +411,7 @@ func (r *Store) GetEmploymentSectorByLevel(ctx context.Context, standard, level 
 // hierarchy level and id, each with its aggregated job count for the given date range.
 func (r *Store) GetLevelChildren(ctx context.Context, standard, level string, id uint, fromDate, toDate time.Time) ([]models.LevelChildJobCount, string, error) {
 	var results []models.LevelChildJobCount
-	var childLevel string
+	var childLevel, childTable string
 	var query *gorm.DB
 
 	toDateExclusive := exclusiveUpperBound(toDate)
@@ -420,6 +420,7 @@ func (r *Store) GetLevelChildren(ctx context.Context, standard, level string, id
 		switch level {
 		case "major-group":
 			childLevel = "sub-major-group"
+			childTable = "sub_major_group"
 			query = r.db.WithContext(ctx).Table("sub_major_group").
 				Select("sub_major_group.id, sub_major_group.name, sub_major_group.code, COALESCE(SUM(job_post.no_of_vacancies), 0) AS open_job_count").
 				Where("sub_major_group.created_at < ?", toDateExclusive).
@@ -434,6 +435,7 @@ func (r *Store) GetLevelChildren(ctx context.Context, standard, level string, id
 
 		case "sub-major-group":
 			childLevel = "minor-group"
+			childTable = "minor_group"
 			query = r.db.WithContext(ctx).Table("minor_group").
 				Select("minor_group.id, minor_group.name, minor_group.code, COALESCE(SUM(job_post.no_of_vacancies), 0) AS open_job_count").
 				Where("minor_group.created_at < ?", toDateExclusive).
@@ -447,6 +449,7 @@ func (r *Store) GetLevelChildren(ctx context.Context, standard, level string, id
 
 		case "minor-group":
 			childLevel = "unit-group"
+			childTable = "unit_group"
 			query = r.db.WithContext(ctx).Table("unit_group").
 				Select("unit_group.id, unit_group.name, unit_group.code, COALESCE(SUM(job_post.no_of_vacancies), 0) AS open_job_count").
 				Where("unit_group.created_at < ?", toDateExclusive).
@@ -459,6 +462,7 @@ func (r *Store) GetLevelChildren(ctx context.Context, standard, level string, id
 
 		case "unit-group":
 			childLevel = "occupation-group"
+			childTable = "occupation_group"
 			query = r.db.WithContext(ctx).Table("occupation_group").
 				Select("occupation_group.id, occupation_group.name, occupation_group.code, COALESCE(SUM(job_post.no_of_vacancies), 0) AS open_job_count").
 				Where("occupation_group.created_at < ?", toDateExclusive).
@@ -478,6 +482,7 @@ func (r *Store) GetLevelChildren(ctx context.Context, standard, level string, id
 		switch level {
 		case "industry-sector":
 			childLevel = "industry-division"
+			childTable = "industry_division"
 			query = r.db.WithContext(ctx).Table("industry_division").
 				Select("industry_division.id, industry_division.name, industry_division.code, COALESCE(SUM(job_post.no_of_vacancies), 0) AS open_job_count").
 				Where("industry_division.created_at < ?", toDateExclusive).
@@ -492,6 +497,7 @@ func (r *Store) GetLevelChildren(ctx context.Context, standard, level string, id
 
 		case "industry-division":
 			childLevel = "industry-group"
+			childTable = "industry_group"
 			query = r.db.WithContext(ctx).Table("industry_group").
 				Select("industry_group.id, industry_group.name, industry_group.code, COALESCE(SUM(job_post.no_of_vacancies), 0) AS open_job_count").
 				Where("industry_group.created_at < ?", toDateExclusive).
@@ -505,6 +511,7 @@ func (r *Store) GetLevelChildren(ctx context.Context, standard, level string, id
 
 		case "industry-group":
 			childLevel = "industry-class"
+			childTable = "industry_class"
 			query = r.db.WithContext(ctx).Table("industry_class").
 				Select("industry_class.id, industry_class.name, industry_class.code, COALESCE(SUM(job_post.no_of_vacancies), 0) AS open_job_count").
 				Where("industry_class.created_at < ?", toDateExclusive).
@@ -517,6 +524,7 @@ func (r *Store) GetLevelChildren(ctx context.Context, standard, level string, id
 
 		case "industry-class":
 			childLevel = "industry-subclass"
+			childTable = "industry_subclass"
 			query = r.db.WithContext(ctx).Table("industry_subclass").
 				Select("industry_subclass.id, industry_subclass.name, industry_subclass.code, COALESCE(SUM(job_post.no_of_vacancies), 0) AS open_job_count").
 				Where("industry_subclass.created_at < ?", toDateExclusive).
@@ -536,7 +544,7 @@ func (r *Store) GetLevelChildren(ctx context.Context, standard, level string, id
 		return nil, "", fmt.Errorf("invalid standard '%s', must be 'occupation' or 'industry'", standard)
 	}
 
-	err := query.Order("open_job_count DESC").Scan(&results).Error
+	err := query.Order("open_job_count DESC, " + childTable + ".id ASC").Scan(&results).Error
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to query children for %s/%s/%d: %w", standard, level, id, err)
 	}
@@ -592,7 +600,7 @@ func (r *Store) jobCountByRoot(ctx context.Context, h hierarchyChain, fromDate, 
 		Joins("LEFT JOIN meta_data ON "+h.leafJoin+" AND meta_data.posted_at >= ? AND meta_data.posted_at < ?", fromDate, toDateExclusive).
 		Joins("LEFT JOIN job_post ON job_post.id = meta_data.job_post_id").
 		Group(h.rootTable + ".id, " + h.rootTable + ".name").
-		Order("open_job_count DESC").
+		Order("open_job_count DESC, " + h.rootTable + ".id ASC").
 		Scan(dest).Error
 }
 
