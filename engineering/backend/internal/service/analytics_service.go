@@ -19,14 +19,14 @@ func NewAnalyticsService(store *repositories.Store) *AnalyticsService {
 	return &AnalyticsService{store: store}
 }
 
-func (s *AnalyticsService) GetTopHiringEmployersByOccupationLevel(ctx context.Context, level string, id uint, fromDate, toDate time.Time) ([]models.EmployerDemand, error) {
+func (s *AnalyticsService) GetHiringEmployersByOccupationLevel(ctx context.Context, level string, id uint, fromDate, toDate time.Time, limit int) ([]models.EmployerDemand, error) {
 	if err := validateStandardAndLevel("occupation", level); err != nil {
 		return nil, err
 	}
 	if err := validateDateRange(fromDate, toDate); err != nil {
 		return nil, err
 	}
-	return s.store.GetTopHiringEmployersByOccupationLevel(ctx, level, id, fromDate, toDate)
+	return s.store.GetHiringEmployersByOccupationLevel(ctx, level, id, fromDate, toDate, limit)
 }
 
 func (s *AnalyticsService) GetAllSkillsByOccupationLevel(ctx context.Context, level string, id uint, fromDate, toDate time.Time, limit, offset int) ([]models.SkillDemand, int64, error) {

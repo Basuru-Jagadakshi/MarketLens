@@ -19,9 +19,9 @@ type topHiringEmployersResponse struct {
 
 // This function returns the top hiring employers for a given occupation hierarchy
 // level and id, filtered by date range.
-func (h *Handler) GetTopHiringEmployersByOccupationLevelHandler(c *gin.Context) {
+func (h *Handler) GetHiringEmployersByOccupationLevelHandler(c *gin.Context) {
 	level := c.Param("level")
-	id, ok := parseIDParamMsg(c, "invalid id parameter, must be a positive integer")
+	id, ok := parseIDParamMsg(c, "Invalid id parameter, must be a positive integer")
 	if !ok {
 		return
 	}
@@ -30,9 +30,19 @@ func (h *Handler) GetTopHiringEmployersByOccupationLevelHandler(c *gin.Context) 
 		return
 	}
 
-	results, err := h.Analytics.GetTopHiringEmployersByOccupationLevel(c.Request.Context(), level, id, dr.From, dr.To)
+	limit := 5
+	if l := c.Query("limit"); l != "" {
+		if v, err := strconv.Atoi(l); err == nil && v > 0 {
+			if v > 100 {
+				v = 100
+			}
+			limit = v
+		}
+	}
+
+	results, err := h.Analytics.GetHiringEmployersByOccupationLevel(c.Request.Context(), level, id, dr.From, dr.To, limit)
 	if err != nil {
-		respondRepoError(c, "Failed to retrieve top hiring employers", err)
+		respondRepoError(c, "Failed to retrieve hiring employers", err)
 		return
 	}
 
@@ -55,7 +65,7 @@ type skillsPaginatedResponse struct {
 // level and id, filtered by date range.
 func (h *Handler) GetAllSkillsByOccupationLevelHandler(c *gin.Context) {
 	level := c.Param("level")
-	id, ok := parseIDParamMsg(c, "invalid id parameter, must be a positive integer")
+	id, ok := parseIDParamMsg(c, "Invalid id parameter, must be a positive integer")
 	if !ok {
 		return
 	}
@@ -105,7 +115,7 @@ type jobTypeByLevelResponse struct {
 func (h *Handler) GetJobTypeByLevelHandler(c *gin.Context) {
 	standard := c.Param("standard")
 	level := c.Param("level")
-	id, ok := parseIDParamMsg(c, "invalid id parameter, must be a positive integer")
+	id, ok := parseIDParamMsg(c, "Invalid id parameter, must be a positive integer")
 	if !ok {
 		return
 	}
@@ -137,7 +147,7 @@ type remoteOnSiteHybridResponse struct {
 func (h *Handler) GetRemoteOnSiteHybridByLevelHandler(c *gin.Context) {
 	standard := c.Param("standard")
 	level := c.Param("level")
-	id, ok := parseIDParamMsg(c, "invalid id parameter, must be a positive integer")
+	id, ok := parseIDParamMsg(c, "Invalid id parameter, must be a positive integer")
 	if !ok {
 		return
 	}
@@ -170,7 +180,7 @@ type vocationalEducationByLevelResponse struct {
 func (h *Handler) GetVocationalEducationByLevelHandler(c *gin.Context) {
 	standard := c.Param("standard")
 	level := c.Param("level")
-	id, ok := parseIDParamMsg(c, "invalid id parameter, must be a positive integer")
+	id, ok := parseIDParamMsg(c, "Invalid id parameter, must be a positive integer")
 	if !ok {
 		return
 	}
@@ -203,7 +213,7 @@ type genderByLevelResponse struct {
 func (h *Handler) GetGenderByLevelHandler(c *gin.Context) {
 	standard := c.Param("standard")
 	level := c.Param("level")
-	id, ok := parseIDParamMsg(c, "invalid id parameter, must be a positive integer")
+	id, ok := parseIDParamMsg(c, "Invalid id parameter, must be a positive integer")
 	if !ok {
 		return
 	}
@@ -236,7 +246,7 @@ type formalityByLevelResponse struct {
 func (h *Handler) GetFormalityByLevelHandler(c *gin.Context) {
 	standard := c.Param("standard")
 	level := c.Param("level")
-	id, ok := parseIDParamMsg(c, "invalid id parameter, must be a positive integer")
+	id, ok := parseIDParamMsg(c, "Invalid id parameter, must be a positive integer")
 	if !ok {
 		return
 	}
@@ -269,7 +279,7 @@ type educationLevelByLevelResponse struct {
 func (h *Handler) GetEducationLevelByLevelHandler(c *gin.Context) {
 	standard := c.Param("standard")
 	level := c.Param("level")
-	id, ok := parseIDParamMsg(c, "invalid id parameter, must be a positive integer")
+	id, ok := parseIDParamMsg(c, "Invalid id parameter, must be a positive integer")
 	if !ok {
 		return
 	}
@@ -302,7 +312,7 @@ type provinceByLevelResponse struct {
 func (h *Handler) GetProvinceByLevelHandler(c *gin.Context) {
 	standard := c.Param("standard")
 	level := c.Param("level")
-	id, ok := parseIDParamMsg(c, "invalid id parameter, must be a positive integer")
+	id, ok := parseIDParamMsg(c, "Invalid id parameter, must be a positive integer")
 	if !ok {
 		return
 	}
@@ -335,7 +345,7 @@ type experienceByLevelResponse struct {
 func (h *Handler) GetExperienceByLevelHandler(c *gin.Context) {
 	standard := c.Param("standard")
 	level := c.Param("level")
-	id, ok := parseIDParamMsg(c, "invalid id parameter, must be a positive integer")
+	id, ok := parseIDParamMsg(c, "Invalid id parameter, must be a positive integer")
 	if !ok {
 		return
 	}
@@ -368,7 +378,7 @@ type employmentSectorByLevelResponse struct {
 func (h *Handler) GetEmploymentSectorByLevelHandler(c *gin.Context) {
 	standard := c.Param("standard")
 	level := c.Param("level")
-	id, ok := parseIDParamMsg(c, "invalid id parameter, must be a positive integer")
+	id, ok := parseIDParamMsg(c, "Invalid id parameter, must be a positive integer")
 	if !ok {
 		return
 	}
@@ -402,7 +412,7 @@ type levelChildrenResponse struct {
 func (h *Handler) GetLevelChildrenHandler(c *gin.Context) {
 	standard := c.Param("standard")
 	level := c.Param("level")
-	id, ok := parseIDParamMsg(c, "invalid id parameter, must be a positive integer")
+	id, ok := parseIDParamMsg(c, "Invalid id parameter, must be a positive integer")
 	if !ok {
 		return
 	}
@@ -434,7 +444,7 @@ type totalJobCountByLevelResponse struct {
 func (h *Handler) GetTotalJobCountByLevelHandler(c *gin.Context) {
 	standard := c.Param("standard")
 	level := c.Param("level")
-	id, ok := parseIDParamMsg(c, "invalid id parameter, must be a positive integer")
+	id, ok := parseIDParamMsg(c, "Invalid id parameter, must be a positive integer")
 	if !ok {
 		return
 	}

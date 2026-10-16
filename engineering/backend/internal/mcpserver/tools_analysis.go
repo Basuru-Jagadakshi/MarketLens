@@ -45,12 +45,17 @@ func registerAnalysisTools(server *mcp.Server, svcs *service.Services) {
 		ID       uint   `json:"id" jsonschema:"the numeric id at that level"`
 		FromDate string `json:"from_date" jsonschema:"start date, format YYYY-MM-DD"`
 		ToDate   string `json:"to_date" jsonschema:"end date, format YYYY-MM-DD"`
+		Limit    int    `json:"limit" jsonschema:"max rows to return, default 5"`
 	}) (*mcp.CallToolResult, any, error) {
 		from, to, err := service.ParseDateRange(in.FromDate, in.ToDate)
 		if err != nil {
 			return nil, nil, err
 		}
-		out, err := svcs.Analytics.GetTopHiringEmployersByOccupationLevel(ctx, in.Level, in.ID, from, to)
+		limit := in.Limit
+		if limit <= 0 {
+			limit = 5
+		}
+		out, err := svcs.Analytics.GetHiringEmployersByOccupationLevel(ctx, in.Level, in.ID, from, to, limit)
 		if err != nil {
 			return nil, nil, err
 		}

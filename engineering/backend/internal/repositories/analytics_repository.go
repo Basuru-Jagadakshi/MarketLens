@@ -155,7 +155,7 @@ func (r *Store) breakdownByLevel(ctx context.Context, jobPostIDs *gorm.DB, table
 
 // This function returns the top hiring employers (by summed vacancy count) for jobs
 // under the given occupation hierarchy level and id, filtered by date range.
-func (r *Store) GetTopHiringEmployersByOccupationLevel(ctx context.Context, level string, id uint, fromDate, toDate time.Time) ([]models.EmployerDemand, error) {
+func (r *Store) GetHiringEmployersByOccupationLevel(ctx context.Context, level string, id uint, fromDate, toDate time.Time, limit int) ([]models.EmployerDemand, error) {
 	jobPostIDs, err := r.buildJobPostIDsForLevel(ctx, "occupation", level, id, fromDate, toDate)
 	if err != nil {
 		return nil, err
@@ -168,7 +168,7 @@ func (r *Store) GetTopHiringEmployersByOccupationLevel(ctx context.Context, leve
 		Where("job_post.id IN (?)", jobPostIDs).
 		Group("employer.id, employer.name").
 		Order("open_job_count DESC, employer.id ASC").
-		Limit(5).
+		Limit(limit).
 		Scan(&results).Error
 
 	if err != nil {
