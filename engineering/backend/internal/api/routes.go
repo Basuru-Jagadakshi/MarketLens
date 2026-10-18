@@ -47,7 +47,7 @@ func RegisterRoutes(r *gin.Engine, h *Handler) {
 		v1.GET("/:standard/:level/:id/formality", h.GetFormalityByLevelHandler)
 		v1.GET("/:standard/:level/:id/gender", h.GetGenderByLevelHandler)
 		v1.GET("/:standard/:level/:id/vocational-education", h.GetVocationalEducationByLevelHandler)
-		v1.GET("/:standard/:level/:id/remote-onsite-hybrid", h.GetRemoteOnSiteHybridByLevelHandler)
+		v1.GET("/:standard/:level/:id/work-modes", h.GetRemoteOnSiteHybridByLevelHandler)
 		v1.GET("/:standard/:level/:id/job-type", h.GetJobTypeByLevelHandler)
 		v1.GET("/occupation/:level/:id/skills", h.GetAllSkillsByOccupationLevelHandler)
 		v1.GET("/occupation/:level/:id/employers", h.GetHiringEmployersByOccupationLevelHandler)
