@@ -750,6 +750,8 @@ func (r *Store) GetVacancyTrendMonthly(ctx context.Context, fromDate, toDate tim
 		OpenJobCount int64
 	}
 
+	toDateExclusive := exclusiveUpperBound(toDate)
+
 	err := r.db.WithContext(ctx).Raw(`
 		SELECT month_series.month AS period_start,
 		       COALESCE(SUM(job_post.no_of_vacancies), 0) AS open_job_count
@@ -761,11 +763,11 @@ func (r *Store) GetVacancyTrendMonthly(ctx context.Context, fromDate, toDate tim
 		LEFT JOIN meta_data ON meta_data.posted_at >= month_series.month
 		                    AND meta_data.posted_at < month_series.month + interval '1 month'
 		                    AND meta_data.posted_at >= ?
-		                    AND meta_data.posted_at <= ?
+		                    AND meta_data.posted_at < ?
 		LEFT JOIN job_post ON job_post.id = meta_data.job_post_id
 		GROUP BY month_series.month
 		ORDER BY month_series.month ASC
-	`, fromDate, toDate, fromDate, toDate).Scan(&rows).Error
+	`, fromDate, toDate, fromDate, toDateExclusive).Scan(&rows).Error
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to query monthly vacancy trend: %w", err)
