@@ -42,11 +42,11 @@ func registerHierarchyTools(server *mcp.Server, svcs *service.Services) {
 		if limit <= 0 {
 			limit = 20
 		}
-		items, err := svcs.OccupationGroups.GetAll(ctx, limit, in.Offset, nil, nil)
+		items, total, err := svcs.OccupationGroups.GetAll(ctx, limit, in.Offset, nil, nil)
 		if err != nil {
 			return nil, nil, err
 		}
-		return nil, map[string]any{"items": items, "limit": limit, "offset": in.Offset}, nil
+		return nil, map[string]any{"items": items, "total": total, "limit": limit, "offset": in.Offset}, nil
 	})
 	registerIDTool(server, "get_occupation_group", "Get a single occupation group by id.",
 		svcs.OccupationGroups.GetByID)
@@ -83,11 +83,11 @@ func registerHierarchyTools(server *mcp.Server, svcs *service.Services) {
 		if limit <= 0 {
 			limit = 20
 		}
-		items, err := svcs.IndustrySubclasses.GetAll(ctx, limit, in.Offset, nil, nil)
+		items, total, err := svcs.IndustrySubclasses.GetAll(ctx, limit, in.Offset, nil, nil)
 		if err != nil {
 			return nil, nil, err
 		}
-		return nil, map[string]any{"items": items, "limit": limit, "offset": in.Offset}, nil
+		return nil, map[string]any{"items": items, "total": total, "limit": limit, "offset": in.Offset}, nil
 	})
 	registerIDTool(server, "get_industry_subclass", "Get a single industry subclass by id.",
 		svcs.IndustrySubclasses.GetByID)

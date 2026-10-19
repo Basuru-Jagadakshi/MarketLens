@@ -22,16 +22,34 @@ func (c crudRepository[T]) create(ctx context.Context, item *T) error {
 	return c.db.WithContext(ctx).Create(item).Error
 }
 
+// count reports how many rows match the same date-range filter getAll
+func (c crudRepository[T]) count(ctx context.Context, fromDate, toDate *time.Time) (int64, error) {
+	var zero T
+	q := c.db.WithContext(ctx).Model(&zero)
+	if fromDate != nil && toDate != nil {
+		q = q.Unscoped().
+			Where("created_at < ?", exclusiveUpperBound(*toDate)).
+			Where("deleted_at IS NULL OR deleted_at >= ?", *fromDate)
+	}
+	var total int64
+	err := q.Count(&total).Error
+	return total, err
+}
+
 // getAll lists rows
-func (c crudRepository[T]) getAll(ctx context.Context, limit, offset int, fromDate, toDate *time.Time, preloads ...string) ([]T, error) {
+func (c crudRepository[T]) getAll(ctx context.Context, limit, offset int, fromDate, toDate *time.Time, preloads ...string) ([]T, int64, error) {
+	total, err := c.count(ctx, fromDate, toDate)
+	if err != nil {
+		return nil, 0, err
+	}
+
 	q := c.db.WithContext(ctx)
 	for _, p := range preloads {
 		q = q.Preload(p)
 	}
 	if fromDate != nil && toDate != nil {
-		endOfToDate := toDate.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
 		q = q.Unscoped().
-			Where("created_at <= ?", endOfToDate).
+			Where("created_at < ?", exclusiveUpperBound(*toDate)).
 			Where("deleted_at IS NULL OR deleted_at >= ?", *fromDate)
 	}
 	if limit > 0 {
@@ -42,8 +60,8 @@ func (c crudRepository[T]) getAll(ctx context.Context, limit, offset int, fromDa
 	}
 
 	var items []T
-	err := q.Order("id ASC").Find(&items).Error
-	return items, err
+	err = q.Order("id ASC").Find(&items).Error
+	return items, total, err
 }
 
 func (c crudRepository[T]) getByID(ctx context.Context, id uint, preloads ...string) (T, error) {
@@ -91,9 +109,8 @@ func (c crudRepository[T]) delete(ctx context.Context, id uint) error {
 func (c crudRepository[T]) getByParent(ctx context.Context, parentColumn string, parentID uint, fromDate, toDate *time.Time) ([]T, error) {
 	q := c.db.WithContext(ctx).Where(parentColumn+" = ?", parentID)
 	if fromDate != nil && toDate != nil {
-		endOfToDate := toDate.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
 		q = q.Unscoped().
-			Where("created_at <= ?", endOfToDate).
+			Where("created_at < ?", exclusiveUpperBound(*toDate)).
 			Where("deleted_at IS NULL OR deleted_at >= ?", *fromDate)
 	}
 	var items []T
@@ -115,7 +132,7 @@ func (r *CRUDRepository[T]) Create(ctx context.Context, item *T) error {
 	return r.repo.create(ctx, item)
 }
 
-func (r *CRUDRepository[T]) GetAll(ctx context.Context, limit, offset int, fromDate, toDate *time.Time) ([]T, error) {
+func (r *CRUDRepository[T]) GetAll(ctx context.Context, limit, offset int, fromDate, toDate *time.Time) ([]T, int64, error) {
 	return r.repo.getAll(ctx, limit, offset, fromDate, toDate, r.preloads...)
 }
 

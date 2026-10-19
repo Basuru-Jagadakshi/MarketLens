@@ -9,15 +9,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// exclusiveUpperBound converts an inclusive end-of-range date (toDate,
-// always midnight UTC) into the exclusive upper bound used by every date
-// range comparison in this file — the start of the next calendar day. This
-// avoids the sub-second gap of toDate.Add(23h59m59s) + "<=" against a
-// microsecond-precision TIMESTAMPTZ column.
-func exclusiveUpperBound(toDate time.Time) time.Time {
-	return toDate.AddDate(0, 0, 1)
-}
-
 // levelTables maps each occupation/industry hierarchy level name to the
 // table that backs it, for levelRowExists.
 var levelTables = map[string]string{

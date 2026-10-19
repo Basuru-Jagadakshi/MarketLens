@@ -175,9 +175,10 @@ type idAndDateRangeInput struct {
 // plainGetAll adapts a CRUDService's unified GetAll (limit/offset/date-range
 // all optional) to the no-arg shape registerNoArgTool expects, for the MCP
 // lookup tools that always want the full, unfiltered list.
-func plainGetAll[T any](getAll func(ctx context.Context, limit, offset int, fromDate, toDate *time.Time) ([]T, error)) func(ctx context.Context) ([]T, error) {
+func plainGetAll[T any](getAll func(ctx context.Context, limit, offset int, fromDate, toDate *time.Time) ([]T, int64, error)) func(ctx context.Context) ([]T, error) {
 	return func(ctx context.Context) ([]T, error) {
-		return getAll(ctx, 0, 0, nil, nil)
+		items, _, err := getAll(ctx, 0, 0, nil, nil)
+		return items, err
 	}
 }
 

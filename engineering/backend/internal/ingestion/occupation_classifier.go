@@ -44,7 +44,7 @@ func (c *OccupationClassifier) Classify(ctx context.Context, jobText string) (ui
 		{
 			Name: "Major Group",
 			Fetch: func(uint) ([]Option, error) {
-				items, err := c.majorGroups.GetAll(ctx, 0, 0, nil, nil)
+				items, _, err := c.majorGroups.GetAll(ctx, 0, 0, nil, nil)
 				if err != nil {
 					return nil, err
 				}

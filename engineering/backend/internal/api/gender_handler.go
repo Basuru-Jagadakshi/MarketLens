@@ -36,12 +36,12 @@ func (h *Handler) CreateGenderHandler(c *gin.Context) {
 }
 
 func (h *Handler) GetAllGendersHandler(c *gin.Context) {
-	items, err := h.Genders.GetAll(c.Request.Context(), 0, 0, nil, nil)
+	items, total, err := h.Genders.GetAll(c.Request.Context(), 0, 0, nil, nil)
 	if err != nil {
 		respondError(c, http.StatusInternalServerError, "Failed to fetch genders", err)
 		return
 	}
-	c.JSON(http.StatusOK, genderListResponse{Count: len(items), Genders: items})
+	c.JSON(http.StatusOK, genderListResponse{Count: int(total), Genders: items})
 }
 
 func (h *Handler) GetGenderByIDHandler(c *gin.Context) {

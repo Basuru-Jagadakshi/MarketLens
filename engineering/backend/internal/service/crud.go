@@ -10,7 +10,7 @@ import (
 // CRUDService fronts 
 type CRUDService[T any] struct {
 	create      func(ctx context.Context, item *T) error
-	getAll      func(ctx context.Context, limit, offset int, fromDate, toDate *time.Time) ([]T, error)
+	getAll      func(ctx context.Context, limit, offset int, fromDate, toDate *time.Time) ([]T, int64, error)
 	getByID     func(ctx context.Context, id uint) (T, error)
 	update      func(ctx context.Context, id uint, updates map[string]interface{}) (T, error)
 	delete      func(ctx context.Context, id uint) error
@@ -29,7 +29,7 @@ func WithParentLookups[T any](getByParent func(ctx context.Context, parentID uin
 
 func NewCRUDService[T any](
 	create func(ctx context.Context, item *T) error,
-	getAll func(ctx context.Context, limit, offset int, fromDate, toDate *time.Time) ([]T, error),
+	getAll func(ctx context.Context, limit, offset int, fromDate, toDate *time.Time) ([]T, int64, error),
 	getByID func(ctx context.Context, id uint) (T, error),
 	update func(ctx context.Context, id uint, updates map[string]interface{}) (T, error),
 	del func(ctx context.Context, id uint) error,
@@ -48,7 +48,7 @@ func NewCRUDService[T any](
 // so that package never needs to import this one.
 type Repository[T any] interface {
 	Create(ctx context.Context, item *T) error
-	GetAll(ctx context.Context, limit, offset int, fromDate, toDate *time.Time) ([]T, error)
+	GetAll(ctx context.Context, limit, offset int, fromDate, toDate *time.Time) ([]T, int64, error)
 	GetByID(ctx context.Context, id uint) (T, error)
 	Update(ctx context.Context, id uint, updates map[string]interface{}) (T, error)
 	Delete(ctx context.Context, id uint) error
@@ -69,11 +69,11 @@ func (s *CRUDService[T]) Create(ctx context.Context, item *T) error {
 	return s.create(ctx, item)
 }
 
-// GetAll lists rows 
-func (s *CRUDService[T]) GetAll(ctx context.Context, limit, offset int, fromDate, toDate *time.Time) ([]T, error) {
+// GetAll lists rows, along with the total row count 
+func (s *CRUDService[T]) GetAll(ctx context.Context, limit, offset int, fromDate, toDate *time.Time) ([]T, int64, error) {
 	if fromDate != nil && toDate != nil {
 		if err := validateDateRange(*fromDate, *toDate); err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 	}
 	return s.getAll(ctx, limit, offset, fromDate, toDate)

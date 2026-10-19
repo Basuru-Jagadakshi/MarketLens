@@ -149,13 +149,13 @@ func (h *Handler) GetAllMajorGroupsHandler(c *gin.Context) {
 		return
 	}
 
-	items, err := h.MajorGroups.GetAll(c.Request.Context(), 0, 0, fromDate, toDate)
+	items, total, err := h.MajorGroups.GetAll(c.Request.Context(), 0, 0, fromDate, toDate)
 	if err != nil {
 		respondRepoError(c, "Failed to retrieve major groups", err)
 		return
 	}
 
-	c.JSON(http.StatusOK, majorGroupListResponse{Count: len(items), MajorGroups: items})
+	c.JSON(http.StatusOK, majorGroupListResponse{Count: int(total), MajorGroups: items})
 }
 
 func (h *Handler) GetMajorGroupByIDHandler(c *gin.Context) {
@@ -241,12 +241,12 @@ func (h *Handler) CreateSubMajorGroupHandler(c *gin.Context) {
 }
 
 func (h *Handler) GetAllSubMajorGroupsHandler(c *gin.Context) {
-	items, err := h.SubMajorGroups.GetAll(c.Request.Context(), 0, 0, nil, nil)
+	items, total, err := h.SubMajorGroups.GetAll(c.Request.Context(), 0, 0, nil, nil)
 	if err != nil {
 		respondError(c, http.StatusInternalServerError, "Failed to fetch sub major groups", err)
 		return
 	}
-	c.JSON(http.StatusOK, subMajorGroupListResponse{Count: len(items), SubMajorGroups: items})
+	c.JSON(http.StatusOK, subMajorGroupListResponse{Count: int(total), SubMajorGroups: items})
 }
 
 func (h *Handler) GetSubMajorGroupByIDHandler(c *gin.Context) {
@@ -335,12 +335,12 @@ func (h *Handler) CreateMinorGroupHandler(c *gin.Context) {
 }
 
 func (h *Handler) GetAllMinorGroupsHandler(c *gin.Context) {
-	items, err := h.MinorGroups.GetAll(c.Request.Context(), 0, 0, nil, nil)
+	items, total, err := h.MinorGroups.GetAll(c.Request.Context(), 0, 0, nil, nil)
 	if err != nil {
 		respondError(c, http.StatusInternalServerError, "Failed to fetch minor groups", err)
 		return
 	}
-	c.JSON(http.StatusOK, minorGroupListResponse{Count: len(items), MinorGroups: items})
+	c.JSON(http.StatusOK, minorGroupListResponse{Count: int(total), MinorGroups: items})
 }
 
 func (h *Handler) GetMinorGroupByIDHandler(c *gin.Context) {
@@ -429,12 +429,12 @@ func (h *Handler) CreateUnitGroupHandler(c *gin.Context) {
 }
 
 func (h *Handler) GetAllUnitGroupsHandler(c *gin.Context) {
-	items, err := h.UnitGroups.GetAll(c.Request.Context(), 0, 0, nil, nil)
+	items, total, err := h.UnitGroups.GetAll(c.Request.Context(), 0, 0, nil, nil)
 	if err != nil {
 		respondError(c, http.StatusInternalServerError, "Failed to fetch unit groups", err)
 		return
 	}
-	c.JSON(http.StatusOK, unitGroupListResponse{Count: len(items), UnitGroups: items})
+	c.JSON(http.StatusOK, unitGroupListResponse{Count: int(total), UnitGroups: items})
 }
 
 func (h *Handler) GetUnitGroupByIDHandler(c *gin.Context) {
@@ -542,13 +542,13 @@ func (h *Handler) GetAllOccupationGroupsHandler(c *gin.Context) {
 		}
 	}
 
-	items, err := h.OccupationGroups.GetAll(c.Request.Context(), limit, offset, nil, nil)
+	items, total, err := h.OccupationGroups.GetAll(c.Request.Context(), limit, offset, nil, nil)
 	if err != nil {
 		respondError(c, http.StatusInternalServerError, "Failed to fetch occupation groups", err)
 		return
 	}
 
-	c.JSON(http.StatusOK, occupationGroupPaginatedResponse{Count: len(items), Limit: limit, Offset: offset, OccupationGroups: items})
+	c.JSON(http.StatusOK, occupationGroupPaginatedResponse{Count: int(total), Limit: limit, Offset: offset, OccupationGroups: items})
 }
 
 func (h *Handler) GetOccupationGroupByIDHandler(c *gin.Context) {

@@ -154,13 +154,13 @@ func (h *Handler) GetAllIndustrySectorsHandler(c *gin.Context) {
 		return
 	}
 
-	items, err := h.IndustrySectors.GetAll(c.Request.Context(), 0, 0, fromDate, toDate)
+	items, total, err := h.IndustrySectors.GetAll(c.Request.Context(), 0, 0, fromDate, toDate)
 	if err != nil {
 		respondRepoError(c, "Failed to retrieve industry sectors", err)
 		return
 	}
 
-	c.JSON(http.StatusOK, industrySectorListResponse{Count: len(items), IndustrySectors: items})
+	c.JSON(http.StatusOK, industrySectorListResponse{Count: int(total), IndustrySectors: items})
 }
 
 func (h *Handler) GetIndustrySectorByIDHandler(c *gin.Context) {
@@ -246,12 +246,12 @@ func (h *Handler) CreateIndustryDivisionHandler(c *gin.Context) {
 }
 
 func (h *Handler) GetAllIndustryDivisionsHandler(c *gin.Context) {
-	items, err := h.IndustryDivisions.GetAll(c.Request.Context(), 0, 0, nil, nil)
+	items, total, err := h.IndustryDivisions.GetAll(c.Request.Context(), 0, 0, nil, nil)
 	if err != nil {
 		respondError(c, http.StatusInternalServerError, "Failed to fetch industry divisions", err)
 		return
 	}
-	c.JSON(http.StatusOK, industryDivisionListResponse{Count: len(items), IndustryDivisions: items})
+	c.JSON(http.StatusOK, industryDivisionListResponse{Count: int(total), IndustryDivisions: items})
 }
 
 func (h *Handler) GetIndustryDivisionByIDHandler(c *gin.Context) {
@@ -340,12 +340,12 @@ func (h *Handler) CreateIndustryGroupHandler(c *gin.Context) {
 }
 
 func (h *Handler) GetAllIndustryGroupsHandler(c *gin.Context) {
-	items, err := h.IndustryGroups.GetAll(c.Request.Context(), 0, 0, nil, nil)
+	items, total, err := h.IndustryGroups.GetAll(c.Request.Context(), 0, 0, nil, nil)
 	if err != nil {
 		respondError(c, http.StatusInternalServerError, "Failed to fetch industry groups", err)
 		return
 	}
-	c.JSON(http.StatusOK, industryGroupListResponse{Count: len(items), IndustryGroups: items})
+	c.JSON(http.StatusOK, industryGroupListResponse{Count: int(total), IndustryGroups: items})
 }
 
 func (h *Handler) GetIndustryGroupByIDHandler(c *gin.Context) {
@@ -434,12 +434,12 @@ func (h *Handler) CreateIndustryClassHandler(c *gin.Context) {
 }
 
 func (h *Handler) GetAllIndustryClassesHandler(c *gin.Context) {
-	items, err := h.IndustryClasses.GetAll(c.Request.Context(), 0, 0, nil, nil)
+	items, total, err := h.IndustryClasses.GetAll(c.Request.Context(), 0, 0, nil, nil)
 	if err != nil {
 		respondError(c, http.StatusInternalServerError, "Failed to fetch industry classes", err)
 		return
 	}
-	c.JSON(http.StatusOK, industryClassListResponse{Count: len(items), IndustryClasses: items})
+	c.JSON(http.StatusOK, industryClassListResponse{Count: int(total), IndustryClasses: items})
 }
 
 func (h *Handler) GetIndustryClassByIDHandler(c *gin.Context) {
@@ -547,13 +547,13 @@ func (h *Handler) GetAllIndustrySubclassesHandler(c *gin.Context) {
 		}
 	}
 
-	items, err := h.IndustrySubclasses.GetAll(c.Request.Context(), limit, offset, nil, nil)
+	items, total, err := h.IndustrySubclasses.GetAll(c.Request.Context(), limit, offset, nil, nil)
 	if err != nil {
 		respondError(c, http.StatusInternalServerError, "Failed to fetch industry subclasses", err)
 		return
 	}
 
-	c.JSON(http.StatusOK, industrySubclassPaginatedResponse{Count: len(items), Limit: limit, Offset: offset, IndustrySubclasses: items})
+	c.JSON(http.StatusOK, industrySubclassPaginatedResponse{Count: int(total), Limit: limit, Offset: offset, IndustrySubclasses: items})
 }
 
 func (h *Handler) GetIndustrySubclassByIDHandler(c *gin.Context) {

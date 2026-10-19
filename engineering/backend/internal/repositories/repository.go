@@ -5,10 +5,19 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgconn"
 	"gorm.io/gorm"
 )
+
+// exclusiveUpperBound converts an inclusive end-of-range date (toDate,
+// always midnight UTC) into the exclusive upper bound used by every date
+// range comparison across this package — the start of the next calendar
+// day.
+func exclusiveUpperBound(toDate time.Time) time.Time {
+	return toDate.AddDate(0, 0, 1)
+}
 
 // ErrPermanentSaveFailure marks a job save failure as non-retryable: a
 // missing/invalid foreign key (e.g. a province not registered in

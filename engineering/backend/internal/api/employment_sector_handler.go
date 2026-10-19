@@ -36,12 +36,12 @@ func (h *Handler) CreateEmploymentSectorHandler(c *gin.Context) {
 }
 
 func (h *Handler) GetAllEmploymentSectorsHandler(c *gin.Context) {
-	items, err := h.EmploymentSectors.GetAll(c.Request.Context(), 0, 0, nil, nil)
+	items, total, err := h.EmploymentSectors.GetAll(c.Request.Context(), 0, 0, nil, nil)
 	if err != nil {
 		respondError(c, http.StatusInternalServerError, "Failed to fetch employment sectors", err)
 		return
 	}
-	c.JSON(http.StatusOK, employmentSectorListResponse{Count: len(items), EmploymentSectors: items})
+	c.JSON(http.StatusOK, employmentSectorListResponse{Count: int(total), EmploymentSectors: items})
 }
 
 func (h *Handler) GetEmploymentSectorByIDHandler(c *gin.Context) {

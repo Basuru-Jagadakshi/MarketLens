@@ -36,12 +36,12 @@ func (h *Handler) CreateEducationLevelHandler(c *gin.Context) {
 }
 
 func (h *Handler) GetAllEducationLevelsHandler(c *gin.Context) {
-	items, err := h.EducationLevels.GetAll(c.Request.Context(), 0, 0, nil, nil)
+	items, total, err := h.EducationLevels.GetAll(c.Request.Context(), 0, 0, nil, nil)
 	if err != nil {
 		respondError(c, http.StatusInternalServerError, "Failed to fetch education levels", err)
 		return
 	}
-	c.JSON(http.StatusOK, educationLevelListResponse{Count: len(items), EducationLevels: items})
+	c.JSON(http.StatusOK, educationLevelListResponse{Count: int(total), EducationLevels: items})
 }
 
 func (h *Handler) GetEducationLevelByIDHandler(c *gin.Context) {

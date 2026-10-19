@@ -22,12 +22,12 @@ type experienceListResponse struct {
 
 // Experience CRUD
 func (h *Handler) GetAllExperiencesHandler(c *gin.Context) {
-	experiences, err := h.Experiences.GetAll(c.Request.Context(), 0, 0, nil, nil)
+	experiences, total, err := h.Experiences.GetAll(c.Request.Context(), 0, 0, nil, nil)
 	if err != nil {
 		respondError(c, http.StatusInternalServerError, "Failed to retrieve experience levels", err)
 		return
 	}
-	c.JSON(http.StatusOK, experienceListResponse{Count: len(experiences), Experiences: experiences})
+	c.JSON(http.StatusOK, experienceListResponse{Count: int(total), Experiences: experiences})
 }
 
 func (h *Handler) CreateExperienceHandler(c *gin.Context) {

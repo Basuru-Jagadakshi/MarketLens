@@ -42,7 +42,7 @@ func (c *IndustryClassifier) Classify(ctx context.Context, jobText string) (uint
 		{
 			Name: "Industry Sector",
 			Fetch: func(uint) ([]Option, error) {
-				items, err := c.industrySectors.GetAll(ctx, 0, 0, nil, nil)
+				items, _, err := c.industrySectors.GetAll(ctx, 0, 0, nil, nil)
 				if err != nil {
 					return nil, err
 				}
