@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo } from "react";
+import { Suspense, useMemo } from "react";
 import { useDashboardOverview } from "@/hooks/use-dashboard";
-import { usePersistedDateRange } from "@/hooks/use-persisted-date-range";
+import { useUrlDateRange } from "@/hooks/use-url-date-range";
 import { useIsMobile } from "@/hooks/use-is-mobile";
 import { useScrolled } from "@/hooks/use-scrolled";
 import { getDataRangeStart, getDataRangeEnd } from "@/lib/date-range";
@@ -14,9 +14,9 @@ import IndustryDistributionChart from "@/components/dashboard/IndustryDistributi
 
 const DATE_RANGE_STORAGE_KEY = "lmis-date-range:v2";
 
-export default function DashboardPage() {
+function Dashboard() {
   const { fromDate, toDate, setFromDate, setToDate, rangeInvalid } =
-    usePersistedDateRange(DATE_RANGE_STORAGE_KEY);
+    useUrlDateRange(DATE_RANGE_STORAGE_KEY);
   const isMobile = useIsMobile();
   const scrolled = useScrolled();
   const dataRangeEnd = getDataRangeEnd();
@@ -111,5 +111,19 @@ export default function DashboardPage() {
         />
       </div>
     </div>
+  );
+}
+
+export default function DashboardPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-zinc-50 flex items-center justify-center text-xs text-zinc-400">
+          Loading...
+        </div>
+      }
+    >
+      <Dashboard />
+    </Suspense>
   );
 }

@@ -1,6 +1,9 @@
 "use client";
 
-import { useEffect, useState, type Dispatch, type SetStateAction } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { parseHierarchyIds, serializeHierarchyIds } from "@/lib/url-params";
+import { useUpdateSearchParams } from "@/hooks/use-update-search-params";
 import type { HierarchyNode } from "@/types/analysis";
 
 export interface HierarchyLevelState<TLevelKey extends string> {
@@ -15,21 +18,33 @@ export interface PathNode<TLevelKey extends string> extends HierarchyNode {
   level: TLevelKey;
 }
 
-type SetPath<TLevelKey extends string> = Dispatch<SetStateAction<PathNode<TLevelKey>[]>>;
-
 /**
- * Owns just the drilldown path's state. Call this first, before any
- * per-level react-query hooks — each level's query needs `path[i - 1]?.id`
- * as an argument, so the state has to exist before those queries run.
+ * Owns the drilldown selection, stored in the URL as one param per level
+ * (`?major-group=2&sub-major-group=11`) so a drilldown can be shared as a
+ * link. Returns the selected ids in level order. Call this first, before any
+ * per-level react-query hooks — each level's query needs `ids[i - 1]` as an
+ * argument, so the selection has to exist before those queries run.
  */
-export function useHierarchyPath<TLevelKey extends string>(): [
-  PathNode<TLevelKey>[],
-  SetPath<TLevelKey>,
-] {
-  return useState<PathNode<TLevelKey>[]>([]);
+export function useHierarchyPath(
+  levelKeys: readonly string[],
+): [number[], (ids: number[]) => void] {
+  const searchParams = useSearchParams();
+  const updateSearchParams = useUpdateSearchParams();
+
+  const ids = useMemo(
+    () => parseHierarchyIds(searchParams, levelKeys),
+    [searchParams, levelKeys],
+  );
+  const setIds = useCallback(
+    (next: number[]) => updateSearchParams(serializeHierarchyIds(next, levelKeys)),
+    [updateSearchParams, levelKeys],
+  );
+
+  return [ids, setIds];
 }
 
-interface UseHierarchyDrilldownResult {
+interface UseHierarchyDrilldownResult<TLevelKey extends string> {
+  path: PathNode<TLevelKey>[];
   prunedNotice: string | null;
   handleSelect: (levelIndex: number, idStr: string) => void;
   handleAddLevel: () => void;
@@ -41,70 +56,82 @@ interface UseHierarchyDrilldownResult {
  * each level's options depend on the previous level's selection (e.g.
  * industry sector -> division -> group -> class -> subclass).
  *
- * Call `useHierarchyPath` first to get `path`/`setPath`, call each level's
+ * Call `useHierarchyPath` first to get `ids`/`setIds`, call each level's
  * own react-query hook (Rules of Hooks requires a fixed, unconditional hook
  * per level — this can't be a loop), assemble the results into `levels`,
- * then call this hook with all three.
+ * then call this hook with all three. `path` is `ids` resolved into nodes as
+ * each level's options load.
  */
 export function useHierarchyDrilldown<TLevelKey extends string>(
-  path: PathNode<TLevelKey>[],
-  setPath: SetPath<TLevelKey>,
+  ids: number[],
+  setIds: (ids: number[]) => void,
   levels: HierarchyLevelState<TLevelKey>[],
-): UseHierarchyDrilldownResult {
+): UseHierarchyDrilldownResult<TLevelKey> {
   const [prunedNotice, setPrunedNotice] = useState<string | null>(null);
+  // Names of nodes seen in the path, so a pruned node can still be named in
+  // the notice after its options have been replaced by a new date range.
+  const seenNames = useRef(new Map<string, string>());
 
-  // Seed the path with the first level's first option once it loads. This
-  // synchronizes local selection state with server data that only becomes
-  // available after mount — one of the recognized effect use cases, not the
-  // "derive state from a prop" anti-pattern the set-state-in-effect rule
-  // otherwise targets.
+  const path: PathNode<TLevelKey>[] = [];
+  for (let i = 0; i < ids.length; i++) {
+    const node = levels[i]?.options.find((o) => o.id === ids[i]);
+    if (!node) break;
+    path.push({ ...node, level: levels[i].key });
+  }
+
+  useEffect(() => {
+    for (const node of path) seenNames.current.set(`${node.level}:${node.id}`, node.name);
+  });
+
+  // Seed the selection with the first level's first option once it loads.
+  // This synchronizes the URL with server data that only becomes available
+  // after mount — one of the recognized effect use cases, not the "derive
+  // state from a prop" anti-pattern the set-state-in-effect rule targets.
   useEffect(() => {
     const firstLevelOptions = levels[0]?.options ?? [];
-    if (path.length === 0 && firstLevelOptions.length > 0) {
-      const first = firstLevelOptions[0];
-      setPath([{ ...first, level: levels[0].key }]);
+    if (ids.length === 0 && firstLevelOptions.length > 0) {
+      setIds([firstLevelOptions[0].id]);
     }
-  }, [path.length, levels, setPath]);
+  }, [ids.length, levels, setIds]);
 
-  // If the date range changes and a previously-selected node no longer
-  // exists at its level, drop it (and everything below it) and surface why.
-  // Same justification as above — same effect use case, same hook.
+  // If the date range changes (or a shared link carries a stale id) and a
+  // selected node no longer exists at its level, drop it (and everything
+  // below it) and surface why. Same justification as above.
   useEffect(() => {
-    if (path.length === 0) return;
+    if (ids.length === 0) return;
 
-    for (let i = 0; i < path.length; i++) {
+    for (let i = 0; i < ids.length; i++) {
       const level = levels[i];
       if (!level.isSuccess) return;
-      if (!level.options.some((o) => o.id === path[i].id)) {
-        // eslint-disable-next-line react-hooks/set-state-in-effect -- see note above
-        setPrunedNotice(path[i].name);
-         
-        setPath(path.slice(0, i));
+      if (!level.options.some((o) => o.id === ids[i])) {
+        const droppedName = seenNames.current.get(`${level.key}:${ids[i]}`) ?? level.label;
+        setPrunedNotice(droppedName);
+
+        setIds(ids.slice(0, i));
         return;
       }
     }
 
     setPrunedNotice(null);
-  }, [path, levels, setPath]);
+  }, [ids, levels, setIds]);
 
   const handleSelect = (levelIndex: number, idStr: string) => {
-    const options = levels[levelIndex]?.options ?? [];
-    const node = options.find((o) => String(o.id) === idStr);
+    const node = (levels[levelIndex]?.options ?? []).find((o) => String(o.id) === idStr);
     if (!node) return;
-    setPath([...path.slice(0, levelIndex), { ...node, level: levels[levelIndex].key }]);
+    setIds([...ids.slice(0, levelIndex), node.id]);
   };
 
   const handleAddLevel = () => {
-    if (path.length >= levels.length) return;
-    const children = levels[path.length]?.options ?? [];
+    if (ids.length >= levels.length) return;
+    const children = levels[ids.length]?.options ?? [];
     if (children.length === 0) return;
-    setPath([...path, { ...children[0], level: levels[path.length].key }]);
+    setIds([...ids, children[0].id]);
   };
 
   const handleRemoveLevel = () => {
-    if (path.length <= 1) return;
-    setPath(path.slice(0, -1));
+    if (ids.length <= 1) return;
+    setIds(ids.slice(0, -1));
   };
 
-  return { prunedNotice, handleSelect, handleAddLevel, handleRemoveLevel };
+  return { path, prunedNotice, handleSelect, handleAddLevel, handleRemoveLevel };
 }

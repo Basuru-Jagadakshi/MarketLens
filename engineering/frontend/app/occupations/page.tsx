@@ -1,17 +1,18 @@
 "use client";
 
-import { Suspense, useMemo, useState } from "react";
+import { Suspense, useMemo } from "react";
 import Header from "@/components/layout/Header";
 import BackLink from "@/components/shared/BackLink";
 import DateRangePicker from "@/components/shared/DateRangePicker";
 import ClassificationHierarchyPicker from "@/components/analysis/ClassificationHierarchyPicker";
 import AnalysisHeaderBar from "@/components/analysis/AnalysisHeaderBar";
-import AnalysisBreakdownSection, {
-  type AnalysisViewMode,
-} from "@/components/analysis/AnalysisBreakdownSection";
+import AnalysisBreakdownSection from "@/components/analysis/AnalysisBreakdownSection";
 import SkillAnalysisPanel from "@/components/occupations/SkillAnalysisPanel";
 import { useScrolled } from "@/hooks/use-scrolled";
-import { useUrlAwareDateRange } from "@/hooks/use-url-aware-date-range";
+import { useUrlDateRange } from "@/hooks/use-url-date-range";
+import { useAnalysisViewMode } from "@/hooks/use-analysis-view-mode";
+import { useUrlEnumParam } from "@/hooks/use-url-enum-param";
+import { URL_PARAMS } from "@/lib/url-params";
 import {
   useHierarchyPath,
   useHierarchyDrilldown,
@@ -55,26 +56,28 @@ const LEVEL_LABELS: Record<OccupationLevel, string> = {
 };
 const MAX_LEVELS = LEVELS.length;
 
+const OCCUPATION_TABS = ["analytics", "skills"] as const;
+
 const OCCUPATION_ACCENT = { primary: CHART_COLORS.indigo, secondary: CHART_COLORS.teal };
 
 function OccupationAnalysis() {
   const { fromDate, toDate, setFromDate, setToDate, rangeInvalid } =
-    useUrlAwareDateRange(DATE_RANGE_STORAGE_KEY);
+    useUrlDateRange(DATE_RANGE_STORAGE_KEY);
   const scrolled = useScrolled();
-  const [activeTab, setActiveTab] = useState<"analytics" | "skills">("analytics");
-  const [viewMode, setViewMode] = useState<AnalysisViewMode>("chart");
+  const [activeTab, setActiveTab] = useUrlEnumParam(URL_PARAMS.tab, OCCUPATION_TABS, "analytics");
+  const [viewMode, setViewMode] = useAnalysisViewMode();
   const dataRangeEnd = getDataRangeEnd();
   const dataRangeStart = getDataRangeStart();
 
-  const [path, setPath] = useHierarchyPath<OccupationLevel>();
+  const [ids, setIds] = useHierarchyPath(LEVELS);
 
   const majorGroupQuery = useMajorGroup(fromDate, toDate);
   const majorGroups = useMemo(() => majorGroupQuery.data?.major_groups ?? [], [majorGroupQuery.data]);
 
-  const subMajorGroupsQuery = useSubMajorGroups(path[0]?.id ?? null, fromDate, toDate);
-  const minorGroupsQuery = useMinorGroups(path[1]?.id ?? null, fromDate, toDate);
-  const unitGroupsQuery = useUnitGroups(path[2]?.id ?? null, fromDate, toDate);
-  const occupationGroupsQuery = useOccupationGroups(path[3]?.id ?? null, fromDate, toDate);
+  const subMajorGroupsQuery = useSubMajorGroups(ids[0] ?? null, fromDate, toDate);
+  const minorGroupsQuery = useMinorGroups(ids[1] ?? null, fromDate, toDate);
+  const unitGroupsQuery = useUnitGroups(ids[2] ?? null, fromDate, toDate);
+  const occupationGroupsQuery = useOccupationGroups(ids[3] ?? null, fromDate, toDate);
 
   const levels: HierarchyLevelState<OccupationLevel>[] = [
     {
@@ -114,8 +117,8 @@ function OccupationAnalysis() {
     },
   ];
 
-  const { prunedNotice, handleSelect, handleAddLevel, handleRemoveLevel } =
-    useHierarchyDrilldown(path, setPath, levels);
+  const { path, prunedNotice, handleSelect, handleAddLevel, handleRemoveLevel } =
+    useHierarchyDrilldown(ids, setIds, levels);
 
   const deepest = path[path.length - 1] ?? null;
   const deepestLevelIndex = path.length - 1;

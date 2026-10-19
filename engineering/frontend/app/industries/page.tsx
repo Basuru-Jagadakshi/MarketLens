@@ -1,16 +1,15 @@
 "use client";
 
-import { Suspense, useMemo, useState } from "react";
+import { Suspense, useMemo } from "react";
 import Header from "@/components/layout/Header";
 import BackLink from "@/components/shared/BackLink";
 import DateRangePicker from "@/components/shared/DateRangePicker";
 import ClassificationHierarchyPicker from "@/components/analysis/ClassificationHierarchyPicker";
 import AnalysisHeaderBar from "@/components/analysis/AnalysisHeaderBar";
-import AnalysisBreakdownSection, {
-  type AnalysisViewMode,
-} from "@/components/analysis/AnalysisBreakdownSection";
+import AnalysisBreakdownSection from "@/components/analysis/AnalysisBreakdownSection";
 import { useScrolled } from "@/hooks/use-scrolled";
-import { useUrlAwareDateRange } from "@/hooks/use-url-aware-date-range";
+import { useUrlDateRange } from "@/hooks/use-url-date-range";
+import { useAnalysisViewMode } from "@/hooks/use-analysis-view-mode";
 import {
   useHierarchyPath,
   useHierarchyDrilldown,
@@ -58,13 +57,13 @@ const INDUSTRY_ACCENT = { primary: CHART_COLORS.teal, secondary: CHART_COLORS.in
 
 function IndustryAnalysis() {
   const { fromDate, toDate, setFromDate, setToDate, rangeInvalid } =
-    useUrlAwareDateRange(DATE_RANGE_STORAGE_KEY);
+    useUrlDateRange(DATE_RANGE_STORAGE_KEY);
   const scrolled = useScrolled();
-  const [viewMode, setViewMode] = useState<AnalysisViewMode>("chart");
+  const [viewMode, setViewMode] = useAnalysisViewMode();
   const dataRangeEnd = getDataRangeEnd();
   const dataRangeStart = getDataRangeStart();
 
-  const [path, setPath] = useHierarchyPath<IndustryLevel>();
+  const [ids, setIds] = useHierarchyPath(LEVELS);
 
   const industrySectorsQuery = useIndustrySectors(fromDate, toDate);
   const industrySectors = useMemo<HierarchyNode[]>(
@@ -77,10 +76,10 @@ function IndustryAnalysis() {
     [industrySectorsQuery.data],
   );
 
-  const industryDivisionsQuery = useIndustryDivisions(path[0]?.id ?? null, fromDate, toDate);
-  const industryGroupsQuery = useIndustryGroups(path[1]?.id ?? null, fromDate, toDate);
-  const industryClassesQuery = useIndustryClasses(path[2]?.id ?? null, fromDate, toDate);
-  const industrySubclassesQuery = useIndustrySubclasses(path[3]?.id ?? null, fromDate, toDate);
+  const industryDivisionsQuery = useIndustryDivisions(ids[0] ?? null, fromDate, toDate);
+  const industryGroupsQuery = useIndustryGroups(ids[1] ?? null, fromDate, toDate);
+  const industryClassesQuery = useIndustryClasses(ids[2] ?? null, fromDate, toDate);
+  const industrySubclassesQuery = useIndustrySubclasses(ids[3] ?? null, fromDate, toDate);
 
   const levels: HierarchyLevelState<IndustryLevel>[] = [
     {
@@ -120,8 +119,8 @@ function IndustryAnalysis() {
     },
   ];
 
-  const { prunedNotice, handleSelect, handleAddLevel, handleRemoveLevel } =
-    useHierarchyDrilldown(path, setPath, levels);
+  const { path, prunedNotice, handleSelect, handleAddLevel, handleRemoveLevel } =
+    useHierarchyDrilldown(ids, setIds, levels);
 
   const deepest = path[path.length - 1] ?? null;
   const deepestLevelIndex = path.length - 1;

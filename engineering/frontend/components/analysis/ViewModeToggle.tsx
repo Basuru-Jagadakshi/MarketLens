@@ -1,6 +1,7 @@
 "use client";
 
-export type AnalysisViewMode = "chart" | "table";
+export const ANALYSIS_VIEW_MODES = ["chart", "table"] as const;
+export type AnalysisViewMode = (typeof ANALYSIS_VIEW_MODES)[number];
 
 interface ViewModeToggleProps {
   viewMode: AnalysisViewMode;
