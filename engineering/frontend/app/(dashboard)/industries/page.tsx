@@ -1,8 +1,6 @@
 "use client";
 
 import { Suspense, useMemo } from "react";
-import Header from "@/components/layout/Header";
-import logo from "@/public/logo.png";
 import BackLink from "@/components/shared/BackLink";
 import DateRangePicker from "@/components/shared/DateRangePicker";
 import ClassificationHierarchyPicker from "@/components/analysis/ClassificationHierarchyPicker";
@@ -140,95 +138,87 @@ function IndustryAnalysis() {
     LEVEL_LABELS[LEVELS[Math.min(deepestLevelIndex + 1, MAX_LEVELS - 1)]];
 
   return (
-    <div className="min-h-screen w-full min-w-0 bg-zinc-50 text-zinc-800 font-sans">
-      <Header
-        title="Labour Market Demand Dashboard"
-        subtitle="National overview of labour market demand across occupations and industries"
-        logo={logo}
+    <div className="p-4 md:p-8 space-y-6 md:space-y-8 w-full pb-20">
+      <DateRangePicker
+        fromDate={fromDate}
+        toDate={toDate}
+        onFromDateChange={setFromDate}
+        onToDateChange={setToDate}
+        minDate={dataRangeStart}
+        maxDate={dataRangeEnd}
+        scrolled={scrolled}
       />
 
-      <div className="p-4 md:p-8 space-y-6 md:space-y-8 w-full pb-20">
-        <DateRangePicker
-          fromDate={fromDate}
-          toDate={toDate}
-          onFromDateChange={setFromDate}
-          onToDateChange={setToDate}
-          minDate={dataRangeStart}
-          maxDate={dataRangeEnd}
-          scrolled={scrolled}
-        />
+      <BackLink href="/" />
 
-        <BackLink href="/" />
-
-        {rangeInvalid && (
-          <div className="bg-zinc-100 border border-zinc-300 text-zinc-700 text-xs font-bold px-4 py-3 rounded-xl">
-            The start date must be before the end date.
-          </div>
-        )}
-
-        <div>
-          <h2 className="text-base md:text-lg font-black text-zinc-900 tracking-tight">
-            Industry Analysis (SLSIC)
-          </h2>
-          <p className="text-xs text-zinc-400 mt-1 font-medium">
-            Analyze through the industry classification hierarchy
-          </p>
+      {rangeInvalid && (
+        <div className="bg-zinc-100 border border-zinc-300 text-zinc-700 text-xs font-bold px-4 py-3 rounded-xl">
+          The start date must be before the end date.
         </div>
+      )}
 
-        <ClassificationHierarchyPicker
-          levels={levels}
-          path={path}
-          isInitializing={isInitializing}
-          initializingLabel="Loading industry sectors..."
-          initialLoadError={industrySectorsQuery.isError}
-          initialLoadErrorLabel="Failed to load industry sectors"
-          initialLoadErrorMessage={
-            industrySectorsQuery.error instanceof Error
-              ? industrySectorsQuery.error.message
-              : undefined
-          }
-          emptyLabel="No industry sectors available."
-          prunedNotice={prunedNotice}
-          onSelect={handleSelect}
-          onAddLevel={handleAddLevel}
-          onRemoveLevel={handleRemoveLevel}
-        />
-
-        {deepest && (
-          <div className="bg-white border border-zinc-200 rounded-xl shadow-sm">
-            <AnalysisHeaderBar
-              levelLabel={LEVEL_LABELS[deepest.level]}
-              nodeName={deepest.name}
-              nodeTotal={breakdown.nodeTotal}
-              isLoading={analysisLoading}
-            />
-            <AnalysisBreakdownSection
-              viewMode={viewMode}
-              onViewModeChange={setViewMode}
-              isLoading={analysisLoading}
-              isError={analysisError}
-              errorMessage={
-                analysisErrorObj instanceof Error ? analysisErrorObj.message : undefined
-              }
-              accent={INDUSTRY_ACCENT}
-              childrenBreakdownTitle={`${nextLevelLabel} Breakdown`}
-              childrenBreakdownDescription={`Vacancy count of each ${nextLevelLabel.toLowerCase()} under ${deepest.name}`}
-              childrenBreakdown={breakdown.childrenBreakdown}
-              sectorData={breakdown.sectorData}
-              expData={breakdown.expData}
-              provinceData={breakdown.provinceData}
-              eduData={breakdown.eduData}
-              formalData={breakdown.formalData}
-              genderData={breakdown.genderData}
-              nvqData={breakdown.nvqData}
-              remoteData={breakdown.remoteData}
-              contractData={breakdown.contractData}
-              remoteShare={breakdown.remoteShare}
-              contractShare={breakdown.contractShare}
-            />
-          </div>
-        )}
+      <div>
+        <h2 className="text-base md:text-lg font-black text-zinc-900 tracking-tight">
+          Industry Analysis (SLSIC)
+        </h2>
+        <p className="text-xs text-zinc-400 mt-1 font-medium">
+          Analyze through the industry classification hierarchy
+        </p>
       </div>
+
+      <ClassificationHierarchyPicker
+        levels={levels}
+        path={path}
+        isInitializing={isInitializing}
+        initializingLabel="Loading industry sectors..."
+        initialLoadError={industrySectorsQuery.isError}
+        initialLoadErrorLabel="Failed to load industry sectors"
+        initialLoadErrorMessage={
+          industrySectorsQuery.error instanceof Error
+            ? industrySectorsQuery.error.message
+            : undefined
+        }
+        emptyLabel="No industry sectors available."
+        prunedNotice={prunedNotice}
+        onSelect={handleSelect}
+        onAddLevel={handleAddLevel}
+        onRemoveLevel={handleRemoveLevel}
+      />
+
+      {deepest && (
+        <div className="bg-white border border-zinc-200 rounded-xl shadow-sm">
+          <AnalysisHeaderBar
+            levelLabel={LEVEL_LABELS[deepest.level]}
+            nodeName={deepest.name}
+            nodeTotal={breakdown.nodeTotal}
+            isLoading={analysisLoading}
+          />
+          <AnalysisBreakdownSection
+            viewMode={viewMode}
+            onViewModeChange={setViewMode}
+            isLoading={analysisLoading}
+            isError={analysisError}
+            errorMessage={
+              analysisErrorObj instanceof Error ? analysisErrorObj.message : undefined
+            }
+            accent={INDUSTRY_ACCENT}
+            childrenBreakdownTitle={`${nextLevelLabel} Breakdown`}
+            childrenBreakdownDescription={`Vacancy count of each ${nextLevelLabel.toLowerCase()} under ${deepest.name}`}
+            childrenBreakdown={breakdown.childrenBreakdown}
+            sectorData={breakdown.sectorData}
+            expData={breakdown.expData}
+            provinceData={breakdown.provinceData}
+            eduData={breakdown.eduData}
+            formalData={breakdown.formalData}
+            genderData={breakdown.genderData}
+            nvqData={breakdown.nvqData}
+            remoteData={breakdown.remoteData}
+            contractData={breakdown.contractData}
+            remoteShare={breakdown.remoteShare}
+            contractShare={breakdown.contractShare}
+          />
+        </div>
+      )}
     </div>
   );
 }
@@ -237,7 +227,7 @@ export default function IndustryAnalysisPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-zinc-50 flex items-center justify-center text-xs text-zinc-400">
+        <div className="py-20 flex items-center justify-center text-xs text-zinc-400">
           Loading...
         </div>
       }
