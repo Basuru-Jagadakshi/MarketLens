@@ -51,7 +51,7 @@ function Dashboard() {
   );
 
   return (
-    <div className="p-4 md:p-8 space-y-6 md:space-y-8 w-full pb-20">
+    <>
       <DateRangePicker
         fromDate={fromDate}
         toDate={toDate}
@@ -63,45 +63,47 @@ function Dashboard() {
         description="Select a date range to view labour market analytics for that period"
       />
 
-      {isMobile && (
-        <div className="md:hidden bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs font-medium px-4 py-2 rounded-xl flex items-center gap-2">
-          💡 Rotate your device to landscape for a better chart view
-        </div>
-      )}
+      <div className="p-4 md:p-8 space-y-6 md:space-y-8 w-full pb-20">
+        {isMobile && (
+          <div className="md:hidden bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs font-medium px-4 py-2 rounded-xl flex items-center gap-2">
+            💡 Rotate your device to landscape for a better chart view
+          </div>
+        )}
 
-      {rangeInvalid && (
-        <div className="bg-zinc-100 border border-zinc-300 text-zinc-700 text-xs font-bold px-4 py-3 rounded-xl">
-          The start date must be before the end date.
-        </div>
-      )}
+        {rangeInvalid && (
+          <div className="bg-zinc-100 border border-zinc-300 text-zinc-700 text-xs font-bold px-4 py-3 rounded-xl">
+            The start date must be before the end date.
+          </div>
+        )}
 
-      {isError && !rangeInvalid && (
-        <div className="bg-red-50 border border-red-200 text-red-700 text-xs font-bold px-4 py-3 rounded-xl">
-          Failed to load dashboard data
-          {error instanceof Error ? `: ${error.message}` : "."}
-        </div>
-      )}
+        {isError && !rangeInvalid && (
+          <div className="bg-red-50 border border-red-200 text-red-700 text-xs font-bold px-4 py-3 rounded-xl">
+            Failed to load dashboard data
+            {error instanceof Error ? `: ${error.message}` : "."}
+          </div>
+        )}
 
-      <VacancyTrendChart
-        data={trendData}
-        granularity={granularity}
-        totalVacancies={totalInRange}
-        isLoading={isLoading}
-      />
+        <VacancyTrendChart
+          data={trendData}
+          granularity={granularity}
+          totalVacancies={totalInRange}
+          isLoading={isLoading}
+        />
 
-      <OccupationDistributionChart
-        data={occData}
-        isMobile={isMobile}
-        isLoading={isLoading}
-        linkHref={`/occupations?from=${fromDate}&to=${toDate}`}
-      />
+        <OccupationDistributionChart
+          data={occData}
+          isMobile={isMobile}
+          isLoading={isLoading}
+          linkHref={`/occupations?from=${fromDate}&to=${toDate}`}
+        />
 
-      <IndustryDistributionChart
-        data={indData}
-        isLoading={isLoading}
-        linkHref={`/industries?from=${fromDate}&to=${toDate}`}
-      />
-    </div>
+        <IndustryDistributionChart
+          data={indData}
+          isLoading={isLoading}
+          linkHref={`/industries?from=${fromDate}&to=${toDate}`}
+        />
+      </div>
+    </>
   );
 }
 
