@@ -51,7 +51,7 @@ export default function Header({
             {({ signIn, isLoading }) => (
               <button
                 className="bg-black text-white px-4 py-2 rounded-md text-sm font-medium cursor-pointer hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-60 transition-colors"
-                onClick={() => void signIn()}
+                onClick={() => signIn().catch((err) => console.error("Sign-in failed", err))}
                 disabled={isLoading}
               >
                 {isLoading ? "Signing in…" : "Sign in"}
