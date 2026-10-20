@@ -172,7 +172,7 @@ function OccupationAnalysis() {
         logo={logo}
       />
 
-      <div className="p-4 md:p-8 space-y-6 md:space-y-8 w-full max-w-[1400px] mx-auto pb-20">
+      <div className="p-4 md:p-8 space-y-6 md:space-y-8 w-full pb-20">
         <DateRangePicker
           fromDate={fromDate}
           toDate={toDate}
