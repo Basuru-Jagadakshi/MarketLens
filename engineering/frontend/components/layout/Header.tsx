@@ -28,9 +28,9 @@ export default function Header({
             <Image
               src={logoSrc}
               alt="TVEC logo"
-              width={80}
-              height={80}
-              className="rounded-md shrink-0"
+              width={83}
+              height={48}
+              className="h-8 w-auto md:h-12 rounded-md shrink-0"
             />
           </SignedOut>
         )}
