@@ -11,22 +11,22 @@ import Image, { type StaticImageData } from "next/image";
 interface HeaderProps {
   title: string;
   subtitle?: string;
-  logoSrc?: StaticImageData;
+  logo?: StaticImageData;
 }
 
 export default function Header({
   title,
   subtitle,
-  logoSrc,
+  logo,
 }: HeaderProps) {
   return (
     <header className="bg-white border-b border-gray-100 px-4 py-3 flex flex-col md:flex-row justify-between items-start md:items-center gap-2 sticky top-0 z-40">
       {/* Left: Logo (optional, signed-out only) + Page Title */}
       <div className="flex items-center gap-3">
-        {logoSrc && (
+        {logo && (
           <SignedOut>
             <Image
-              src={logoSrc}
+              src={logo}
               alt="TVEC logo"
               className="h-8 w-auto md:h-12 rounded-md shrink-0"
             />
