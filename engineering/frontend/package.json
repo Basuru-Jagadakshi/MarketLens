@@ -10,8 +10,7 @@
     "typecheck": "tsc --noEmit",
     "check:deps": "depcheck",
     "test": "vitest run",
-    "test:watch": "vitest",
-    "test:e2e": "playwright test"
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.100.14",
