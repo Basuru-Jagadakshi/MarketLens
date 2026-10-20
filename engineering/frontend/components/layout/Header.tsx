@@ -42,7 +42,7 @@ export default function Header({
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-4 ml-auto md:ml-0 w-full md:w-auto justify-end">
+      <div className="flex flex-wrap items-center gap-4 w-full md:w-auto justify-end">
         <SignedIn>
           <UserDropdown />
         </SignedIn>
