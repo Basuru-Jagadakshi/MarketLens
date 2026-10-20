@@ -25,7 +25,7 @@ export default function CategoryNav({
   onSwitchHierarchy,
 }: CategoryNavProps) {
   return (
-    <aside className="w-72 min-w-72 border-r border-gray-100 bg-white h-[calc(100vh-89px)] overflow-y-auto sticky top-[89px] py-4 px-3 space-y-1">
+    <aside className="w-72 min-w-72 border-r border-gray-100 bg-white h-screen overflow-y-auto sticky top-0 py-4 px-3 space-y-1">
       {CATEGORY_ORDER.map((key) => {
         const cfg = KPI_CATEGORIES[key];
         const acc = ACCENT_CLASSES[cfg.accent];

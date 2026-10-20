@@ -27,7 +27,7 @@ export default function DateRangePicker({
   return (
     <div
       className={clsx(
-        "sticky top-[70px] z-30 -mx-4 px-4 md:-mx-8 md:px-8 pt-4 md:pt-6 pb-3 transition-all duration-300",
+        "sticky top-0 z-30 -mx-4 px-4 md:-mx-8 md:px-8 pt-4 md:pt-6 pb-3 transition-all duration-300",
         "bg-white/60 backdrop-blur-md backdrop-saturate-150",
         scrolled
           ? "shadow-[0_4px_20px_-4px_rgba(0,0,0,0.08)] border-b border-zinc-200/60"
