@@ -7,6 +7,7 @@ import { useIsMobile } from "@/hooks/use-is-mobile";
 import { useScrolled } from "@/hooks/use-scrolled";
 import { getDataRangeStart, getDataRangeEnd } from "@/lib/date-range";
 import Header from "@/components/layout/Header";
+import logo from "@/public/logo.png";
 import DateRangePicker from "@/components/shared/DateRangePicker";
 import VacancyTrendChart from "@/components/dashboard/VacancyTrendChart";
 import OccupationDistributionChart from "@/components/dashboard/OccupationDistributionChart";
@@ -56,7 +57,7 @@ function Dashboard() {
       <Header
         title="Labour Market Demand Dashboard"
         subtitle="National overview of labour market demand across occupations and industries"
-        logoSrc="/logo.png"
+        logoSrc={logo}
       />
 
       <div className="p-4 md:p-8 space-y-6 md:space-y-8 w-full max-w-[1400px] mx-auto pb-20">

@@ -2,6 +2,7 @@
 
 import { Suspense, useMemo } from "react";
 import Header from "@/components/layout/Header";
+import logo from "@/public/logo.png";
 import BackLink from "@/components/shared/BackLink";
 import DateRangePicker from "@/components/shared/DateRangePicker";
 import ClassificationHierarchyPicker from "@/components/analysis/ClassificationHierarchyPicker";
@@ -168,7 +169,7 @@ function OccupationAnalysis() {
       <Header
         title="Labour Market Demand Dashboard"
         subtitle="National overview of labour market demand across occupations and industries"
-        logoSrc="/logo.png"
+        logoSrc={logo}
       />
 
       <div className="p-4 md:p-8 space-y-6 md:space-y-8 w-full max-w-[1400px] mx-auto pb-20">

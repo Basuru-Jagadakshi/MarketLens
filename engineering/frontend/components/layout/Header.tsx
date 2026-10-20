@@ -6,12 +6,12 @@ import {
   SignInButton,
   UserDropdown,
 } from "@thunderid/nextjs";
-import Image from "next/image";
+import Image, { type StaticImageData } from "next/image";
 
 interface HeaderProps {
   title: string;
   subtitle?: string;
-  logoSrc?: string;
+  logoSrc?: StaticImageData;
 }
 
 export default function Header({
@@ -28,8 +28,6 @@ export default function Header({
             <Image
               src={logoSrc}
               alt="TVEC logo"
-              width={83}
-              height={48}
               className="h-8 w-auto md:h-12 rounded-md shrink-0"
             />
           </SignedOut>
