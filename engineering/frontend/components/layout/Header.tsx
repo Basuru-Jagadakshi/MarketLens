@@ -48,16 +48,10 @@ export default function Header({
         </SignedIn>
         <SignedOut>
           <SignInButton>
-            {({
-              signIn,
-              isLoading,
-            }: {
-              signIn?: () => Promise<void>;
-              isLoading?: boolean;
-            }) => (
+            {({ signIn, isLoading }) => (
               <button
                 className="bg-black text-white px-4 py-2 rounded-md text-sm font-medium cursor-pointer hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-60 transition-colors"
-                onClick={() => void signIn?.()}
+                onClick={() => void signIn()}
                 disabled={isLoading}
               >
                 {isLoading ? "Signing in…" : "Sign in"}
