@@ -27,7 +27,7 @@ export default function Header({
           <SignedOut>
             <Image
               src={logoSrc}
-              alt=""
+              alt="TVEC logo"
               width={80}
               height={80}
               className="rounded-md shrink-0"
