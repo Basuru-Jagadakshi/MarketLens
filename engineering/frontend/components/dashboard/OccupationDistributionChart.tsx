@@ -13,16 +13,16 @@ import {
 } from "@/lib/chart-theme";
 import type { ChartDatum } from "@/types/chart";
 
+const MAX_LABEL_LENGTH = 22;
+
 interface OccupationDistributionChartProps {
   data: ChartDatum[];
-  isMobile: boolean;
   isLoading: boolean;
   linkHref: string;
 }
 
 export default function OccupationDistributionChart({
   data,
-  isMobile,
   isLoading,
   linkHref,
 }: OccupationDistributionChartProps) {
@@ -61,9 +61,9 @@ export default function OccupationDistributionChart({
             dataKey="name"
             type="category"
             tick={{ fontSize: 10, fill: TICK_COLOR }}
-            width={isMobile ? 90 : 170}
+            width="auto"
             tickFormatter={(v) =>
-              v.length > (isMobile ? 12 : 22) ? `${v.substring(0, 22)}...` : v
+              v.length > MAX_LABEL_LENGTH ? `${v.substring(0, MAX_LABEL_LENGTH)}...` : v
             }
             label={{
               value: "Occupation",

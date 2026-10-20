@@ -3,10 +3,10 @@
 import { Suspense, useMemo } from "react";
 import { useDashboardOverview } from "@/hooks/use-dashboard";
 import { useUrlDateRange } from "@/hooks/use-url-date-range";
-import { useIsMobile } from "@/hooks/use-is-mobile";
 import { useScrolled } from "@/hooks/use-scrolled";
 import { getDataRangeStart, getDataRangeEnd } from "@/lib/date-range";
 import DateRangePicker from "@/components/shared/DateRangePicker";
+import RotateDeviceHint from "@/components/shared/RotateDeviceHint";
 import VacancyTrendChart from "@/components/dashboard/VacancyTrendChart";
 import OccupationDistributionChart from "@/components/dashboard/OccupationDistributionChart";
 import IndustryDistributionChart from "@/components/dashboard/IndustryDistributionChart";
@@ -16,7 +16,6 @@ const DATE_RANGE_STORAGE_KEY = "lmis-date-range:v2";
 function Dashboard() {
   const { fromDate, toDate, setFromDate, setToDate, rangeInvalid } =
     useUrlDateRange(DATE_RANGE_STORAGE_KEY);
-  const isMobile = useIsMobile();
   const scrolled = useScrolled();
   const dataRangeEnd = getDataRangeEnd();
   const dataRangeStart = getDataRangeStart();
@@ -64,11 +63,7 @@ function Dashboard() {
       />
 
       <div className="p-4 md:p-8 space-y-6 md:space-y-8 w-full pb-20">
-        {isMobile && (
-          <div className="md:hidden bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs font-medium px-4 py-2 rounded-xl flex items-center gap-2">
-            💡 Rotate your device to landscape for a better chart view
-          </div>
-        )}
+        <RotateDeviceHint />
 
         {rangeInvalid && (
           <div className="bg-zinc-100 border border-zinc-300 text-zinc-700 text-xs font-bold px-4 py-3 rounded-xl">
@@ -92,7 +87,6 @@ function Dashboard() {
 
         <OccupationDistributionChart
           data={occData}
-          isMobile={isMobile}
           isLoading={isLoading}
           linkHref={`/occupations?from=${fromDate}&to=${toDate}`}
         />

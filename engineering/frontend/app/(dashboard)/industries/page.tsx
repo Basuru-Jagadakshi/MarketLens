@@ -3,6 +3,7 @@
 import { Suspense, useMemo } from "react";
 import BackLink from "@/components/shared/BackLink";
 import DateRangePicker from "@/components/shared/DateRangePicker";
+import RotateDeviceHint from "@/components/shared/RotateDeviceHint";
 import ClassificationHierarchyPicker from "@/components/analysis/ClassificationHierarchyPicker";
 import AnalysisHeaderBar from "@/components/analysis/AnalysisHeaderBar";
 import AnalysisBreakdownSection from "@/components/analysis/AnalysisBreakdownSection";
@@ -150,6 +151,8 @@ function IndustryAnalysis() {
       />
 
       <div className="p-4 md:p-8 space-y-6 md:space-y-8 w-full pb-20">
+        <RotateDeviceHint />
+
         <BackLink href="/" />
 
         {rangeInvalid && (
