@@ -53,6 +53,11 @@ describe("parseEnumParam", () => {
     expect(parseEnumParam("table", ["chart", "table"], "chart")).toBe("table");
     expect(parseEnumParam("grid", ["chart", "table"], "chart")).toBe("chart");
     expect(parseEnumParam(null, ["chart", "table"], "chart")).toBe("chart");
+    expect(parseEnumParam("", ["chart", "table"], "chart")).toBe("chart");
+    expect(parseEnumParam("   ", ["chart", "table"], "chart")).toBe("chart");
+    expect(parseEnumParam("table", [], "chart")).toBe("chart");
+    expect(parseEnumParam("", [], "chart")).toBe("chart");
+    expect(parseEnumParam("other", ["chart", "table"], "")).toBe("");
   });
 });
 
