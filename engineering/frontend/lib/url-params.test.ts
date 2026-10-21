@@ -16,6 +16,12 @@ describe("isUsableDateParam", () => {
     expect(isUsableDateParam(null)).toBe(false);
     expect(isUsableDateParam("31-01-2026")).toBe(false);
   });
+
+  it("ignores surrounding whitespace", () => {
+    expect(isUsableDateParam("      ")).toBe(true);
+    expect(isUsableDateParam(" 2026-01-31 ")).toBe(true);
+    expect(isUsableDateParam(" 31-01-2026 ")).toBe(false);
+  });
 });
 
 describe("parseEnumParam", () => {

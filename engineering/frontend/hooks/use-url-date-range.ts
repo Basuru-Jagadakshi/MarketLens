@@ -34,8 +34,8 @@ export function useUrlDateRange(storageKey: string): UseUrlDateRangeResult {
   }));
   const [restored, setRestored] = useState(false);
 
-  const fromDate = isUsableDateParam(rawFrom) ? rawFrom : fallback.from;
-  const toDate = isUsableDateParam(rawTo) ? rawTo : fallback.to;
+  const fromDate = isUsableDateParam(rawFrom) ? rawFrom.trim() : fallback.from;
+  const toDate = isUsableDateParam(rawTo) ? rawTo.trim() : fallback.to;
 
   // Restoring from sessionStorage (a client-only API, unavailable during SSR)
   // has to happen post-mount so the first client render matches the server's.

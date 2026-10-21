@@ -24,10 +24,10 @@ export function isDateString(value: unknown): value is string {
   return typeof value === "string" && DATE_PATTERN.test(value);
 }
 
-// An empty string is allowed through: the native date input emits "" while a
-// date is being edited, and the field has to be able to show that.
 export function isUsableDateParam(value: string | null): value is string {
-  return value !== null && (value === "" || DATE_PATTERN.test(value));
+  if (value === null) return false;
+  const trimmed = value.trim();
+  return trimmed === "" || DATE_PATTERN.test(trimmed);
 }
 
 /** Returns the param's value if it is one of `allowed`, otherwise `fallback`. */
