@@ -64,6 +64,9 @@ describe("parseEnumParam", () => {
 describe("parseHierarchyIds", () => {
   it("reads one id per level in order", () => {
     expect(parseHierarchyIds(reader("major-group=2&sub-major-group=11"), LEVELS)).toEqual([2, 11]);
+    expect(
+      parseHierarchyIds(reader("major-group=2&sub-major-group=11&minor-group=12"), LEVELS),
+    ).toEqual([2, 11, 12]);
   });
 
   it("stops at the first missing level", () => {
