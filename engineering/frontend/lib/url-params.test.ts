@@ -75,6 +75,8 @@ describe("parseHierarchyIds", () => {
 
   it("stops at a non-numeric id", () => {
     expect(parseHierarchyIds(reader("major-group=abc&sub-major-group=1"), LEVELS)).toEqual([]);
+    expect(parseHierarchyIds(reader("major-group=1&sub-major-group=abc"), LEVELS)).toEqual([1]);
+    expect(parseHierarchyIds(reader("major-group=abc&sub-major-group=abc"), LEVELS)).toEqual([]);
     expect(parseHierarchyIds(reader("major-group=-1"), LEVELS)).toEqual([]);
   });
 });
