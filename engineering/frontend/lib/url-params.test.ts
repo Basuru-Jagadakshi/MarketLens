@@ -88,6 +88,16 @@ describe("serializeHierarchyIds", () => {
       "sub-major-group": "11",
       "minor-group": null,
     });
+    expect(serializeHierarchyIds([2], LEVELS)).toEqual({
+      "major-group": "2",
+      "sub-major-group": null,
+      "minor-group": null,
+    });
+    expect(serializeHierarchyIds([], LEVELS)).toEqual({
+      "major-group": null,
+      "sub-major-group": null,
+      "minor-group": null,
+    });
   });
 
   it("round-trips through parseHierarchyIds", () => {
