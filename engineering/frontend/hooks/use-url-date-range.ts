@@ -43,16 +43,18 @@ export function useUrlDateRange(storageKey: string): UseUrlDateRangeResult {
     try {
       const saved = sessionStorage.getItem(storageKey);
       if (saved) {
-        const { from, to } = JSON.parse(saved);
-        if (
-          isDateString(from) &&
-          isDateString(to) &&
-          from <= to &&
-          from >= toISODate(getDataRangeStart()) &&
-          to <= toISODate(getDataRangeEnd())
-        ) {
-          // eslint-disable-next-line react-hooks/set-state-in-effect -- client-only storage, see note above
-          setFallback({ from, to });
+        const parsed = JSON.parse(saved);
+        if (isDateString(parsed.from) && isDateString(parsed.to)) {
+          const from = parsed.from.trim();
+          const to = parsed.to.trim();
+          if (
+            from <= to &&
+            from >= toISODate(getDataRangeStart()) &&
+            to <= toISODate(getDataRangeEnd())
+          ) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect -- client-only storage, see note above
+            setFallback({ from, to });
+          }
         }
       }
     } catch {

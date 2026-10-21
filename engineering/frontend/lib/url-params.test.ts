@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  isDateString,
   isUsableDateParam,
   parseEnumParam,
   parseHierarchyIds,
@@ -8,6 +9,29 @@ import {
 
 const LEVELS = ["major-group", "sub-major-group", "minor-group"] as const;
 const reader = (query: string) => new URLSearchParams(query);
+
+describe("isDateString", () => {
+  it("accepts YYYY-MM-DD strings, ignoring surrounding whitespace", () => {
+    expect(isDateString("2026-01-31")).toBe(true);
+    expect(isDateString(" 2026-01-31 ")).toBe(true);
+  });
+
+  it("rejects non-strings", () => {
+    expect(isDateString(null)).toBe(false);
+    expect(isDateString(undefined)).toBe(false);
+    expect(isDateString(20260131)).toBe(false);
+    expect(isDateString(new Date("2026-01-31"))).toBe(false);
+  });
+
+  it("rejects other formats, blanks and padded wrong formats", () => {
+    expect(isDateString("31-01-2026")).toBe(false);
+    expect(isDateString("2026-1-31")).toBe(false);
+    expect(isDateString("2026/01/31")).toBe(false);
+    expect(isDateString("")).toBe(false);
+    expect(isDateString("      ")).toBe(false);
+    expect(isDateString(" 31-01-2026 ")).toBe(false);
+  });
+});
 
 describe("isUsableDateParam", () => {
   it("accepts ISO dates and the empty string, rejects the rest", () => {

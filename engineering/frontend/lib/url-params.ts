@@ -21,7 +21,7 @@ interface ParamReader {
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 export function isDateString(value: unknown): value is string {
-  return typeof value === "string" && DATE_PATTERN.test(value);
+  return typeof value === "string" && DATE_PATTERN.test(value.trim());
 }
 
 export function isUsableDateParam(value: string | null): value is string {
