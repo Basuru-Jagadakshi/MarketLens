@@ -7,11 +7,16 @@ afterEach(() => {
 
 describe("toISODate", () => {
   it("formats a date as YYYY-MM-DD", () => {
-    expect(toISODate(new Date(Date.UTC(2026, 2, 7)))).toBe("2026-03-07");
+    expect(toISODate(new Date(2026, 2, 7))).toBe("2026-03-07");
   });
 
   it("zero-pads single-digit months and days", () => {
-    expect(toISODate(new Date(Date.UTC(2026, 0, 5)))).toBe("2026-01-05");
+    expect(toISODate(new Date(2026, 0, 5))).toBe("2026-01-05");
+  });
+
+  it("uses the local calendar day, not UTC", () => {
+    expect(toISODate(new Date(2026, 0, 1))).toBe("2026-01-01");
+    expect(toISODate(new Date(2026, 5, 15, 23, 30))).toBe("2026-06-15");
   });
 });
 
