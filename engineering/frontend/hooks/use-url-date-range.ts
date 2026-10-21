@@ -73,7 +73,7 @@ export function useUrlDateRange(storageKey: string): UseUrlDateRangeResult {
   }, [restored, rawFrom, rawTo, fromDate, toDate, updateSearchParams]);
 
   useEffect(() => {
-    if (!restored) return;
+    if (!restored || !fromDate || !toDate || fromDate > toDate) return;
     try {
       sessionStorage.setItem(storageKey, JSON.stringify({ from: fromDate, to: toDate }));
     } catch {
