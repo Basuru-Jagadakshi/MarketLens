@@ -176,6 +176,7 @@ function IndustryAnalysis() {
             errorMessage={
               analysisErrorObj instanceof Error ? analysisErrorObj.message : undefined
             }
+            isEmpty={breakdown.nodeTotal === 0}
             accent={INDUSTRY_ACCENT}
             childrenBreakdownTitle={`${nextLevelLabel} Breakdown`}
             childrenBreakdownDescription={`Vacancy count of each ${nextLevelLabel.toLowerCase()} under ${deepest.name}`}

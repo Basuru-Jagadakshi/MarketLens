@@ -53,17 +53,20 @@ function Dashboard() {
         granularity={granularity}
         totalVacancies={totalInRange}
         isLoading={isLoading}
+        isError={isError}
       />
 
       <OccupationDistributionChart
         data={occData}
         isLoading={isLoading}
+        isError={isError}
         linkHref={`/occupations?from=${fromDate}&to=${toDate}`}
       />
 
       <IndustryDistributionChart
         data={indData}
         isLoading={isLoading}
+        isError={isError}
         linkHref={`/industries?from=${fromDate}&to=${toDate}`}
       />
     </div>

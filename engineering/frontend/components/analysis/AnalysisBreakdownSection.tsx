@@ -14,6 +14,7 @@ interface AnalysisBreakdownSectionProps {
   isLoading: boolean;
   isError: boolean;
   errorMessage?: string;
+  isEmpty: boolean;
   accent: HierarchyAccent;
   childrenBreakdownTitle: string;
   childrenBreakdownDescription: string;
@@ -37,6 +38,7 @@ export default function AnalysisBreakdownSection({
   isLoading,
   isError,
   errorMessage,
+  isEmpty,
   accent,
   childrenBreakdownTitle,
   childrenBreakdownDescription,
@@ -64,6 +66,8 @@ export default function AnalysisBreakdownSection({
           Failed to load analytics
           {errorMessage ? `: ${errorMessage}` : "."}
         </div>
+      ) : isEmpty ? (
+        <div className="p-10 text-center text-xs text-zinc-400">No data for this range</div>
       ) : viewMode === "chart" ? (
         <AnalysisBreakdownCharts
           accent={accent}

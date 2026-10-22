@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import ChartCard from "@/components/shared/ChartCard";
+import { isEmptyChartData } from "@/lib/chart-data";
 import {
   CHART_COLORS,
   TICK_COLOR,
@@ -16,12 +17,14 @@ import type { ChartDatum } from "@/types/chart";
 interface IndustryDistributionChartProps {
   data: ChartDatum[];
   isLoading: boolean;
+  isError: boolean;
   linkHref: string;
 }
 
 export default function IndustryDistributionChart({
   data,
   isLoading,
+  isError,
   linkHref,
 }: IndustryDistributionChartProps) {
   return (
@@ -31,6 +34,8 @@ export default function IndustryDistributionChart({
       heightClassName="h-[480px] md:h-[640px]"
       bodyClassName="pb-10"
       isLoading={isLoading}
+      isError={isError}
+      isEmpty={isEmptyChartData(data, (d) => d.value)}
       loadingLabel="Loading industry data..."
       footer={
         <div className="pt-2 flex justify-end">

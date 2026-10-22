@@ -10,7 +10,17 @@ interface ChartCardProps {
   footer?: ReactNode;
   isLoading: boolean;
   loadingLabel: string;
+  isError?: boolean;
+  isEmpty?: boolean;
   children: ReactNode;
+}
+
+function CardMessage({ children }: { children: ReactNode }) {
+  return (
+    <div className="w-full h-full flex items-center justify-center text-xs text-zinc-400">
+      {children}
+    </div>
+  );
 }
 
 export default function ChartCard({
@@ -22,6 +32,8 @@ export default function ChartCard({
   footer,
   isLoading,
   loadingLabel,
+  isError = false,
+  isEmpty = false,
   children,
 }: ChartCardProps) {
   return (
@@ -45,9 +57,11 @@ export default function ChartCard({
       </div>
       <div className={clsx("flex-1 mt-4 min-w-0", bodyClassName)}>
         {isLoading ? (
-          <div className="w-full h-full flex items-center justify-center text-xs text-zinc-400">
-            {loadingLabel}
-          </div>
+          <CardMessage>{loadingLabel}</CardMessage>
+        ) : isError ? (
+          <CardMessage>Couldn&apos;t load data</CardMessage>
+        ) : isEmpty ? (
+          <CardMessage>No data for this range</CardMessage>
         ) : (
           children
         )}

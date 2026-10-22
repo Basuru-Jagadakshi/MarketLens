@@ -9,6 +9,7 @@ import {
   CHART_TOOLTIP_LABEL_STYLE,
   CHART_BAR_CURSOR,
 } from "@/lib/chart-theme";
+import { isEmptyChartData } from "@/lib/chart-data";
 import type { ChartDatum } from "@/types/chart";
 import type { SkillStat, EmployerStat } from "@/types/occupation";
 
@@ -31,6 +32,11 @@ export default function SkillAnalysisPanel({
   totalSkillMentions,
   topEmployers,
 }: SkillAnalysisPanelProps) {
+  const isEmpty =
+    isEmptyChartData(topSkills, (s) => s.value) &&
+    isEmptyChartData(allSkills, (s) => s.open_job_count) &&
+    isEmptyChartData(topEmployers, (e) => e.open_job_count);
+
   return (
     <div className="p-4 md:p-5 space-y-6">
       {isLoading ? (
@@ -39,6 +45,8 @@ export default function SkillAnalysisPanel({
         <div className="p-10 text-center text-xs text-red-500 font-bold">
           Failed to load skills data.
         </div>
+      ) : isEmpty ? (
+        <div className="p-10 text-center text-xs text-zinc-400">No data for this range</div>
       ) : (
         <>
           <div className="border border-zinc-100 p-5 rounded-xl flex flex-col">

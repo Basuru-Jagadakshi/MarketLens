@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import ChartCard from "@/components/shared/ChartCard";
+import { isEmptyChartData } from "@/lib/chart-data";
 import {
   CHART_COLORS,
   TICK_COLOR,
@@ -18,12 +19,14 @@ const MAX_LABEL_LENGTH = 22;
 interface OccupationDistributionChartProps {
   data: ChartDatum[];
   isLoading: boolean;
+  isError: boolean;
   linkHref: string;
 }
 
 export default function OccupationDistributionChart({
   data,
   isLoading,
+  isError,
   linkHref,
 }: OccupationDistributionChartProps) {
   return (
@@ -32,6 +35,8 @@ export default function OccupationDistributionChart({
       subtitle="All 10 standard occupations"
       heightClassName="h-[420px] md:h-[540px]"
       isLoading={isLoading}
+      isError={isError}
+      isEmpty={isEmptyChartData(data, (d) => d.value)}
       loadingLabel="Loading occupation data..."
       footer={
         <div className="pt-8 flex justify-end">

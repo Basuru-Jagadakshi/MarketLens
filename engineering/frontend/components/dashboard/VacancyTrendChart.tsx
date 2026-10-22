@@ -10,6 +10,7 @@ import {
   CartesianGrid,
 } from "recharts";
 import ChartCard from "@/components/shared/ChartCard";
+import { isEmptyChartData } from "@/lib/chart-data";
 import {
   CHART_COLORS,
   GRID_STROKE,
@@ -25,6 +26,7 @@ interface VacancyTrendChartProps {
   granularity?: "weekly" | "monthly";
   totalVacancies: number;
   isLoading: boolean;
+  isError: boolean;
 }
 
 export default function VacancyTrendChart({
@@ -32,6 +34,7 @@ export default function VacancyTrendChart({
   granularity,
   totalVacancies,
   isLoading,
+  isError,
 }: VacancyTrendChartProps) {
   const subtitle =
     granularity === "weekly"
@@ -46,6 +49,8 @@ export default function VacancyTrendChart({
       subtitle={subtitle}
       heightClassName="h-[320px] md:h-[420px]"
       isLoading={isLoading}
+      isError={isError}
+      isEmpty={isEmptyChartData(data, (point) => point.open_job_count)}
       loadingLabel="Loading trend data..."
       headerRight={
         <div className="text-right">
@@ -53,7 +58,7 @@ export default function VacancyTrendChart({
             Total vacancies
           </p>
           <p className="text-lg font-black text-zinc-900">
-            {isLoading ? "…" : totalVacancies.toLocaleString()}
+            {isLoading ? "…" : isError ? "—" : totalVacancies.toLocaleString()}
           </p>
         </div>
       }

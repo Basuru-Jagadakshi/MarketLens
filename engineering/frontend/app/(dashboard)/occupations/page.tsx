@@ -216,6 +216,7 @@ function OccupationAnalysis() {
               errorMessage={
                 analysisErrorObj instanceof Error ? analysisErrorObj.message : undefined
               }
+              isEmpty={breakdown.nodeTotal === 0}
               accent={OCCUPATION_ACCENT}
               childrenBreakdownTitle={`${nextLevelLabel} Breakdown`}
               childrenBreakdownDescription={`Vacancy count of each ${nextLevelLabel.toLowerCase()} under ${deepest.name}`}
