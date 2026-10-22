@@ -28,8 +28,6 @@ import type { HierarchyNode } from "@/types/analysis";
 import { CHART_COLORS } from "@/lib/chart-theme";
 import { getDataRangeStart, getDataRangeEnd } from "@/lib/date-range";
 
-const DATE_RANGE_STORAGE_KEY = "lmis-date-range:v2";
-
 type IndustryLevel =
   | "industry-sector"
   | "industry-division"
@@ -56,8 +54,7 @@ const MAX_LEVELS = LEVELS.length;
 const INDUSTRY_ACCENT = { primary: CHART_COLORS.teal, secondary: CHART_COLORS.indigo };
 
 function IndustryAnalysis() {
-  const { fromDate, toDate, setFromDate, setToDate, rangeInvalid } =
-    useUrlDateRange(DATE_RANGE_STORAGE_KEY);
+  const { fromDate, toDate, setFromDate, setToDate, rangeInvalid } = useUrlDateRange();
   const scrolled = useScrolled();
   const [viewMode, setViewMode] = useAnalysisViewMode();
   const dataRangeEnd = getDataRangeEnd();

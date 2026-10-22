@@ -11,11 +11,8 @@ import VacancyTrendChart from "@/components/dashboard/VacancyTrendChart";
 import OccupationDistributionChart from "@/components/dashboard/OccupationDistributionChart";
 import IndustryDistributionChart from "@/components/dashboard/IndustryDistributionChart";
 
-const DATE_RANGE_STORAGE_KEY = "lmis-date-range:v2";
-
 function Dashboard() {
-  const { fromDate, toDate, setFromDate, setToDate, rangeInvalid } =
-    useUrlDateRange(DATE_RANGE_STORAGE_KEY);
+  const { fromDate, toDate, setFromDate, setToDate, rangeInvalid } = useUrlDateRange();
   const scrolled = useScrolled();
   const dataRangeEnd = getDataRangeEnd();
   const dataRangeStart = getDataRangeStart();

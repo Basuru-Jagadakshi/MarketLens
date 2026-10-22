@@ -2,7 +2,12 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { getDataRangeStart, getDataRangeEnd, toISODate } from "@/lib/date-range";
+import {
+  DATE_RANGE_STORAGE_KEY,
+  getDataRangeStart,
+  getDataRangeEnd,
+  toISODate,
+} from "@/lib/date-range";
 import { URL_PARAMS, isDateString, isUsableDateParam } from "@/lib/url-params";
 import { useUpdateSearchParams } from "@/hooks/use-update-search-params";
 
@@ -22,7 +27,9 @@ interface UseUrlDateRangeResult {
  * is then written back to the URL so the address bar is always a complete,
  * shareable snapshot.
  */
-export function useUrlDateRange(storageKey: string): UseUrlDateRangeResult {
+export function useUrlDateRange(
+  storageKey: string = DATE_RANGE_STORAGE_KEY,
+): UseUrlDateRangeResult {
   const searchParams = useSearchParams();
   const updateSearchParams = useUpdateSearchParams();
   const rawFrom = searchParams.get(URL_PARAMS.from);

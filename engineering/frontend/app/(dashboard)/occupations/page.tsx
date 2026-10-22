@@ -31,8 +31,6 @@ import {
 import { CHART_COLORS } from "@/lib/chart-theme";
 import { getDataRangeStart, getDataRangeEnd } from "@/lib/date-range";
 
-const DATE_RANGE_STORAGE_KEY = "lmis-date-range:v2";
-
 type OccupationLevel =
   | "major-group"
   | "sub-major-group"
@@ -61,8 +59,7 @@ const OCCUPATION_TABS = ["analytics", "skills"] as const;
 const OCCUPATION_ACCENT = { primary: CHART_COLORS.indigo, secondary: CHART_COLORS.teal };
 
 function OccupationAnalysis() {
-  const { fromDate, toDate, setFromDate, setToDate, rangeInvalid } =
-    useUrlDateRange(DATE_RANGE_STORAGE_KEY);
+  const { fromDate, toDate, setFromDate, setToDate, rangeInvalid } = useUrlDateRange();
   const scrolled = useScrolled();
   const [activeTab, setActiveTab] = useUrlEnumParam(URL_PARAMS.tab, OCCUPATION_TABS, "analytics");
   const [viewMode, setViewMode] = useAnalysisViewMode();
