@@ -4,7 +4,7 @@ import { Suspense, useMemo } from "react";
 import { useDashboardOverview } from "@/hooks/use-dashboard";
 import { useUrlDateRange } from "@/hooks/use-url-date-range";
 import { useScrolled } from "@/hooks/use-scrolled";
-import { getDataRangeStart, getDataRangeEnd } from "@/lib/date-range";
+import { getMinSelectableDate, getMaxSelectableDate } from "@/lib/date-range";
 import DateRangePicker from "@/components/shared/DateRangePicker";
 import RotateDeviceHint from "@/components/shared/RotateDeviceHint";
 import VacancyTrendChart from "@/components/dashboard/VacancyTrendChart";
@@ -14,8 +14,8 @@ import IndustryDistributionChart from "@/components/dashboard/IndustryDistributi
 function Dashboard() {
   const { fromDate, toDate, setFromDate, setToDate, rangeInvalid } = useUrlDateRange();
   const scrolled = useScrolled();
-  const dataRangeEnd = getDataRangeEnd();
-  const dataRangeStart = getDataRangeStart();
+  const maxSelectableDate = getMaxSelectableDate();
+  const minSelectableDate = getMinSelectableDate();
 
   const {
     data: overview,
@@ -53,8 +53,8 @@ function Dashboard() {
         toDate={toDate}
         onFromDateChange={setFromDate}
         onToDateChange={setToDate}
-        minDate={dataRangeStart}
-        maxDate={dataRangeEnd}
+        minDate={minSelectableDate}
+        maxDate={maxSelectableDate}
         scrolled={scrolled}
         description="Select a date range to view labour market analytics for that period"
       />

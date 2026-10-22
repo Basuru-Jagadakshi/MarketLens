@@ -29,7 +29,7 @@ import {
   useOccupationSkills,
 } from "@/hooks/use-occupation";
 import { CHART_COLORS } from "@/lib/chart-theme";
-import { getDataRangeStart, getDataRangeEnd } from "@/lib/date-range";
+import { getMinSelectableDate, getMaxSelectableDate } from "@/lib/date-range";
 
 type OccupationLevel =
   | "major-group"
@@ -63,8 +63,8 @@ function OccupationAnalysis() {
   const scrolled = useScrolled();
   const [activeTab, setActiveTab] = useUrlEnumParam(URL_PARAMS.tab, OCCUPATION_TABS, "analytics");
   const [viewMode, setViewMode] = useAnalysisViewMode();
-  const dataRangeEnd = getDataRangeEnd();
-  const dataRangeStart = getDataRangeStart();
+  const maxSelectableDate = getMaxSelectableDate();
+  const minSelectableDate = getMinSelectableDate();
 
   const [ids, setIds] = useHierarchyPath(LEVELS);
 
@@ -167,8 +167,8 @@ function OccupationAnalysis() {
         toDate={toDate}
         onFromDateChange={setFromDate}
         onToDateChange={setToDate}
-        minDate={dataRangeStart}
-        maxDate={dataRangeEnd}
+        minDate={minSelectableDate}
+        maxDate={maxSelectableDate}
         scrolled={scrolled}
       />
 

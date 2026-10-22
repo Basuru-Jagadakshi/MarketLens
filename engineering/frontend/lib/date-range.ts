@@ -10,11 +10,11 @@ export const toISODate = (date: Date) => {
 
 // This module is evaluated once per server process,
 // so a top-level `new Date()` would freeze "today" at server start.
-export function getDataRangeEnd(): Date {
+export function getMaxSelectableDate(): Date {
   return new Date();
 }
 
-export function getDataRangeStart(): Date {
-  const end = getDataRangeEnd();
+export function getMinSelectableDate(): Date {
+  const end = getMaxSelectableDate();
   return new Date(end.getFullYear() - 3, 0, 1);
 }

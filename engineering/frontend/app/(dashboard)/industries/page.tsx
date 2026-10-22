@@ -26,7 +26,7 @@ import {
 } from "@/hooks/use-industry";
 import type { HierarchyNode } from "@/types/analysis";
 import { CHART_COLORS } from "@/lib/chart-theme";
-import { getDataRangeStart, getDataRangeEnd } from "@/lib/date-range";
+import { getMinSelectableDate, getMaxSelectableDate } from "@/lib/date-range";
 
 type IndustryLevel =
   | "industry-sector"
@@ -57,8 +57,8 @@ function IndustryAnalysis() {
   const { fromDate, toDate, setFromDate, setToDate, rangeInvalid } = useUrlDateRange();
   const scrolled = useScrolled();
   const [viewMode, setViewMode] = useAnalysisViewMode();
-  const dataRangeEnd = getDataRangeEnd();
-  const dataRangeStart = getDataRangeStart();
+  const maxSelectableDate = getMaxSelectableDate();
+  const minSelectableDate = getMinSelectableDate();
 
   const [ids, setIds] = useHierarchyPath(LEVELS);
 
@@ -142,8 +142,8 @@ function IndustryAnalysis() {
         toDate={toDate}
         onFromDateChange={setFromDate}
         onToDateChange={setToDate}
-        minDate={dataRangeStart}
-        maxDate={dataRangeEnd}
+        minDate={minSelectableDate}
+        maxDate={maxSelectableDate}
         scrolled={scrolled}
       />
 

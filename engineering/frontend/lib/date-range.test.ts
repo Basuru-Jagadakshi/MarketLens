@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { toISODate, getDataRangeStart, getDataRangeEnd } from "@/lib/date-range";
+import { toISODate, getMinSelectableDate, getMaxSelectableDate } from "@/lib/date-range";
 
 afterEach(() => {
   vi.useRealTimers();
@@ -20,14 +20,14 @@ describe("toISODate", () => {
   });
 });
 
-describe("getDataRangeEnd", () => {
+describe("getMaxSelectableDate", () => {
   it("reflects the current system time, not a frozen value", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date(2020, 5, 15));
-    const first = getDataRangeEnd();
+    const first = getMaxSelectableDate();
 
     vi.setSystemTime(new Date(2024, 8, 1));
-    const second = getDataRangeEnd();
+    const second = getMaxSelectableDate();
 
     // This is the regression this module exists to prevent: if "today" were
     // ever cached in a module-level constant instead of computed per call,
@@ -37,12 +37,12 @@ describe("getDataRangeEnd", () => {
   });
 });
 
-describe("getDataRangeStart", () => {
-  it("is January 1st, 3 years before getDataRangeEnd's year", () => {
+describe("getMinSelectableDate", () => {
+  it("is January 1st, 3 years before getMaxSelectableDate's year", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date(2026, 5, 15));
 
-    const start = getDataRangeStart();
+    const start = getMinSelectableDate();
 
     expect(start.getFullYear()).toBe(2023);
     expect(start.getMonth()).toBe(0);

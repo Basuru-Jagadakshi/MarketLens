@@ -4,8 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   DATE_RANGE_STORAGE_KEY,
-  getDataRangeStart,
-  getDataRangeEnd,
+  getMinSelectableDate,
+  getMaxSelectableDate,
   toISODate,
 } from "@/lib/date-range";
 import { URL_PARAMS, isDateString, isUsableDateParam } from "@/lib/url-params";
@@ -36,8 +36,8 @@ export function useUrlDateRange(
   const rawTo = searchParams.get(URL_PARAMS.to);
 
   const [fallback, setFallback] = useState(() => ({
-    from: `${getDataRangeEnd().getFullYear()}-01-01`,
-    to: toISODate(getDataRangeEnd()),
+    from: `${getMaxSelectableDate().getFullYear()}-01-01`,
+    to: toISODate(getMaxSelectableDate()),
   }));
   const [restored, setRestored] = useState(false);
   const initialRangeChecked = useRef(false);
@@ -57,8 +57,8 @@ export function useUrlDateRange(
           const to = parsed.to.trim();
           if (
             from <= to &&
-            from >= toISODate(getDataRangeStart()) &&
-            to <= toISODate(getDataRangeEnd())
+            from >= toISODate(getMinSelectableDate()) &&
+            to <= toISODate(getMaxSelectableDate())
           ) {
             // eslint-disable-next-line react-hooks/set-state-in-effect -- client-only storage, see note above
             setFallback({ from, to });
