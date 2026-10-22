@@ -16,7 +16,39 @@ interface UseUrlDateRangeResult {
   toDate: string;
   setFromDate: (value: string) => void;
   setToDate: (value: string) => void;
-  rangeInvalid: boolean;
+}
+
+interface DateRange {
+  from: string;
+  to: string;
+}
+
+function getDefaultRange(): DateRange {
+  return {
+    from: `${getMaxSelectableDate().getFullYear()}-01-01`,
+    to: toISODate(getMaxSelectableDate()),
+  };
+}
+
+// The last range saved in this browser session, if it is still valid. Reads
+// sessionStorage (client-only), so call it from effects and handlers only.
+function readSavedRange(storageKey: string): DateRange | null {
+  try {
+    const saved = sessionStorage.getItem(storageKey);
+    if (!saved) return null;
+    const parsed = JSON.parse(saved);
+    if (!isDateString(parsed.from) || !isDateString(parsed.to)) return null;
+    const from = parsed.from.trim();
+    const to = parsed.to.trim();
+    const inBounds =
+      from <= to &&
+      from >= toISODate(getMinSelectableDate()) &&
+      to <= toISODate(getMaxSelectableDate());
+    return inBounds ? { from, to } : null;
+  } catch {
+    // ignore corrupt storage — defaults stay in place
+    return null;
+  }
 }
 
 /**
@@ -35,10 +67,7 @@ export function useUrlDateRange(
   const rawFrom = searchParams.get(URL_PARAMS.from);
   const rawTo = searchParams.get(URL_PARAMS.to);
 
-  const [fallback, setFallback] = useState(() => ({
-    from: `${getMaxSelectableDate().getFullYear()}-01-01`,
-    to: toISODate(getMaxSelectableDate()),
-  }));
+  const [fallback, setFallback] = useState(getDefaultRange);
   const [restored, setRestored] = useState(false);
   const initialRangeChecked = useRef(false);
 
@@ -48,37 +77,30 @@ export function useUrlDateRange(
   // Restoring from sessionStorage (a client-only API, unavailable during SSR)
   // has to happen post-mount so the first client render matches the server's.
   useEffect(() => {
-    try {
-      const saved = sessionStorage.getItem(storageKey);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (isDateString(parsed.from) && isDateString(parsed.to)) {
-          const from = parsed.from.trim();
-          const to = parsed.to.trim();
-          if (
-            from <= to &&
-            from >= toISODate(getMinSelectableDate()) &&
-            to <= toISODate(getMaxSelectableDate())
-          ) {
-            // eslint-disable-next-line react-hooks/set-state-in-effect -- client-only storage, see note above
-            setFallback({ from, to });
-          }
-        }
-      }
-    } catch {
-      // ignore corrupt storage — defaults stay in place
-    }
+    const saved = readSavedRange(storageKey);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- client-only storage, see note above
+    if (saved) setFallback(saved);
     setRestored(true);
   }, [storageKey]);
 
-  // Make the address bar reflect the effective range once the fallback is known.
+  // Make the address bar reflect the effective range whenever the URL lacks
+  // one — on load, or when navigating to a page without a range (e.g. a link
+  // to "/"). The saved range is read fresh here, since it may have changed
+  // since this hook mounted.
   useEffect(() => {
     if (!restored) return;
+    const missingFrom = !isUsableDateParam(rawFrom);
+    const missingTo = !isUsableDateParam(rawTo);
+    if (!missingFrom && !missingTo) return;
+
+    const base = readSavedRange(storageKey) ?? getDefaultRange();
     const updates: Record<string, string> = {};
-    if (!isUsableDateParam(rawFrom)) updates[URL_PARAMS.from] = fromDate;
-    if (!isUsableDateParam(rawTo)) updates[URL_PARAMS.to] = toDate;
-    if (Object.keys(updates).length > 0) updateSearchParams(updates);
-  }, [restored, rawFrom, rawTo, fromDate, toDate, updateSearchParams]);
+    if (missingFrom) updates[URL_PARAMS.from] = base.from;
+    if (missingTo) updates[URL_PARAMS.to] = base.to;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- client-only storage, see note above
+    setFallback(base);
+    updateSearchParams(updates);
+  }, [restored, storageKey, rawFrom, rawTo, updateSearchParams]);
 
   // A range typed into the URL with from > to can't be corrected in the picker
   // (its min/max conflict), so reset it to the default. Checked once on load
@@ -109,5 +131,5 @@ export function useUrlDateRange(
     [updateSearchParams],
   );
 
-  return { fromDate, toDate, setFromDate, setToDate, rangeInvalid: fromDate > toDate };
+  return { fromDate, toDate, setFromDate, setToDate };
 }

@@ -2,14 +2,11 @@
 
 import { Suspense, useMemo } from "react";
 import BackLink from "@/components/shared/BackLink";
-import DateRangePicker from "@/components/shared/DateRangePicker";
-import RotateDeviceHint from "@/components/shared/RotateDeviceHint";
 import ClassificationHierarchyPicker from "@/components/analysis/ClassificationHierarchyPicker";
 import AnalysisHeaderBar from "@/components/analysis/AnalysisHeaderBar";
 import AnalysisBreakdownSection from "@/components/analysis/AnalysisBreakdownSection";
 import SkillAnalysisPanel from "@/components/occupations/SkillAnalysisPanel";
-import { useScrolled } from "@/hooks/use-scrolled";
-import { useUrlDateRange } from "@/hooks/use-url-date-range";
+import { useDateRange } from "@/providers/date-range-provider";
 import { useAnalysisViewMode } from "@/hooks/use-analysis-view-mode";
 import { useUrlEnumParam } from "@/hooks/use-url-enum-param";
 import { URL_PARAMS } from "@/lib/url-params";
@@ -29,7 +26,6 @@ import {
   useOccupationSkills,
 } from "@/hooks/use-occupation";
 import { CHART_COLORS } from "@/lib/chart-theme";
-import { getMinSelectableDate, getMaxSelectableDate } from "@/lib/date-range";
 
 type OccupationLevel =
   | "major-group"
@@ -59,12 +55,9 @@ const OCCUPATION_TABS = ["analytics", "skills"] as const;
 const OCCUPATION_ACCENT = { primary: CHART_COLORS.indigo, secondary: CHART_COLORS.teal };
 
 function OccupationAnalysis() {
-  const { fromDate, toDate, setFromDate, setToDate, rangeInvalid } = useUrlDateRange();
-  const scrolled = useScrolled();
+  const { fromDate, toDate } = useDateRange();
   const [activeTab, setActiveTab] = useUrlEnumParam(URL_PARAMS.tab, OCCUPATION_TABS, "analytics");
   const [viewMode, setViewMode] = useAnalysisViewMode();
-  const maxSelectableDate = getMaxSelectableDate();
-  const minSelectableDate = getMinSelectableDate();
 
   const [ids, setIds] = useHierarchyPath(LEVELS);
 
@@ -161,120 +154,100 @@ function OccupationAnalysis() {
     LEVEL_LABELS[LEVELS[Math.min(deepestLevelIndex + 1, MAX_LEVELS - 1)]];
 
   return (
-    <>
-      <DateRangePicker
-        fromDate={fromDate}
-        toDate={toDate}
-        onFromDateChange={setFromDate}
-        onToDateChange={setToDate}
-        minDate={minSelectableDate}
-        maxDate={maxSelectableDate}
-        scrolled={scrolled}
+    <div className="p-4 md:p-8 space-y-6 md:space-y-8 w-full pb-20">
+      <BackLink href="/" />
+
+      <div>
+        <h2 className="text-base md:text-lg font-black text-zinc-900 tracking-tight">
+          Occupation Analysis (SLSO)
+        </h2>
+        <p className="text-xs text-zinc-400 mt-1 font-medium">
+          Analyze through the occupation classification hierarchy
+        </p>
+      </div>
+
+      <ClassificationHierarchyPicker
+        levels={levels}
+        path={path}
+        isInitializing={isInitializing}
+        initializingLabel="Loading occupation groups..."
+        initialLoadError={majorGroupQuery.isError}
+        initialLoadErrorLabel="Failed to load occupation groups"
+        initialLoadErrorMessage={
+          majorGroupQuery.error instanceof Error ? majorGroupQuery.error.message : undefined
+        }
+        emptyLabel="No occupation groups available."
+        prunedNotice={prunedNotice}
+        onSelect={handleSelect}
+        onAddLevel={handleAddLevel}
+        onRemoveLevel={handleRemoveLevel}
       />
 
-      <div className="p-4 md:p-8 space-y-6 md:space-y-8 w-full pb-20">
-        <RotateDeviceHint />
+      {deepest && (
+        <div className="bg-white border border-zinc-200 rounded-xl shadow-sm">
+          <AnalysisHeaderBar
+            levelLabel={LEVEL_LABELS[deepest.level]}
+            nodeName={deepest.name}
+            nodeTotal={breakdown.nodeTotal}
+            isLoading={analysisLoading}
+          />
 
-        <BackLink href="/" />
-
-        {rangeInvalid && (
-          <div className="bg-zinc-100 border border-zinc-300 text-zinc-700 text-xs font-bold px-4 py-3 rounded-xl">
-            The start date must be before the end date.
+          <div className="px-5 border-b border-zinc-200 flex gap-6">
+            <button
+              onClick={() => setActiveTab("analytics")}
+              className={`cursor-pointer py-3 text-xs font-bold border-b-2 -mb-px transition-colors ${activeTab === "analytics" ? "border-zinc-900 text-zinc-900" : "border-transparent text-zinc-400 hover:text-zinc-600"}`}
+            >
+              Analytics
+            </button>
+            <button
+              onClick={() => setActiveTab("skills")}
+              className={`cursor-pointer py-3 text-xs font-bold border-b-2 -mb-px transition-colors ${activeTab === "skills" ? "border-zinc-900 text-zinc-900" : "border-transparent text-zinc-400 hover:text-zinc-600"}`}
+            >
+              Skill Analysis
+            </button>
           </div>
-        )}
 
-        <div>
-          <h2 className="text-base md:text-lg font-black text-zinc-900 tracking-tight">
-            Occupation Analysis (SLSO)
-          </h2>
-          <p className="text-xs text-zinc-400 mt-1 font-medium">
-            Analyze through the occupation classification hierarchy
-          </p>
-        </div>
-
-        <ClassificationHierarchyPicker
-          levels={levels}
-          path={path}
-          isInitializing={isInitializing}
-          initializingLabel="Loading occupation groups..."
-          initialLoadError={majorGroupQuery.isError}
-          initialLoadErrorLabel="Failed to load occupation groups"
-          initialLoadErrorMessage={
-            majorGroupQuery.error instanceof Error ? majorGroupQuery.error.message : undefined
-          }
-          emptyLabel="No occupation groups available."
-          prunedNotice={prunedNotice}
-          onSelect={handleSelect}
-          onAddLevel={handleAddLevel}
-          onRemoveLevel={handleRemoveLevel}
-        />
-
-        {deepest && (
-          <div className="bg-white border border-zinc-200 rounded-xl shadow-sm">
-            <AnalysisHeaderBar
-              levelLabel={LEVEL_LABELS[deepest.level]}
-              nodeName={deepest.name}
-              nodeTotal={breakdown.nodeTotal}
+          {activeTab === "analytics" && (
+            <AnalysisBreakdownSection
+              viewMode={viewMode}
+              onViewModeChange={setViewMode}
               isLoading={analysisLoading}
+              isError={analysisError}
+              errorMessage={
+                analysisErrorObj instanceof Error ? analysisErrorObj.message : undefined
+              }
+              accent={OCCUPATION_ACCENT}
+              childrenBreakdownTitle={`${nextLevelLabel} Breakdown`}
+              childrenBreakdownDescription={`Vacancy count of each ${nextLevelLabel.toLowerCase()} under ${deepest.name}`}
+              childrenBreakdown={breakdown.childrenBreakdown}
+              sectorData={breakdown.sectorData}
+              expData={breakdown.expData}
+              provinceData={breakdown.provinceData}
+              eduData={breakdown.eduData}
+              formalData={breakdown.formalData}
+              genderData={breakdown.genderData}
+              nvqData={breakdown.nvqData}
+              remoteData={breakdown.remoteData}
+              contractData={breakdown.contractData}
+              remoteShare={breakdown.remoteShare}
+              contractShare={breakdown.contractShare}
             />
+          )}
 
-            <div className="px-5 border-b border-zinc-200 flex gap-6">
-              <button
-                onClick={() => setActiveTab("analytics")}
-                className={`cursor-pointer py-3 text-xs font-bold border-b-2 -mb-px transition-colors ${activeTab === "analytics" ? "border-zinc-900 text-zinc-900" : "border-transparent text-zinc-400 hover:text-zinc-600"}`}
-              >
-                Analytics
-              </button>
-              <button
-                onClick={() => setActiveTab("skills")}
-                className={`cursor-pointer py-3 text-xs font-bold border-b-2 -mb-px transition-colors ${activeTab === "skills" ? "border-zinc-900 text-zinc-900" : "border-transparent text-zinc-400 hover:text-zinc-600"}`}
-              >
-                Skill Analysis
-              </button>
-            </div>
-
-            {activeTab === "analytics" && (
-              <AnalysisBreakdownSection
-                viewMode={viewMode}
-                onViewModeChange={setViewMode}
-                isLoading={analysisLoading}
-                isError={analysisError}
-                errorMessage={
-                  analysisErrorObj instanceof Error ? analysisErrorObj.message : undefined
-                }
-                accent={OCCUPATION_ACCENT}
-                childrenBreakdownTitle={`${nextLevelLabel} Breakdown`}
-                childrenBreakdownDescription={`Vacancy count of each ${nextLevelLabel.toLowerCase()} under ${deepest.name}`}
-                childrenBreakdown={breakdown.childrenBreakdown}
-                sectorData={breakdown.sectorData}
-                expData={breakdown.expData}
-                provinceData={breakdown.provinceData}
-                eduData={breakdown.eduData}
-                formalData={breakdown.formalData}
-                genderData={breakdown.genderData}
-                nvqData={breakdown.nvqData}
-                remoteData={breakdown.remoteData}
-                contractData={breakdown.contractData}
-                remoteShare={breakdown.remoteShare}
-                contractShare={breakdown.contractShare}
-              />
-            )}
-
-            {activeTab === "skills" && (
-              <SkillAnalysisPanel
-                isLoading={skillsLoading}
-                isError={skillsError}
-                topSkills={topSkills}
-                allSkills={allSkills}
-                totalSkillsCount={skillsData?.all_skills.total ?? 0}
-                totalSkillMentions={totalSkillMentions}
-                topEmployers={topEmployers}
-              />
-            )}
-          </div>
-        )}
-      </div>
-    </>
+          {activeTab === "skills" && (
+            <SkillAnalysisPanel
+              isLoading={skillsLoading}
+              isError={skillsError}
+              topSkills={topSkills}
+              allSkills={allSkills}
+              totalSkillsCount={skillsData?.all_skills.total ?? 0}
+              totalSkillMentions={totalSkillMentions}
+              topEmployers={topEmployers}
+            />
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 

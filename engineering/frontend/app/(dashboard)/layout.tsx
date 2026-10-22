@@ -1,4 +1,8 @@
+import { Suspense } from "react";
 import Header from "@/components/layout/Header";
+import RotateDeviceHint from "@/components/shared/RotateDeviceHint";
+import DashboardDateRangePicker from "@/components/dashboard/DashboardDateRangePicker";
+import { DateRangeProvider } from "@/providers/date-range-provider";
 import logo from "@/public/logo.png";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -9,7 +13,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         subtitle="National overview of labour market demand across occupations and industries"
         logo={logo}
       />
-      {children}
+      <RotateDeviceHint />
+      <Suspense
+        fallback={
+          <div className="py-20 flex items-center justify-center text-xs text-zinc-400">
+            Loading...
+          </div>
+        }
+      >
+        <DateRangeProvider>
+          <DashboardDateRangePicker />
+          {children}
+        </DateRangeProvider>
+      </Suspense>
     </div>
   );
 }

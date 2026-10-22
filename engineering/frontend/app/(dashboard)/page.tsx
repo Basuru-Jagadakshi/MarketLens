@@ -2,20 +2,13 @@
 
 import { Suspense, useMemo } from "react";
 import { useDashboardOverview } from "@/hooks/use-dashboard";
-import { useUrlDateRange } from "@/hooks/use-url-date-range";
-import { useScrolled } from "@/hooks/use-scrolled";
-import { getMinSelectableDate, getMaxSelectableDate } from "@/lib/date-range";
-import DateRangePicker from "@/components/shared/DateRangePicker";
-import RotateDeviceHint from "@/components/shared/RotateDeviceHint";
+import { useDateRange } from "@/providers/date-range-provider";
 import VacancyTrendChart from "@/components/dashboard/VacancyTrendChart";
 import OccupationDistributionChart from "@/components/dashboard/OccupationDistributionChart";
 import IndustryDistributionChart from "@/components/dashboard/IndustryDistributionChart";
 
 function Dashboard() {
-  const { fromDate, toDate, setFromDate, setToDate, rangeInvalid } = useUrlDateRange();
-  const scrolled = useScrolled();
-  const maxSelectableDate = getMaxSelectableDate();
-  const minSelectableDate = getMinSelectableDate();
+  const { fromDate, toDate } = useDateRange();
 
   const {
     data: overview,
@@ -47,54 +40,33 @@ function Dashboard() {
   );
 
   return (
-    <>
-      <DateRangePicker
-        fromDate={fromDate}
-        toDate={toDate}
-        onFromDateChange={setFromDate}
-        onToDateChange={setToDate}
-        minDate={minSelectableDate}
-        maxDate={maxSelectableDate}
-        scrolled={scrolled}
-        description="Select a date range to view labour market analytics for that period"
+    <div className="p-4 md:p-8 space-y-6 md:space-y-8 w-full pb-20">
+      {isError && (
+        <div className="bg-red-50 border border-red-200 text-red-700 text-xs font-bold px-4 py-3 rounded-xl">
+          Failed to load dashboard data
+          {error instanceof Error ? `: ${error.message}` : "."}
+        </div>
+      )}
+
+      <VacancyTrendChart
+        data={trendData}
+        granularity={granularity}
+        totalVacancies={totalInRange}
+        isLoading={isLoading}
       />
 
-      <div className="p-4 md:p-8 space-y-6 md:space-y-8 w-full pb-20">
-        <RotateDeviceHint />
+      <OccupationDistributionChart
+        data={occData}
+        isLoading={isLoading}
+        linkHref={`/occupations?from=${fromDate}&to=${toDate}`}
+      />
 
-        {rangeInvalid && (
-          <div className="bg-zinc-100 border border-zinc-300 text-zinc-700 text-xs font-bold px-4 py-3 rounded-xl">
-            The start date must be before the end date.
-          </div>
-        )}
-
-        {isError && !rangeInvalid && (
-          <div className="bg-red-50 border border-red-200 text-red-700 text-xs font-bold px-4 py-3 rounded-xl">
-            Failed to load dashboard data
-            {error instanceof Error ? `: ${error.message}` : "."}
-          </div>
-        )}
-
-        <VacancyTrendChart
-          data={trendData}
-          granularity={granularity}
-          totalVacancies={totalInRange}
-          isLoading={isLoading}
-        />
-
-        <OccupationDistributionChart
-          data={occData}
-          isLoading={isLoading}
-          linkHref={`/occupations?from=${fromDate}&to=${toDate}`}
-        />
-
-        <IndustryDistributionChart
-          data={indData}
-          isLoading={isLoading}
-          linkHref={`/industries?from=${fromDate}&to=${toDate}`}
-        />
-      </div>
-    </>
+      <IndustryDistributionChart
+        data={indData}
+        isLoading={isLoading}
+        linkHref={`/industries?from=${fromDate}&to=${toDate}`}
+      />
+    </div>
   );
 }
 

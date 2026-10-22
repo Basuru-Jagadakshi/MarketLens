@@ -11,7 +11,6 @@ interface DateRangePickerProps {
   minDate: Date;
   maxDate: Date;
   scrolled: boolean;
-  description?: string;
 }
 
 export default function DateRangePicker({
@@ -22,7 +21,6 @@ export default function DateRangePicker({
   minDate,
   maxDate,
   scrolled,
-  description,
 }: DateRangePickerProps) {
   return (
     <div
@@ -34,10 +32,8 @@ export default function DateRangePicker({
           : "border-b border-transparent",
       )}
     >
-      {description && (
-        <p className="text-xs text-zinc-400 font-medium">{description}</p>
-      )}
-      <div className={clsx("flex flex-wrap items-center gap-3", description && "mt-3")}>
+      <p className="text-xs text-zinc-400 font-medium">Select a date range</p>
+      <div className="flex flex-wrap items-center gap-3 mt-3">
         <div className="flex items-center gap-2 bg-zinc-100 px-3 py-2 rounded-xl">
           <label className="text-[10px] font-black uppercase tracking-wider text-zinc-400">
             From

@@ -2,13 +2,10 @@
 
 import { Suspense, useMemo } from "react";
 import BackLink from "@/components/shared/BackLink";
-import DateRangePicker from "@/components/shared/DateRangePicker";
-import RotateDeviceHint from "@/components/shared/RotateDeviceHint";
 import ClassificationHierarchyPicker from "@/components/analysis/ClassificationHierarchyPicker";
 import AnalysisHeaderBar from "@/components/analysis/AnalysisHeaderBar";
 import AnalysisBreakdownSection from "@/components/analysis/AnalysisBreakdownSection";
-import { useScrolled } from "@/hooks/use-scrolled";
-import { useUrlDateRange } from "@/hooks/use-url-date-range";
+import { useDateRange } from "@/providers/date-range-provider";
 import { useAnalysisViewMode } from "@/hooks/use-analysis-view-mode";
 import {
   useHierarchyPath,
@@ -26,7 +23,6 @@ import {
 } from "@/hooks/use-industry";
 import type { HierarchyNode } from "@/types/analysis";
 import { CHART_COLORS } from "@/lib/chart-theme";
-import { getMinSelectableDate, getMaxSelectableDate } from "@/lib/date-range";
 
 type IndustryLevel =
   | "industry-sector"
@@ -54,11 +50,8 @@ const MAX_LEVELS = LEVELS.length;
 const INDUSTRY_ACCENT = { primary: CHART_COLORS.teal, secondary: CHART_COLORS.indigo };
 
 function IndustryAnalysis() {
-  const { fromDate, toDate, setFromDate, setToDate, rangeInvalid } = useUrlDateRange();
-  const scrolled = useScrolled();
+  const { fromDate, toDate } = useDateRange();
   const [viewMode, setViewMode] = useAnalysisViewMode();
-  const maxSelectableDate = getMaxSelectableDate();
-  const minSelectableDate = getMinSelectableDate();
 
   const [ids, setIds] = useHierarchyPath(LEVELS);
 
@@ -136,92 +129,72 @@ function IndustryAnalysis() {
     LEVEL_LABELS[LEVELS[Math.min(deepestLevelIndex + 1, MAX_LEVELS - 1)]];
 
   return (
-    <>
-      <DateRangePicker
-        fromDate={fromDate}
-        toDate={toDate}
-        onFromDateChange={setFromDate}
-        onToDateChange={setToDate}
-        minDate={minSelectableDate}
-        maxDate={maxSelectableDate}
-        scrolled={scrolled}
+    <div className="p-4 md:p-8 space-y-6 md:space-y-8 w-full pb-20">
+      <BackLink href="/" />
+
+      <div>
+        <h2 className="text-base md:text-lg font-black text-zinc-900 tracking-tight">
+          Industry Analysis (SLSIC)
+        </h2>
+        <p className="text-xs text-zinc-400 mt-1 font-medium">
+          Analyze through the industry classification hierarchy
+        </p>
+      </div>
+
+      <ClassificationHierarchyPicker
+        levels={levels}
+        path={path}
+        isInitializing={isInitializing}
+        initializingLabel="Loading industry sectors..."
+        initialLoadError={industrySectorsQuery.isError}
+        initialLoadErrorLabel="Failed to load industry sectors"
+        initialLoadErrorMessage={
+          industrySectorsQuery.error instanceof Error
+            ? industrySectorsQuery.error.message
+            : undefined
+        }
+        emptyLabel="No industry sectors available."
+        prunedNotice={prunedNotice}
+        onSelect={handleSelect}
+        onAddLevel={handleAddLevel}
+        onRemoveLevel={handleRemoveLevel}
       />
 
-      <div className="p-4 md:p-8 space-y-6 md:space-y-8 w-full pb-20">
-        <RotateDeviceHint />
-
-        <BackLink href="/" />
-
-        {rangeInvalid && (
-          <div className="bg-zinc-100 border border-zinc-300 text-zinc-700 text-xs font-bold px-4 py-3 rounded-xl">
-            The start date must be before the end date.
-          </div>
-        )}
-
-        <div>
-          <h2 className="text-base md:text-lg font-black text-zinc-900 tracking-tight">
-            Industry Analysis (SLSIC)
-          </h2>
-          <p className="text-xs text-zinc-400 mt-1 font-medium">
-            Analyze through the industry classification hierarchy
-          </p>
+      {deepest && (
+        <div className="bg-white border border-zinc-200 rounded-xl shadow-sm">
+          <AnalysisHeaderBar
+            levelLabel={LEVEL_LABELS[deepest.level]}
+            nodeName={deepest.name}
+            nodeTotal={breakdown.nodeTotal}
+            isLoading={analysisLoading}
+          />
+          <AnalysisBreakdownSection
+            viewMode={viewMode}
+            onViewModeChange={setViewMode}
+            isLoading={analysisLoading}
+            isError={analysisError}
+            errorMessage={
+              analysisErrorObj instanceof Error ? analysisErrorObj.message : undefined
+            }
+            accent={INDUSTRY_ACCENT}
+            childrenBreakdownTitle={`${nextLevelLabel} Breakdown`}
+            childrenBreakdownDescription={`Vacancy count of each ${nextLevelLabel.toLowerCase()} under ${deepest.name}`}
+            childrenBreakdown={breakdown.childrenBreakdown}
+            sectorData={breakdown.sectorData}
+            expData={breakdown.expData}
+            provinceData={breakdown.provinceData}
+            eduData={breakdown.eduData}
+            formalData={breakdown.formalData}
+            genderData={breakdown.genderData}
+            nvqData={breakdown.nvqData}
+            remoteData={breakdown.remoteData}
+            contractData={breakdown.contractData}
+            remoteShare={breakdown.remoteShare}
+            contractShare={breakdown.contractShare}
+          />
         </div>
-
-        <ClassificationHierarchyPicker
-          levels={levels}
-          path={path}
-          isInitializing={isInitializing}
-          initializingLabel="Loading industry sectors..."
-          initialLoadError={industrySectorsQuery.isError}
-          initialLoadErrorLabel="Failed to load industry sectors"
-          initialLoadErrorMessage={
-            industrySectorsQuery.error instanceof Error
-              ? industrySectorsQuery.error.message
-              : undefined
-          }
-          emptyLabel="No industry sectors available."
-          prunedNotice={prunedNotice}
-          onSelect={handleSelect}
-          onAddLevel={handleAddLevel}
-          onRemoveLevel={handleRemoveLevel}
-        />
-
-        {deepest && (
-          <div className="bg-white border border-zinc-200 rounded-xl shadow-sm">
-            <AnalysisHeaderBar
-              levelLabel={LEVEL_LABELS[deepest.level]}
-              nodeName={deepest.name}
-              nodeTotal={breakdown.nodeTotal}
-              isLoading={analysisLoading}
-            />
-            <AnalysisBreakdownSection
-              viewMode={viewMode}
-              onViewModeChange={setViewMode}
-              isLoading={analysisLoading}
-              isError={analysisError}
-              errorMessage={
-                analysisErrorObj instanceof Error ? analysisErrorObj.message : undefined
-              }
-              accent={INDUSTRY_ACCENT}
-              childrenBreakdownTitle={`${nextLevelLabel} Breakdown`}
-              childrenBreakdownDescription={`Vacancy count of each ${nextLevelLabel.toLowerCase()} under ${deepest.name}`}
-              childrenBreakdown={breakdown.childrenBreakdown}
-              sectorData={breakdown.sectorData}
-              expData={breakdown.expData}
-              provinceData={breakdown.provinceData}
-              eduData={breakdown.eduData}
-              formalData={breakdown.formalData}
-              genderData={breakdown.genderData}
-              nvqData={breakdown.nvqData}
-              remoteData={breakdown.remoteData}
-              contractData={breakdown.contractData}
-              remoteShare={breakdown.remoteShare}
-              contractShare={breakdown.contractShare}
-            />
-          </div>
-        )}
-      </div>
-    </>
+      )}
+    </div>
   );
 }
 
