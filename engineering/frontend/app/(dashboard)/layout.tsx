@@ -13,7 +13,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         subtitle="National overview of labour market demand across occupations and industries"
         logo={logo}
       />
-      <RotateDeviceHint />
       <Suspense
         fallback={
           <div className="py-20 flex items-center justify-center text-xs text-zinc-400">
@@ -23,6 +22,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       >
         <DateRangeProvider>
           <DashboardDateRangePicker />
+          <RotateDeviceHint />
           {children}
         </DateRangeProvider>
       </Suspense>
