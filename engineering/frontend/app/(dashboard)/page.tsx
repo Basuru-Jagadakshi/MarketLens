@@ -25,7 +25,7 @@ function Dashboard() {
   } = useDashboardOverview(fromDate, toDate);
 
   const trendData = useMemo(() => overview?.vacancy_trend.data ?? [], [overview]);
-  const granularity = overview?.vacancy_trend.granularity ?? "weekly";
+  const granularity = overview?.vacancy_trend.granularity;
   const totalInRange = overview?.vacancy_total.total_vacancies ?? 0;
 
   const occData = useMemo(
