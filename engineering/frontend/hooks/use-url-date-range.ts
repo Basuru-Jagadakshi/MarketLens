@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { getDataRangeStart, getDataRangeEnd, toISODate } from "@/lib/date-range";
 import { URL_PARAMS, isDateString, isUsableDateParam } from "@/lib/url-params";
@@ -33,6 +33,7 @@ export function useUrlDateRange(storageKey: string): UseUrlDateRangeResult {
     to: toISODate(getDataRangeEnd()),
   }));
   const [restored, setRestored] = useState(false);
+  const initialRangeChecked = useRef(false);
 
   const fromDate = isUsableDateParam(rawFrom) ? rawFrom.trim() : fallback.from;
   const toDate = isUsableDateParam(rawTo) ? rawTo.trim() : fallback.to;
@@ -71,6 +72,17 @@ export function useUrlDateRange(storageKey: string): UseUrlDateRangeResult {
     if (!isUsableDateParam(rawTo)) updates[URL_PARAMS.to] = toDate;
     if (Object.keys(updates).length > 0) updateSearchParams(updates);
   }, [restored, rawFrom, rawTo, fromDate, toDate, updateSearchParams]);
+
+  // A range typed into the URL with from > to can't be corrected in the picker
+  // (its min/max conflict), so reset it to the default. Checked once on load
+  // only: later edits are made through the picker.
+  useEffect(() => {
+    if (!restored || initialRangeChecked.current) return;
+    initialRangeChecked.current = true;
+    if (fromDate > toDate) {
+      updateSearchParams({ [URL_PARAMS.from]: fallback.from, [URL_PARAMS.to]: fallback.to });
+    }
+  }, [restored, fromDate, toDate, fallback, updateSearchParams]);
 
   useEffect(() => {
     if (!restored || !fromDate || !toDate || fromDate > toDate) return;
