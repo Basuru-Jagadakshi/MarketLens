@@ -23,6 +23,13 @@ func ginMode() string {
 	return gin.ReleaseMode
 }
 
+func apiAddr() string {
+	if p := os.Getenv("PORT"); p != "" {
+		return ":" + p
+	}
+	return ":8080"
+}
+
 func main() {
 	db, err := config.ConnectDatabase()
 	if err != nil {
@@ -74,7 +81,7 @@ func main() {
 	r.Use(gin.Logger(), gin.Recovery())
 	api.RegisterRoutes(r, h)
 
-	if err := r.Run(":8080"); err != nil {
+	if err := r.Run(apiAddr()); err != nil {
 		log.Fatalf("API server failed: %v", err)
 	}
 }
