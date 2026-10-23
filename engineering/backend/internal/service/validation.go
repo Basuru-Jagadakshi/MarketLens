@@ -77,10 +77,7 @@ func validateNameAndCode(name, code string) error {
 	return nil
 }
 
-// validOccupationLevels / validIndustryLevels / leafLevels are the single
-// canonical copy of these rules — the HTTP handlers and the MCP tools both
-// call through AnalyticsService, so neither transport needs (or should
-// keep) its own copy of "what's a valid level".
+// validOccupationLevels / validIndustryLevels / leafLevels
 var validOccupationLevels = map[string]bool{
 	"major-group":      true,
 	"sub-major-group":  true,
