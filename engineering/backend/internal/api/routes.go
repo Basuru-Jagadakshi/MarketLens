@@ -152,7 +152,7 @@ func RegisterRoutes(r *gin.Engine, h *Handler) {
 		})
 		v1.GET("/industry-classes/:id/industry-subclasses", h.GetIndustrySubclassesByIndustryClassHandler)
 
-		registerCRUD(v1, "/industry-subclasses", "industry-sub-classes", crudHandlers{
+		registerCRUD(v1, "/industry-sub-classes", "industry-sub-classes", crudHandlers{
 			Create: h.CreateIndustrySubclassHandler, List: h.GetAllIndustrySubclassesHandler, Get: h.GetIndustrySubclassByIDHandler,
 			Update: h.UpdateIndustrySubclassHandler, Delete: h.DeleteIndustrySubclassHandler,
 		})
