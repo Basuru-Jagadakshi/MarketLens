@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 )
 
@@ -20,7 +21,7 @@ func validateDateRange(fromDate, toDate time.Time) error {
 // (e.g. func(e *models.EmploymentSector) string { return e.Sector }).
 func requireNonEmptyField[T any](fieldName string, get func(*T) string) func(context.Context, *T) error {
 	return func(_ context.Context, item *T) error {
-		if get(item) == "" {
+		if strings.TrimSpace(get(item)) == "" {
 			return ValidationErrorf("%s is required", fieldName)
 		}
 		return nil
@@ -68,10 +69,10 @@ func validateParentExists(lookupErr error, notFound error, field string, id uint
 // validateNameAndCode is the shared rule for every occupation/industry
 // classification level: both fields are required.
 func validateNameAndCode(name, code string) error {
-	if name == "" {
+	if strings.TrimSpace(name) == "" {
 		return ValidationErrorf("name is required")
 	}
-	if code == "" {
+	if strings.TrimSpace(code) == "" {
 		return ValidationErrorf("code is required")
 	}
 	return nil
