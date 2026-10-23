@@ -92,17 +92,50 @@ func (c crudRepository[T]) update(ctx context.Context, id uint, updates map[stri
 	return item, nil
 }
 
-// delete 
-func (c crudRepository[T]) delete(ctx context.Context, id uint) error {
+type cascadeTarget struct {
+	table    string
+	fkColumn string
+}
+
+func (c crudRepository[T]) delete(ctx context.Context, id uint, cascade []cascadeTarget) error {
 	var zero T
-	res := c.db.WithContext(ctx).Delete(&zero, id)
-	if res.Error != nil {
-		return res.Error
+
+	if len(cascade) == 0 {
+		res := c.db.WithContext(ctx).Delete(&zero, id)
+		if res.Error != nil {
+			return res.Error
+		}
+		if res.RowsAffected == 0 {
+			return gorm.ErrRecordNotFound
+		}
+		return nil
 	}
-	if res.RowsAffected == 0 {
-		return gorm.ErrRecordNotFound
-	}
-	return nil
+
+	return c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		parentIDs := []uint{id}
+		for _, step := range cascade {
+			var ids []uint
+			if err := tx.Table(step.table).Where(step.fkColumn+" IN (?)", parentIDs).Pluck("id", &ids).Error; err != nil {
+				return fmt.Errorf("finding %s for cascade delete: %w", step.table, err)
+			}
+			if len(ids) == 0 {
+				break
+			}
+			if err := tx.Table(step.table).Where("id IN (?)", ids).Update("deleted_at", time.Now()).Error; err != nil {
+				return fmt.Errorf("cascade deleting %s: %w", step.table, err)
+			}
+			parentIDs = ids
+		}
+
+		res := tx.Model(&zero).Where("id = ?", id).Update("deleted_at", time.Now())
+		if res.Error != nil {
+			return res.Error
+		}
+		if res.RowsAffected == 0 {
+			return gorm.ErrRecordNotFound
+		}
+		return nil
+	})
 }
 
 // getByParent lists the rows
@@ -118,14 +151,20 @@ func (c crudRepository[T]) getByParent(ctx context.Context, parentColumn string,
 	return items, err
 }
 
-// CRUDRepository is an exported wrapper around 
+// CRUDRepository is an exported wrapper around
 type CRUDRepository[T any] struct {
 	repo     crudRepository[T]
 	preloads []string
+	cascade  []cascadeTarget
 }
 
 func NewCRUDRepository[T any](db *gorm.DB, preloads ...string) *CRUDRepository[T] {
 	return &CRUDRepository[T]{repo: newCRUDRepository[T](db), preloads: preloads}
+}
+
+func (r *CRUDRepository[T]) withCascade(table, fkColumn string) *CRUDRepository[T] {
+	r.cascade = append(r.cascade, cascadeTarget{table: table, fkColumn: fkColumn})
+	return r
 }
 
 func (r *CRUDRepository[T]) Create(ctx context.Context, item *T) error {
@@ -145,6 +184,5 @@ func (r *CRUDRepository[T]) Update(ctx context.Context, id uint, updates map[str
 }
 
 func (r *CRUDRepository[T]) Delete(ctx context.Context, id uint) error {
-	return r.repo.delete(ctx, id)
+	return r.repo.delete(ctx, id, r.cascade)
 }
-

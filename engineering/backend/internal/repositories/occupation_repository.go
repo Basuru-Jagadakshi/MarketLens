@@ -44,22 +44,32 @@ func (r *Store) GetOccupationGroupsByUnitGroupForDateRange(ctx context.Context, 
 // GetAll already supports the date-range listing the old
 // GetAllMajorGroupsForDateRange method used to provide separately.
 func (r *Store) MajorGroups() *CRUDRepository[models.MajorGroup] {
-	return NewCRUDRepository[models.MajorGroup](r.db)
+	return NewCRUDRepository[models.MajorGroup](r.db).
+		withCascade("sub_major_group", "major_group_id").
+		withCascade("minor_group", "sub_major_group_id").
+		withCascade("unit_group", "minor_group_id").
+		withCascade("occupation_group", "unit_group_id")
 }
 
 // SubMajorGroups returns the generic CRUD repository for SubMajorGroup.
 func (r *Store) SubMajorGroups() *CRUDRepository[models.SubMajorGroup] {
-	return NewCRUDRepository[models.SubMajorGroup](r.db, "MajorGroup")
+	return NewCRUDRepository[models.SubMajorGroup](r.db, "MajorGroup").
+		withCascade("minor_group", "sub_major_group_id").
+		withCascade("unit_group", "minor_group_id").
+		withCascade("occupation_group", "unit_group_id")
 }
 
 // MinorGroups returns the generic CRUD repository for MinorGroup.
 func (r *Store) MinorGroups() *CRUDRepository[models.MinorGroup] {
-	return NewCRUDRepository[models.MinorGroup](r.db, "SubMajorGroup")
+	return NewCRUDRepository[models.MinorGroup](r.db, "SubMajorGroup").
+		withCascade("unit_group", "minor_group_id").
+		withCascade("occupation_group", "unit_group_id")
 }
 
 // UnitGroups returns the generic CRUD repository for UnitGroup.
 func (r *Store) UnitGroups() *CRUDRepository[models.UnitGroup] {
-	return NewCRUDRepository[models.UnitGroup](r.db, "MinorGroup")
+	return NewCRUDRepository[models.UnitGroup](r.db, "MinorGroup").
+		withCascade("occupation_group", "unit_group_id")
 }
 
 // OccupationGroups returns the generic CRUD repository for

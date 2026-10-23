@@ -43,22 +43,32 @@ func (r *Store) GetIndustrySubclassesByIndustryClassForDateRange(ctx context.Con
 // Its GetAll already supports the date-range listing the old
 // GetAllIndustrySectorsForDateRange method used to provide separately.
 func (r *Store) IndustrySectors() *CRUDRepository[models.IndustrySector] {
-	return NewCRUDRepository[models.IndustrySector](r.db)
+	return NewCRUDRepository[models.IndustrySector](r.db).
+		withCascade("industry_division", "industry_sector_id").
+		withCascade("industry_group", "industry_division_id").
+		withCascade("industry_class", "industry_group_id").
+		withCascade("industry_subclass", "industry_class_id")
 }
 
 // IndustryDivisions returns the generic CRUD repository for IndustryDivision.
 func (r *Store) IndustryDivisions() *CRUDRepository[models.IndustryDivision] {
-	return NewCRUDRepository[models.IndustryDivision](r.db, "IndustrySector")
+	return NewCRUDRepository[models.IndustryDivision](r.db, "IndustrySector").
+		withCascade("industry_group", "industry_division_id").
+		withCascade("industry_class", "industry_group_id").
+		withCascade("industry_subclass", "industry_class_id")
 }
 
 // IndustryGroups returns the generic CRUD repository for IndustryGroup.
 func (r *Store) IndustryGroups() *CRUDRepository[models.IndustryGroup] {
-	return NewCRUDRepository[models.IndustryGroup](r.db, "IndustryDivision")
+	return NewCRUDRepository[models.IndustryGroup](r.db, "IndustryDivision").
+		withCascade("industry_class", "industry_group_id").
+		withCascade("industry_subclass", "industry_class_id")
 }
 
 // IndustryClasses returns the generic CRUD repository for IndustryClass.
 func (r *Store) IndustryClasses() *CRUDRepository[models.IndustryClass] {
-	return NewCRUDRepository[models.IndustryClass](r.db, "IndustryGroup")
+	return NewCRUDRepository[models.IndustryClass](r.db, "IndustryGroup").
+		withCascade("industry_subclass", "industry_class_id")
 }
 
 // IndustrySubclasses returns the generic CRUD repository for
