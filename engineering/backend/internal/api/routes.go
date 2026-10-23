@@ -18,6 +18,10 @@ type crudHandlers struct {
 // hierarchy resource: reads are public, writes need auth + a
 // "<scope>:<action>" scope.
 func registerCRUD(rg *gin.RouterGroup, path, scope string, h crudHandlers) {
+	if h.Create == nil || h.List == nil || h.Get == nil || h.Update == nil || h.Delete == nil {
+		panic("registerCRUD " + path + ": all five handlers are required")
+	}
+
 	g := rg.Group(path)
 	g.GET("", h.List)
 	g.GET("/:id", h.Get)
