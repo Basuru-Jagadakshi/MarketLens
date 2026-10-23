@@ -62,7 +62,7 @@ type IndustrySubclass struct {
 	ID              uint           `json:"id"                gorm:"primaryKey"`
 	IndustryClassID uint           `json:"industry_class_id" gorm:"not null"`
 	IndustryClass   *IndustryClass `json:"industry_class"    gorm:"foreignKey:IndustryClassID;constraint:OnDelete:CASCADE;"`
-	Name            string         `json:"name"              gorm:"size:255;not null"`
+	Name            string         `json:"name"              gorm:"size:500;not null"`
 	Code            string         `json:"code"              gorm:"size:50;not null"`
 	CreatedAt       time.Time      `json:"created_at"`
 	UpdatedAt       time.Time      `json:"updated_at"`
