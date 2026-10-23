@@ -38,16 +38,16 @@ CREATE TABLE IF NOT EXISTS crawler_runs (
     id          BIGSERIAL PRIMARY KEY,
     started_at  TIMESTAMPTZ,
     finished_at TIMESTAMPTZ,
-    status      VARCHAR(50),
+    status      VARCHAR(50) NOT NULL,
     created_at  TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     updated_at  TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS geo_data (
     id          BIGSERIAL PRIMARY KEY,
-    longitude   DECIMAL(9,6),
-    latitude    DECIMAL(9,6),
-    province    VARCHAR(100),
+    longitude   DECIMAL(9,6) NOT NULL,
+    latitude    DECIMAL(9,6) NOT NULL,
+    province    VARCHAR(100) NOT NULL,
     created_at  TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     updated_at  TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
@@ -256,7 +256,7 @@ CREATE TABLE IF NOT EXISTS meta_data (
     posted_at               TIMESTAMPTZ NOT NULL,
     end_date                TIMESTAMPTZ,
     minhash_signature       INTEGER[],
-    confidence_score        DECIMAL(5,4),
+    confidence_score        DECIMAL(5,4) NOT NULL,
 
     created_at              TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     updated_at              TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
