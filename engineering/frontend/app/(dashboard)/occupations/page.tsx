@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useMemo } from "react";
+import { useMemo } from "react";
 import BackLink from "@/components/shared/BackLink";
 import ClassificationHierarchyPicker from "@/components/analysis/ClassificationHierarchyPicker";
 import AnalysisHeaderBar from "@/components/analysis/AnalysisHeaderBar";
@@ -54,7 +54,7 @@ const OCCUPATION_TABS = ["analytics", "skills"] as const;
 
 const OCCUPATION_ACCENT = { primary: CHART_COLORS.indigo, secondary: CHART_COLORS.teal };
 
-function OccupationAnalysis() {
+export default function OccupationAnalysisPage() {
   const { fromDate, toDate } = useDateRange();
   const [activeTab, setActiveTab] = useUrlEnumParam(URL_PARAMS.tab, OCCUPATION_TABS, "analytics");
   const [viewMode, setViewMode] = useAnalysisViewMode();
@@ -249,19 +249,5 @@ function OccupationAnalysis() {
         </div>
       )}
     </div>
-  );
-}
-
-export default function OccupationAnalysisPage() {
-  return (
-    <Suspense
-      fallback={
-        <div className="py-20 flex items-center justify-center text-xs text-zinc-400">
-          Loading...
-        </div>
-      }
-    >
-      <OccupationAnalysis />
-    </Suspense>
   );
 }

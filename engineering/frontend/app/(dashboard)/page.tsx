@@ -1,13 +1,13 @@
 "use client";
 
-import { Suspense, useMemo } from "react";
+import { useMemo } from "react";
 import { useDashboardOverview } from "@/hooks/use-dashboard";
 import { useDateRange } from "@/providers/date-range-provider";
 import VacancyTrendChart from "@/components/dashboard/VacancyTrendChart";
 import OccupationDistributionChart from "@/components/dashboard/OccupationDistributionChart";
 import IndustryDistributionChart from "@/components/dashboard/IndustryDistributionChart";
 
-function Dashboard() {
+export default function DashboardPage() {
   const { fromDate, toDate } = useDateRange();
 
   const {
@@ -70,19 +70,5 @@ function Dashboard() {
         linkHref={`/industries?from=${fromDate}&to=${toDate}`}
       />
     </div>
-  );
-}
-
-export default function DashboardPage() {
-  return (
-    <Suspense
-      fallback={
-        <div className="py-20 flex items-center justify-center text-xs text-zinc-400">
-          Loading...
-        </div>
-      }
-    >
-      <Dashboard />
-    </Suspense>
   );
 }

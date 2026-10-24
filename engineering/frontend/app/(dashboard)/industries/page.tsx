@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useMemo } from "react";
+import { useMemo } from "react";
 import BackLink from "@/components/shared/BackLink";
 import ClassificationHierarchyPicker from "@/components/analysis/ClassificationHierarchyPicker";
 import AnalysisHeaderBar from "@/components/analysis/AnalysisHeaderBar";
@@ -49,7 +49,7 @@ const MAX_LEVELS = LEVELS.length;
 
 const INDUSTRY_ACCENT = { primary: CHART_COLORS.teal, secondary: CHART_COLORS.indigo };
 
-function IndustryAnalysis() {
+export default function IndustryAnalysisPage() {
   const { fromDate, toDate } = useDateRange();
   const [viewMode, setViewMode] = useAnalysisViewMode();
 
@@ -196,19 +196,5 @@ function IndustryAnalysis() {
         </div>
       )}
     </div>
-  );
-}
-
-export default function IndustryAnalysisPage() {
-  return (
-    <Suspense
-      fallback={
-        <div className="py-20 flex items-center justify-center text-xs text-zinc-400">
-          Loading...
-        </div>
-      }
-    >
-      <IndustryAnalysis />
-    </Suspense>
   );
 }
