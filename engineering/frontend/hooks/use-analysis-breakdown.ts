@@ -1,11 +1,13 @@
 "use client";
 
 import { useMemo } from "react";
-import type { AnalysisResponse } from "@/types/analysis";
+import type { AnalysisResponse, AnalysisSectionErrors } from "@/types/analysis";
 import type { ChartDatum, ShareDatum } from "@/types/chart";
 
 interface AnalysisBreakdown {
-  nodeTotal: number;
+  // `null` when the total could not be loaded (as opposed to a loaded total of 0).
+  nodeTotal: number | null;
+  sectionErrors: AnalysisSectionErrors;
   childrenBreakdown: ChartDatum[];
   sectorData: ChartDatum[];
   expData: ChartDatum[];
@@ -36,7 +38,8 @@ function toShareBars(rows: ChartDatum[]): ShareDatum[] {
 export function useAnalysisBreakdown(
   analysis: AnalysisResponse | undefined,
 ): AnalysisBreakdown {
-  const nodeTotal = analysis?.total_job_count.total_job_count ?? 0;
+  const nodeTotal = analysis?.total_job_count?.total_job_count ?? null;
+  const sectionErrors = analysis?.errors ?? {};
 
   const childrenBreakdown = useMemo(() => {
     if (!analysis?.children) return [];
@@ -47,7 +50,7 @@ export function useAnalysisBreakdown(
 
   const sectorData = useMemo(
     () =>
-      (analysis?.employment_sector.employment_sectors ?? []).map((s) => ({
+      (analysis?.employment_sector?.employment_sectors ?? []).map((s) => ({
         name: s.sector,
         value: s.open_job_count,
       })),
@@ -55,7 +58,7 @@ export function useAnalysisBreakdown(
   );
   const expData = useMemo(
     () =>
-      (analysis?.experience.experiences ?? []).map((e) => ({
+      (analysis?.experience?.experiences ?? []).map((e) => ({
         name: e.name,
         value: e.open_job_count,
       })),
@@ -63,7 +66,7 @@ export function useAnalysisBreakdown(
   );
   const eduData = useMemo(
     () =>
-      (analysis?.education.education_levels ?? []).map((e) => ({
+      (analysis?.education?.education_levels ?? []).map((e) => ({
         name: e.level,
         value: e.open_job_count,
       })),
@@ -71,7 +74,7 @@ export function useAnalysisBreakdown(
   );
   const formalData = useMemo(
     () =>
-      (analysis?.formality.formalities ?? []).map((f) => ({
+      (analysis?.formality?.formalities ?? []).map((f) => ({
         name: f.formality_type,
         value: f.open_job_count,
       })),
@@ -79,7 +82,7 @@ export function useAnalysisBreakdown(
   );
   const genderData = useMemo(
     () =>
-      (analysis?.gender.genders ?? []).map((g) => ({
+      (analysis?.gender?.genders ?? []).map((g) => ({
         name: g.gender_type,
         value: g.open_job_count,
       })),
@@ -87,7 +90,7 @@ export function useAnalysisBreakdown(
   );
   const nvqData = useMemo(
     () =>
-      (analysis?.vocational_education.vocational_educations ?? []).map((v) => ({
+      (analysis?.vocational_education?.vocational_educations ?? []).map((v) => ({
         name: v.level,
         value: v.open_job_count,
       })),
@@ -95,7 +98,7 @@ export function useAnalysisBreakdown(
   );
   const provinceData = useMemo(
     () =>
-      (analysis?.province.provinces ?? []).map((p) => ({
+      (analysis?.province?.provinces ?? []).map((p) => ({
         name: p.province,
         value: p.open_job_count,
       })),
@@ -103,14 +106,14 @@ export function useAnalysisBreakdown(
   );
   const contractData = useMemo(
     () =>
-      (analysis?.job_type.job_types ?? []).map((j) => ({
+      (analysis?.job_type?.job_types ?? []).map((j) => ({
         name: j.type,
         value: j.open_job_count,
       })),
     [analysis],
   );
   const remoteData = useMemo(() => {
-    const r = analysis?.remote_onsite_hybrid.remote_vs_onsite_vs_hybrid;
+    const r = analysis?.remote_onsite_hybrid?.remote_vs_onsite_vs_hybrid;
     if (!r) return [];
     return [
       { name: "On-Site", value: r.on_site_count },
@@ -124,6 +127,7 @@ export function useAnalysisBreakdown(
 
   return {
     nodeTotal,
+    sectionErrors,
     childrenBreakdown,
     sectorData,
     expData,

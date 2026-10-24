@@ -3,6 +3,8 @@
 // payloads — only the concrete values differ — so one definition backs both
 // `types/industry.ts` and `types/occupation.ts`.
 
+import type { SectionError } from "@/types/bff";
+
 export interface HierarchyNode {
   id: number;
   name: string;
@@ -42,21 +44,39 @@ export interface VocationalEducationStat { id: number; level: string; open_job_c
 export interface JobTypeStat { id: number; type: string; open_job_count: number; }
 export interface RemoteOnSiteHybridStat { remote_count: number; on_site_count: number; hybrid_count: number; }
 
+// Sections that can fail on their own. `children` is absent: it legitimately
+// fails on leaf levels, so the backend never reports it as an error.
+export type AnalysisSection =
+  | "total_job_count"
+  | "employment_sector"
+  | "experience"
+  | "province"
+  | "education"
+  | "formality"
+  | "gender"
+  | "vocational_education"
+  | "remote_onsite_hybrid"
+  | "job_type";
+
+export type AnalysisSectionErrors = Partial<Record<AnalysisSection, SectionError>>;
+
+// A section is `null` when its backend call failed; the reason is in `errors`.
 export interface AnalysisResponse {
   standard: string;
   level: string;
   id: string;
   from_date: string | null;
   to_date: string | null;
-  total_job_count: TotalJobCountResult;
+  total_job_count: TotalJobCountResult | null;
   children: ChildrenResult | null;
-  employment_sector: { employment_sectors: EmploymentSectorStat[] };
-  experience: { experiences: ExperienceStat[] };
-  province: { provinces: ProvinceStat[] };
-  education: { education_levels: EducationLevelStat[] };
-  formality: { formalities: FormalityStat[] };
-  gender: { genders: GenderStat[] };
-  vocational_education: { vocational_educations: VocationalEducationStat[] };
-  remote_onsite_hybrid: { remote_vs_onsite_vs_hybrid: RemoteOnSiteHybridStat };
-  job_type: { job_types: JobTypeStat[] };
+  employment_sector: { employment_sectors: EmploymentSectorStat[] } | null;
+  experience: { experiences: ExperienceStat[] } | null;
+  province: { provinces: ProvinceStat[] } | null;
+  education: { education_levels: EducationLevelStat[] } | null;
+  formality: { formalities: FormalityStat[] } | null;
+  gender: { genders: GenderStat[] } | null;
+  vocational_education: { vocational_educations: VocationalEducationStat[] } | null;
+  remote_onsite_hybrid: { remote_vs_onsite_vs_hybrid: RemoteOnSiteHybridStat } | null;
+  job_type: { job_types: JobTypeStat[] } | null;
+  errors: AnalysisSectionErrors;
 }

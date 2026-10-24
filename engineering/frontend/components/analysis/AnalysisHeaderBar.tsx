@@ -1,7 +1,7 @@
 interface AnalysisHeaderBarProps {
   levelLabel: string;
   nodeName: string;
-  nodeTotal: number;
+  nodeTotal: number | null;
   isLoading: boolean;
 }
 
@@ -24,7 +24,7 @@ export default function AnalysisHeaderBar({
           Vacancies for selection
         </p>
         <p className="text-lg font-black text-zinc-900">
-          {isLoading ? "…" : nodeTotal.toLocaleString()}
+          {isLoading ? "…" : nodeTotal === null ? "—" : nodeTotal.toLocaleString()}
         </p>
       </div>
     </div>

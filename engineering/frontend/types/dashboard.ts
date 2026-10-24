@@ -1,3 +1,5 @@
+import type { SectionError } from "@/types/bff";
+
 export interface VacancyTrendPoint {
   label: string;
   open_job_count: number;
@@ -43,9 +45,17 @@ export interface IndustriesByDateRangeResponse {
   industries: IndustryDateRangeStat[];
 }
 
+export type DashboardSection =
+  | "vacancy_trend"
+  | "vacancy_total"
+  | "by_occupation"
+  | "by_industry";
+
+// A section is `null` when its backend call failed; the reason is in `errors`.
 export interface DashboardOverview {
-  vacancy_trend: VacancyTrendResponse;
-  vacancy_total: VacancyTotalResponse;
-  by_occupation: OccupationsByDateRangeResponse;
-  by_industry: IndustriesByDateRangeResponse;
+  vacancy_trend: VacancyTrendResponse | null;
+  vacancy_total: VacancyTotalResponse | null;
+  by_occupation: OccupationsByDateRangeResponse | null;
+  by_industry: IndustriesByDateRangeResponse | null;
+  errors: Partial<Record<DashboardSection, SectionError>>;
 }

@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { useDashboardOverview } from "@/hooks/use-dashboard";
 import { useDateRange } from "@/providers/date-range-provider";
+import type { DashboardSection } from "@/types/dashboard";
 import VacancyTrendChart from "@/components/dashboard/VacancyTrendChart";
 import OccupationDistributionChart from "@/components/dashboard/OccupationDistributionChart";
 import IndustryDistributionChart from "@/components/dashboard/IndustryDistributionChart";
@@ -17,13 +18,18 @@ export default function DashboardPage() {
     error,
   } = useDashboardOverview(fromDate, toDate);
 
-  const trendData = useMemo(() => overview?.vacancy_trend.data ?? [], [overview]);
-  const granularity = overview?.vacancy_trend.granularity;
-  const totalInRange = overview?.vacancy_total.total_vacancies ?? 0;
+  // A chart shows its error when the whole request failed or only its own
+  // section did, so the sections that loaded are still drawn.
+  const sectionFailed = (section: DashboardSection) =>
+    isError || Boolean(overview?.errors[section]);
+
+  const trendData = useMemo(() => overview?.vacancy_trend?.data ?? [], [overview]);
+  const granularity = overview?.vacancy_trend?.granularity;
+  const totalInRange = overview?.vacancy_total?.total_vacancies;
 
   const occData = useMemo(
     () =>
-      (overview?.by_occupation.occupations ?? []).map((o) => ({
+      (overview?.by_occupation?.occupations ?? []).map((o) => ({
         name: o.name,
         value: o.open_job_count,
       })),
@@ -32,7 +38,7 @@ export default function DashboardPage() {
 
   const indData = useMemo(
     () =>
-      (overview?.by_industry.industries ?? []).map((i) => ({
+      (overview?.by_industry?.industries ?? []).map((i) => ({
         name: i.name,
         value: i.open_job_count,
       })),
@@ -53,20 +59,20 @@ export default function DashboardPage() {
         granularity={granularity}
         totalVacancies={totalInRange}
         isLoading={isLoading}
-        isError={isError}
+        isError={sectionFailed("vacancy_trend")}
       />
 
       <OccupationDistributionChart
         data={occData}
         isLoading={isLoading}
-        isError={isError}
+        isError={sectionFailed("by_occupation")}
         linkHref={`/occupations?from=${fromDate}&to=${toDate}`}
       />
 
       <IndustryDistributionChart
         data={indData}
         isLoading={isLoading}
-        isError={isError}
+        isError={sectionFailed("by_industry")}
         linkHref={`/industries?from=${fromDate}&to=${toDate}`}
       />
     </div>

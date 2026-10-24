@@ -1,3 +1,4 @@
+import type { SectionError } from "@/types/bff";
 import type { AnalysisResponse, HierarchyNode } from "./analysis";
 
 export type { HierarchyNode } from "./analysis";
@@ -44,9 +45,15 @@ export interface TopHiringEmployersResponse {
   level: string; id: number; from_date: string; to_date: string;
   count: number; employers: EmployerStat[];
 }
+export type SkillsSection = "top_15_skills" | "all_skills" | "top_hiring_employers";
+
+export type SkillsSectionErrors = Partial<Record<SkillsSection, SectionError>>;
+
+// A section is `null` when its backend call failed; the reason is in `errors`.
 export interface OccupationSkillsResponse {
   level: string; id: string; from_date: string | null; to_date: string | null;
-  top_15_skills: Top15SkillsResponse;
-  all_skills: AllSkillsResponse;
-  top_hiring_employers: TopHiringEmployersResponse;
+  top_15_skills: Top15SkillsResponse | null;
+  all_skills: AllSkillsResponse | null;
+  top_hiring_employers: TopHiringEmployersResponse | null;
+  errors: SkillsSectionErrors;
 }

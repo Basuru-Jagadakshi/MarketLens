@@ -137,18 +137,18 @@ export default function OccupationAnalysisPage() {
 
   const topSkills = useMemo(
     () =>
-      (skillsData?.top_15_skills.skills ?? []).map((s) => ({
+      (skillsData?.top_15_skills?.skills ?? []).map((s) => ({
         name: s.skill,
         value: s.open_job_count,
       })),
     [skillsData],
   );
-  const allSkills = useMemo(() => skillsData?.all_skills.skills ?? [], [skillsData]);
+  const allSkills = useMemo(() => skillsData?.all_skills?.skills ?? [], [skillsData]);
   const totalSkillMentions = useMemo(
     () => allSkills.reduce((sum, s) => sum + s.open_job_count, 0) || 1,
     [allSkills],
   );
-  const topEmployers = useMemo(() => skillsData?.top_hiring_employers.employers ?? [], [skillsData]);
+  const topEmployers = useMemo(() => skillsData?.top_hiring_employers?.employers ?? [], [skillsData]);
 
   const nextLevelLabel =
     LEVEL_LABELS[LEVELS[Math.min(deepestLevelIndex + 1, MAX_LEVELS - 1)]];
@@ -217,6 +217,7 @@ export default function OccupationAnalysisPage() {
                 analysisErrorObj instanceof Error ? analysisErrorObj.message : undefined
               }
               isEmpty={breakdown.nodeTotal === 0}
+              sectionErrors={breakdown.sectionErrors}
               accent={OCCUPATION_ACCENT}
               childrenBreakdownTitle={`${nextLevelLabel} Breakdown`}
               childrenBreakdownDescription={`Vacancy count of each ${nextLevelLabel.toLowerCase()} under ${deepest.name}`}
@@ -241,9 +242,10 @@ export default function OccupationAnalysisPage() {
               isError={skillsError}
               topSkills={topSkills}
               allSkills={allSkills}
-              totalSkillsCount={skillsData?.all_skills.total ?? 0}
+              totalSkillsCount={skillsData?.all_skills?.total ?? 0}
               totalSkillMentions={totalSkillMentions}
               topEmployers={topEmployers}
+              sectionErrors={skillsData?.errors ?? {}}
             />
           )}
         </div>

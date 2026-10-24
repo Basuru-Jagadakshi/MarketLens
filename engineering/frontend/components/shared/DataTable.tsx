@@ -3,9 +3,10 @@ import type { ChartDatum } from "@/types/chart";
 interface DataTableProps {
   title: string;
   rows: ChartDatum[];
+  isError?: boolean;
 }
 
-export default function DataTable({ title, rows }: DataTableProps) {
+export default function DataTable({ title, rows, isError = false }: DataTableProps) {
   const sorted = [...rows].sort((a, b) => b.value - a.value);
   return (
     <div className="border border-zinc-100 p-5 rounded-xl flex flex-col">
@@ -28,7 +29,13 @@ export default function DataTable({ title, rows }: DataTableProps) {
             </tr>
           </thead>
           <tbody>
-            {sorted.length === 0 ? (
+            {isError ? (
+              <tr>
+                <td colSpan={3} className="px-3 py-6 text-center text-xs text-zinc-400">
+                  Couldn&apos;t load data
+                </td>
+              </tr>
+            ) : sorted.length === 0 ? (
               <tr>
                 <td
                   colSpan={3}

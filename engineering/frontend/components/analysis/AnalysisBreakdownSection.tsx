@@ -4,6 +4,7 @@ import ViewModeToggle, { type AnalysisViewMode } from "@/components/analysis/Vie
 import AnalysisBreakdownCharts from "@/components/analysis/AnalysisBreakdownCharts";
 import AnalysisBreakdownTables from "@/components/analysis/AnalysisBreakdownTables";
 import type { HierarchyAccent } from "@/lib/chart-theme";
+import type { AnalysisSectionErrors } from "@/types/analysis";
 import type { ChartDatum, ShareDatum } from "@/types/chart";
 
 export type { AnalysisViewMode } from "@/components/analysis/ViewModeToggle";
@@ -15,6 +16,7 @@ interface AnalysisBreakdownSectionProps {
   isError: boolean;
   errorMessage?: string;
   isEmpty: boolean;
+  sectionErrors: AnalysisSectionErrors;
   accent: HierarchyAccent;
   childrenBreakdownTitle: string;
   childrenBreakdownDescription: string;
@@ -39,6 +41,7 @@ export default function AnalysisBreakdownSection({
   isError,
   errorMessage,
   isEmpty,
+  sectionErrors,
   accent,
   childrenBreakdownTitle,
   childrenBreakdownDescription,
@@ -83,6 +86,7 @@ export default function AnalysisBreakdownSection({
           nvqData={nvqData}
           remoteShare={remoteShare}
           contractShare={contractShare}
+          sectionErrors={sectionErrors}
         />
       ) : (
         <AnalysisBreakdownTables
@@ -97,6 +101,7 @@ export default function AnalysisBreakdownSection({
           nvqData={nvqData}
           remoteData={remoteData}
           contractData={contractData}
+          sectionErrors={sectionErrors}
         />
       )}
     </>

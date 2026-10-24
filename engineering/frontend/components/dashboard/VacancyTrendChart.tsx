@@ -24,7 +24,7 @@ import type { VacancyTrendPoint } from "@/types/dashboard";
 interface VacancyTrendChartProps {
   data: VacancyTrendPoint[];
   granularity?: "weekly" | "monthly";
-  totalVacancies: number;
+  totalVacancies?: number;
   isLoading: boolean;
   isError: boolean;
 }
@@ -58,7 +58,7 @@ export default function VacancyTrendChart({
             Total vacancies
           </p>
           <p className="text-lg font-black text-zinc-900">
-            {isLoading ? "…" : isError ? "—" : totalVacancies.toLocaleString()}
+            {isLoading ? "…" : totalVacancies === undefined ? "—" : totalVacancies.toLocaleString()}
           </p>
         </div>
       }

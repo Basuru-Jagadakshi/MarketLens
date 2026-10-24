@@ -26,6 +26,8 @@ import {
   buildProvincePalette,
   type HierarchyAccent,
 } from "@/lib/chart-theme";
+import SectionMessage from "@/components/analysis/SectionMessage";
+import type { AnalysisSectionErrors } from "@/types/analysis";
 import type { ChartDatum, ShareDatum } from "@/types/chart";
 
 interface AnalysisBreakdownChartsProps {
@@ -42,6 +44,7 @@ interface AnalysisBreakdownChartsProps {
   nvqData: ChartDatum[];
   remoteShare: ShareDatum[];
   contractShare: ShareDatum[];
+  sectionErrors: AnalysisSectionErrors;
 }
 
 export default function AnalysisBreakdownCharts({
@@ -58,6 +61,7 @@ export default function AnalysisBreakdownCharts({
   nvqData,
   remoteShare,
   contractShare,
+  sectionErrors,
 }: AnalysisBreakdownChartsProps) {
   const categoricalPalette = buildCategoricalPalette(accent);
   const formalPalette = buildFormalInformalPalette(accent);
@@ -104,23 +108,27 @@ export default function AnalysisBreakdownCharts({
             Employment Sector
           </h4>
           <div className="flex-1 mt-4 min-w-0">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={sectorData} margin={{ top: 10, right: 10, left: -10, bottom: 5 }}>
-                <XAxis dataKey="name" tick={{ fontSize: 10, fill: TICK_COLOR }} />
-                <YAxis tick={{ fontSize: 10, fill: TICK_COLOR }} />
-                <Tooltip
-                  contentStyle={CHART_TOOLTIP_STYLE}
-                  itemStyle={CHART_TOOLTIP_ITEM_STYLE}
-                  labelStyle={CHART_TOOLTIP_LABEL_STYLE}
-                  cursor={CHART_BAR_CURSOR}
-                />
-                <Bar dataKey="value" radius={[4, 4, 0, 0]} barSize={36}>
-                  {sectorData.map((_, i) => (
-                    <Cell key={i} fill={SECTOR_COLORS[i % SECTOR_COLORS.length]} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+            {sectionErrors.employment_sector ? (
+              <SectionMessage />
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={sectorData} margin={{ top: 10, right: 10, left: -10, bottom: 5 }}>
+                  <XAxis dataKey="name" tick={{ fontSize: 10, fill: TICK_COLOR }} />
+                  <YAxis tick={{ fontSize: 10, fill: TICK_COLOR }} />
+                  <Tooltip
+                    contentStyle={CHART_TOOLTIP_STYLE}
+                    itemStyle={CHART_TOOLTIP_ITEM_STYLE}
+                    labelStyle={CHART_TOOLTIP_LABEL_STYLE}
+                    cursor={CHART_BAR_CURSOR}
+                  />
+                  <Bar dataKey="value" radius={[4, 4, 0, 0]} barSize={36}>
+                    {sectorData.map((_, i) => (
+                      <Cell key={i} fill={SECTOR_COLORS[i % SECTOR_COLORS.length]} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </div>
 
@@ -129,19 +137,23 @@ export default function AnalysisBreakdownCharts({
             Experience
           </h4>
           <div className="flex-1 mt-4 min-w-0">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={expData} margin={{ top: 10, right: 10, left: -20, bottom: 5 }}>
-                <XAxis dataKey="name" tick={{ fontSize: 10, fill: TICK_COLOR }} />
-                <YAxis tick={{ fontSize: 10, fill: TICK_COLOR }} />
-                <Tooltip
-                  contentStyle={CHART_TOOLTIP_STYLE}
-                  itemStyle={CHART_TOOLTIP_ITEM_STYLE}
-                  labelStyle={CHART_TOOLTIP_LABEL_STYLE}
-                  cursor={CHART_BAR_CURSOR}
-                />
-                <Bar dataKey="value" fill={CHART_COLORS.sky} radius={[4, 4, 0, 0]} barSize={30} />
-              </BarChart>
-            </ResponsiveContainer>
+            {sectionErrors.experience ? (
+              <SectionMessage />
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={expData} margin={{ top: 10, right: 10, left: -20, bottom: 5 }}>
+                  <XAxis dataKey="name" tick={{ fontSize: 10, fill: TICK_COLOR }} />
+                  <YAxis tick={{ fontSize: 10, fill: TICK_COLOR }} />
+                  <Tooltip
+                    contentStyle={CHART_TOOLTIP_STYLE}
+                    itemStyle={CHART_TOOLTIP_ITEM_STYLE}
+                    labelStyle={CHART_TOOLTIP_LABEL_STYLE}
+                    cursor={CHART_BAR_CURSOR}
+                  />
+                  <Bar dataKey="value" fill={CHART_COLORS.sky} radius={[4, 4, 0, 0]} barSize={30} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </div>
       </div>
@@ -152,34 +164,38 @@ export default function AnalysisBreakdownCharts({
             Province
           </h4>
           <div className="flex-1 flex items-center justify-center min-w-0">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={provinceData}
-                  cx="50%"
-                  cy="45%"
-                  innerRadius={60}
-                  outerRadius={85}
-                  paddingAngle={2}
-                  dataKey="value"
-                >
-                  {provinceData.map((_, i) => (
-                    <Cell key={i} fill={provincePalette[i % provincePalette.length]} stroke="#ffffff" />
-                  ))}
-                </Pie>
-                <Legend
-                  verticalAlign="bottom"
-                  iconSize={8}
-                  iconType="circle"
-                  wrapperStyle={{ fontSize: 10, color: TICK_COLOR }}
-                />
-                <Tooltip
-                  contentStyle={CHART_TOOLTIP_STYLE}
-                  itemStyle={CHART_TOOLTIP_ITEM_STYLE}
-                  labelStyle={CHART_TOOLTIP_LABEL_STYLE}
-                />
-              </PieChart>
-            </ResponsiveContainer>
+            {sectionErrors.province ? (
+              <SectionMessage />
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={provinceData}
+                    cx="50%"
+                    cy="45%"
+                    innerRadius={60}
+                    outerRadius={85}
+                    paddingAngle={2}
+                    dataKey="value"
+                  >
+                    {provinceData.map((_, i) => (
+                      <Cell key={i} fill={provincePalette[i % provincePalette.length]} stroke="#ffffff" />
+                    ))}
+                  </Pie>
+                  <Legend
+                    verticalAlign="bottom"
+                    iconSize={8}
+                    iconType="circle"
+                    wrapperStyle={{ fontSize: 10, color: TICK_COLOR }}
+                  />
+                  <Tooltip
+                    contentStyle={CHART_TOOLTIP_STYLE}
+                    itemStyle={CHART_TOOLTIP_ITEM_STYLE}
+                    labelStyle={CHART_TOOLTIP_LABEL_STYLE}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </div>
 
@@ -188,34 +204,38 @@ export default function AnalysisBreakdownCharts({
             Education Level
           </h4>
           <div className="flex-1 flex items-center justify-center min-w-0">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={eduData}
-                  cx="50%"
-                  cy="45%"
-                  innerRadius={60}
-                  outerRadius={85}
-                  paddingAngle={3}
-                  dataKey="value"
-                >
-                  {eduData.map((_, i) => (
-                    <Cell key={i} fill={categoricalPalette[i % categoricalPalette.length]} stroke="#ffffff" />
-                  ))}
-                </Pie>
-                <Legend
-                  verticalAlign="bottom"
-                  iconSize={8}
-                  iconType="circle"
-                  wrapperStyle={{ fontSize: 11, color: TICK_COLOR }}
-                />
-                <Tooltip
-                  contentStyle={CHART_TOOLTIP_STYLE}
-                  itemStyle={CHART_TOOLTIP_ITEM_STYLE}
-                  labelStyle={CHART_TOOLTIP_LABEL_STYLE}
-                />
-              </PieChart>
-            </ResponsiveContainer>
+            {sectionErrors.education ? (
+              <SectionMessage />
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={eduData}
+                    cx="50%"
+                    cy="45%"
+                    innerRadius={60}
+                    outerRadius={85}
+                    paddingAngle={3}
+                    dataKey="value"
+                  >
+                    {eduData.map((_, i) => (
+                      <Cell key={i} fill={categoricalPalette[i % categoricalPalette.length]} stroke="#ffffff" />
+                    ))}
+                  </Pie>
+                  <Legend
+                    verticalAlign="bottom"
+                    iconSize={8}
+                    iconType="circle"
+                    wrapperStyle={{ fontSize: 11, color: TICK_COLOR }}
+                  />
+                  <Tooltip
+                    contentStyle={CHART_TOOLTIP_STYLE}
+                    itemStyle={CHART_TOOLTIP_ITEM_STYLE}
+                    labelStyle={CHART_TOOLTIP_LABEL_STYLE}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </div>
       </div>
@@ -226,34 +246,38 @@ export default function AnalysisBreakdownCharts({
             Formal / Informal
           </h4>
           <div className="flex-1 flex items-center justify-center min-w-0">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={formalData}
-                  cx="50%"
-                  cy="45%"
-                  innerRadius={60}
-                  outerRadius={85}
-                  paddingAngle={3}
-                  dataKey="value"
-                >
-                  {formalData.map((_, i) => (
-                    <Cell key={i} fill={formalPalette[i % formalPalette.length]} stroke="#ffffff" />
-                  ))}
-                </Pie>
-                <Legend
-                  verticalAlign="bottom"
-                  iconSize={8}
-                  iconType="circle"
-                  wrapperStyle={{ fontSize: 11, color: TICK_COLOR }}
-                />
-                <Tooltip
-                  contentStyle={CHART_TOOLTIP_STYLE}
-                  itemStyle={CHART_TOOLTIP_ITEM_STYLE}
-                  labelStyle={CHART_TOOLTIP_LABEL_STYLE}
-                />
-              </PieChart>
-            </ResponsiveContainer>
+            {sectionErrors.formality ? (
+              <SectionMessage />
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={formalData}
+                    cx="50%"
+                    cy="45%"
+                    innerRadius={60}
+                    outerRadius={85}
+                    paddingAngle={3}
+                    dataKey="value"
+                  >
+                    {formalData.map((_, i) => (
+                      <Cell key={i} fill={formalPalette[i % formalPalette.length]} stroke="#ffffff" />
+                    ))}
+                  </Pie>
+                  <Legend
+                    verticalAlign="bottom"
+                    iconSize={8}
+                    iconType="circle"
+                    wrapperStyle={{ fontSize: 11, color: TICK_COLOR }}
+                  />
+                  <Tooltip
+                    contentStyle={CHART_TOOLTIP_STYLE}
+                    itemStyle={CHART_TOOLTIP_ITEM_STYLE}
+                    labelStyle={CHART_TOOLTIP_LABEL_STYLE}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </div>
 
@@ -262,34 +286,38 @@ export default function AnalysisBreakdownCharts({
             Gender
           </h4>
           <div className="flex-1 flex items-center justify-center min-w-0">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={genderData}
-                  cx="50%"
-                  cy="45%"
-                  innerRadius={60}
-                  outerRadius={85}
-                  paddingAngle={3}
-                  dataKey="value"
-                >
-                  {genderData.map((_, i) => (
-                    <Cell key={i} fill={GENDER_COLORS[i % GENDER_COLORS.length]} stroke="#ffffff" />
-                  ))}
-                </Pie>
-                <Legend
-                  verticalAlign="bottom"
-                  iconSize={8}
-                  iconType="circle"
-                  wrapperStyle={{ fontSize: 11, color: TICK_COLOR }}
-                />
-                <Tooltip
-                  contentStyle={CHART_TOOLTIP_STYLE}
-                  itemStyle={CHART_TOOLTIP_ITEM_STYLE}
-                  labelStyle={CHART_TOOLTIP_LABEL_STYLE}
-                />
-              </PieChart>
-            </ResponsiveContainer>
+            {sectionErrors.gender ? (
+              <SectionMessage />
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={genderData}
+                    cx="50%"
+                    cy="45%"
+                    innerRadius={60}
+                    outerRadius={85}
+                    paddingAngle={3}
+                    dataKey="value"
+                  >
+                    {genderData.map((_, i) => (
+                      <Cell key={i} fill={GENDER_COLORS[i % GENDER_COLORS.length]} stroke="#ffffff" />
+                    ))}
+                  </Pie>
+                  <Legend
+                    verticalAlign="bottom"
+                    iconSize={8}
+                    iconType="circle"
+                    wrapperStyle={{ fontSize: 11, color: TICK_COLOR }}
+                  />
+                  <Tooltip
+                    contentStyle={CHART_TOOLTIP_STYLE}
+                    itemStyle={CHART_TOOLTIP_ITEM_STYLE}
+                    labelStyle={CHART_TOOLTIP_LABEL_STYLE}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </div>
       </div>
@@ -299,19 +327,23 @@ export default function AnalysisBreakdownCharts({
           Vocational Education (NVQ Level)
         </h4>
         <div className="flex-1 mt-4 min-w-0">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={nvqData} margin={{ top: 10, right: 10, left: -10, bottom: 5 }}>
-              <XAxis dataKey="name" tick={{ fontSize: 10, fill: TICK_COLOR }} />
-              <YAxis tick={{ fontSize: 10, fill: TICK_COLOR }} />
-              <Tooltip
-                contentStyle={CHART_TOOLTIP_STYLE}
-                itemStyle={CHART_TOOLTIP_ITEM_STYLE}
-                labelStyle={CHART_TOOLTIP_LABEL_STYLE}
-                cursor={CHART_BAR_CURSOR}
-              />
-              <Bar dataKey="value" fill={CHART_COLORS.violet} radius={[4, 4, 0, 0]} barSize={28} />
-            </BarChart>
-          </ResponsiveContainer>
+          {sectionErrors.vocational_education ? (
+            <SectionMessage />
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={nvqData} margin={{ top: 10, right: 10, left: -10, bottom: 5 }}>
+                <XAxis dataKey="name" tick={{ fontSize: 10, fill: TICK_COLOR }} />
+                <YAxis tick={{ fontSize: 10, fill: TICK_COLOR }} />
+                <Tooltip
+                  contentStyle={CHART_TOOLTIP_STYLE}
+                  itemStyle={CHART_TOOLTIP_ITEM_STYLE}
+                  labelStyle={CHART_TOOLTIP_LABEL_STYLE}
+                  cursor={CHART_BAR_CURSOR}
+                />
+                <Bar dataKey="value" fill={CHART_COLORS.violet} radius={[4, 4, 0, 0]} barSize={28} />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
         </div>
       </div>
 
@@ -321,22 +353,26 @@ export default function AnalysisBreakdownCharts({
             <span className="w-2 h-2 rounded-full" style={{ backgroundColor: accent.primary }} />
             Remote / On-Site / Hybrid
           </h3>
-          <div className="space-y-4">
-            {remoteShare.map((item, i) => (
-              <div key={i}>
-                <div className="flex justify-between text-xs mb-1 font-medium text-zinc-600">
-                  <span>{item.label}</span>
-                  <span className="font-mono">{item.share}%</span>
+          {sectionErrors.remote_onsite_hybrid ? (
+            <SectionMessage />
+          ) : (
+            <div className="space-y-4">
+              {remoteShare.map((item, i) => (
+                <div key={i}>
+                  <div className="flex justify-between text-xs mb-1 font-medium text-zinc-600">
+                    <span>{item.label}</span>
+                    <span className="font-mono">{item.share}%</span>
+                  </div>
+                  <div className="w-full h-2 bg-zinc-100 rounded-full overflow-hidden">
+                    <div
+                      className="h-full transition-all duration-700"
+                      style={{ width: `${item.share}%`, backgroundColor: accent.primary }}
+                    />
+                  </div>
                 </div>
-                <div className="w-full h-2 bg-zinc-100 rounded-full overflow-hidden">
-                  <div
-                    className="h-full transition-all duration-700"
-                    style={{ width: `${item.share}%`, backgroundColor: accent.primary }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="border border-zinc-100 p-6 rounded-xl">
@@ -344,22 +380,26 @@ export default function AnalysisBreakdownCharts({
             <span className="w-2 h-2 rounded-full" style={{ backgroundColor: accent.secondary }} />
             Job Type
           </h3>
-          <div className="space-y-4">
-            {contractShare.map((jt, i) => (
-              <div key={i}>
-                <div className="flex justify-between text-xs mb-1 font-medium text-zinc-600">
-                  <span>{jt.label}</span>
-                  <span className="font-mono">{jt.share}%</span>
+          {sectionErrors.job_type ? (
+            <SectionMessage />
+          ) : (
+            <div className="space-y-4">
+              {contractShare.map((jt, i) => (
+                <div key={i}>
+                  <div className="flex justify-between text-xs mb-1 font-medium text-zinc-600">
+                    <span>{jt.label}</span>
+                    <span className="font-mono">{jt.share}%</span>
+                  </div>
+                  <div className="w-full h-2 bg-zinc-100 rounded-full overflow-hidden">
+                    <div
+                      className="h-full transition-all duration-700"
+                      style={{ width: `${jt.share}%`, backgroundColor: accent.secondary }}
+                    />
+                  </div>
                 </div>
-                <div className="w-full h-2 bg-zinc-100 rounded-full overflow-hidden">
-                  <div
-                    className="h-full transition-all duration-700"
-                    style={{ width: `${jt.share}%`, backgroundColor: accent.secondary }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>
