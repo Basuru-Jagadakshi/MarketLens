@@ -154,7 +154,7 @@ export default function OccupationAnalysisPage() {
     LEVEL_LABELS[LEVELS[Math.min(deepestLevelIndex + 1, MAX_LEVELS - 1)]];
 
   return (
-    <div className="p-4 md:p-8 space-y-6 md:space-y-8 w-full pb-20">
+    <div className="px-4 md:px-8 py-2 md:py-4 space-y-6 w-full pb-20">
       <BackLink href="/" />
 
       <div>
