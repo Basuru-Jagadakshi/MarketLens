@@ -42,7 +42,7 @@ export default function DashboardPage() {
   return (
     <div className="p-4 md:p-8 space-y-6 md:space-y-8 w-full pb-20">
       {isError && (
-        <div className="bg-red-50 border border-red-200 text-red-700 text-xs font-bold px-4 py-3 rounded-xl">
+        <div className="bg-red-50 border border-red-200 text-red-700 text-xs font-bold px-4 py-3 rounded-md">
           Failed to load dashboard data
           {error instanceof Error ? `: ${error.message}` : "."}
         </div>
