@@ -2,7 +2,6 @@ package api
 
 import (
 	"marketlens-go-backend/internal/ingestion"
-	"marketlens-go-backend/internal/models"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -51,19 +50,23 @@ func (h *Handler) BatchSaveJobsHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, batchSaveJobsResponse{Message: "Batch processed", Submitted: len(rawJobs), FailedCount: len(failedJobs), FailedJobs: failedJobs})
 }
 
+type reconcileStaleVacanciesInput struct {
+	CrawlerRunID uint `json:"crawler_run_id" binding:"required"`
+}
+
 type reconcileStaleVacanciesResponse struct {
 	Message             string `json:"message"`
 	ReconciledStaleJobs int64  `json:"reconciled_stale_jobs"`
 }
 
 func (h *Handler) ReconcileStaleVacanciesHandler(c *gin.Context) {
-	var payload models.ReconciliationPayload
-	if err := c.ShouldBindJSON(&payload); err != nil {
+	var in reconcileStaleVacanciesInput
+	if err := c.ShouldBindJSON(&in); err != nil {
 		respondError(c, http.StatusBadRequest, "Missing active execution tracking sequence identifier criteria", err)
 		return
 	}
 
-	closedCount, err := h.JobPosts.ReconcileStaleVacancies(c.Request.Context(), payload.CrawlerRunID)
+	closedCount, err := h.JobPosts.ReconcileStaleVacancies(c.Request.Context(), in.CrawlerRunID)
 	if err != nil {
 		respondError(c, http.StatusInternalServerError, "Global snapshot reconciliation sweeping routine failed", err)
 		return
