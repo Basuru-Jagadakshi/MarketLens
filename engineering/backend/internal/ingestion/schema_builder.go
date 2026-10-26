@@ -145,8 +145,8 @@ Default: "onsite"
     Default: {"source": "Unknown"}
 
 - 'ai_version': The AI model version used for extraction.
-    Format: {"version": "deepseek-v1"}
-    Always use: {"version": "deepseek-v1"}
+    Format: {"version": "llm-v1"}
+    Always use: {"version": "llm-v1"}
 
 - 'posted_at': ISO 8601 timestamp of when the job was posted, if detectable from the page.
     Format: "YYYY-MM-DDTHH:MM:SSZ"

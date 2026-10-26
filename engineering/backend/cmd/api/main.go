@@ -40,7 +40,7 @@ func main() {
 	store := repositories.NewStore(db)
 	services := service.NewServices(store)
 
-	llmClient := ingestion.NewDeepSeekClient(http.DefaultClient)
+	llmClient := ingestion.NewLLMClient(http.DefaultClient)
 	industryClassifier := ingestion.NewIndustryClassifier(
 		services.IndustrySectors,
 		services.IndustryDivisions,

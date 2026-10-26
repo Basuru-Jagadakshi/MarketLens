@@ -39,7 +39,7 @@ type FailedJob struct {
 // update (each new job extracted + classified first).
 type IngestionService struct {
 	jobPosts             *service.JobPostService
-	llm                  *DeepSeekClient
+	llm                  *LLMClient
 	metadataBuilder      *MetadataBuilder
 	industryClassifier   *IndustryClassifier
 	occupationClassifier *OccupationClassifier
@@ -55,7 +55,7 @@ type IngestionService struct {
 // services), same as llm.
 func NewIngestionService(
 	jobPosts *service.JobPostService,
-	llm *DeepSeekClient,
+	llm *LLMClient,
 	industryClassifier *IndustryClassifier,
 	occupationClassifier *OccupationClassifier,
 	metadataBuilder *MetadataBuilder,
@@ -143,7 +143,7 @@ func (s *IngestionService) ProcessBatch(ctx context.Context, rawJobs []RawJobInp
 	return failures
 }
 
-// extractedJob is the shape DeepSeek is asked to return, matching Schema.
+// extractedJob is the shape the LLM is asked to return, matching Schema.
 type extractedJob struct {
 	JobType struct {
 		Type string `json:"type"`
@@ -168,7 +168,7 @@ type extractedJob struct {
 	} `json:"skills"`
 }
 
-// extractAndClassify asks DeepSeek to fill in the fields not already
+// extractAndClassify asks the LLM to fill in the fields not already
 // known from the raw crawl, classifies industry + occupation, and
 // assembles the final JobPost.
 //
@@ -196,12 +196,12 @@ func (s *IngestionService) extractAndClassify(ctx context.Context, raw RawJobInp
 
 	content, err := s.llm.Chat(ctx, prompt)
 	if err != nil {
-		return models.JobPost{}, fmt.Errorf("deepseek extraction call: %w", err)
+		return models.JobPost{}, fmt.Errorf("llm extraction call: %w", err)
 	}
 
 	var extracted extractedJob
 	if err := json.Unmarshal([]byte(stripJSONFences(content)), &extracted); err != nil {
-		return models.JobPost{}, fmt.Errorf("%w: parsing deepseek extraction response: %v", ErrTransientExtractionFailure, err)
+		return models.JobPost{}, fmt.Errorf("%w: parsing llm extraction response: %v", ErrTransientExtractionFailure, err)
 	}
 
 	industrySubclassID, err := s.industryClassifier.Classify(ctx, jobText)
@@ -251,7 +251,7 @@ func (s *IngestionService) extractAndClassify(ctx context.Context, raw RawJobInp
 			CrawlerRunID:          &crawlerRunID,
 			GeoData:               &models.GeoData{Province: extracted.MetaData.GeoData.Province},
 			Source:                &models.Source{Name: raw.Source},
-			AiVersion:             &models.AiVersion{Version: "deepseek-v1"},
+			AiVersion:             &models.AiVersion{Version: "llm-v1"},
 			FormalityID:           nilIfZero(formalityID),
 			GenderID:              nilIfZero(genderID),
 			VocationalEducationID: nilIfZero(vocationalEducationID),

@@ -12,11 +12,9 @@ import (
 	"strings"
 )
 
-const deepSeekAPIURL = "https://api.deepseek.com/chat/completions"
-
 // ErrTransientExtractionFailure marks a failure in the extract/classify
-// pipeline as retryable: a network problem, DeepSeek timing out (408) or
-// rate limiting (429) or erroring (5xx), DeepSeek responding with
+// pipeline as retryable: a network problem, the LLM timing out (408) or
+// rate limiting (429) or erroring (5xx), the LLM responding with
 // unparseable/empty content, or a DB read failing while fetching
 // reference data. None of these are about the job's own content — a
 // retry later should succeed.
@@ -40,38 +38,42 @@ func toOptions[T any](items []T, extract func(T) (uint, string)) []Option {
 	return options
 }
 
-// DeepSeekClient asks a DeepSeek chat model either to pick one option
-// from a list (AskToPick) or to answer a free-form prompt (Chat).
-type DeepSeekClient struct {
+// LLMClient asks a chat-completion model either to pick one option from a
+// list (AskToPick) or to answer a free-form prompt (Chat). The provider,
+// endpoint, and model are configured entirely through environment
+// variables — this package has no knowledge of which vendor is behind
+// LLM_API_URL.
+type LLMClient struct {
 	httpClient *http.Client
 	apiKey     string
 	apiURL     string
+	model      string
 }
 
-// NewDeepSeekClient builds a client reading DEEPSEEK_API_KEY from the
-// environment.
-func NewDeepSeekClient(httpClient *http.Client) *DeepSeekClient {
-	return &DeepSeekClient{
+// NewLLMClient builds a client reading LLM_API_KEY, LLM_API_URL, and
+// LLM_MODEL from the environment.
+func NewLLMClient(httpClient *http.Client) *LLMClient {
+	return &LLMClient{
 		httpClient: httpClient,
-		apiKey:     os.Getenv("DEEPSEEK_API_KEY"),
-		apiURL:     deepSeekAPIURL,
+		apiKey:     os.Getenv("LLM_API_KEY"),
+		apiURL:     os.Getenv("LLM_API_URL"),
+		model:      os.Getenv("LLM_MODEL"),
 	}
 }
 
-// NewDeepSeekClientWithURL is the same as NewDeepSeekClient but lets the
-// endpoint be overridden — useful for pointing at a mock server in
-// tests.
-func NewDeepSeekClientWithURL(httpClient *http.Client, apiURL string) *DeepSeekClient {
-	c := NewDeepSeekClient(httpClient)
+// NewLLMClientWithURL is the same as NewLLMClient but lets the endpoint be
+// overridden — useful for pointing at a mock server in tests.
+func NewLLMClientWithURL(httpClient *http.Client, apiURL string) *LLMClient {
+	c := NewLLMClient(httpClient)
 	c.apiURL = apiURL
 	return c
 }
 
-type deepSeekRequest struct {
-	Model       string            `json:"model"`
-	Messages    []deepSeekMessage `json:"messages"`
-	Temperature float64           `json:"temperature"`
-	// ResponseFormat asks DeepSeek to return strict JSON with no
+type llmRequest struct {
+	Model       string       `json:"model"`
+	Messages    []llmMessage `json:"messages"`
+	Temperature float64      `json:"temperature"`
+	// ResponseFormat asks the model to return strict JSON with no
 	// markdown code-fence wrapping. Requires the word "json" to appear
 	// somewhere in the prompt, which every prompt built in this package
 	// already satisfies ("Respond ONLY with JSON...").
@@ -82,12 +84,12 @@ type responseFormat struct {
 	Type string `json:"type"`
 }
 
-type deepSeekMessage struct {
+type llmMessage struct {
 	Role    string `json:"role"`
 	Content string `json:"content"`
 }
 
-type deepSeekResponse struct {
+type llmResponse struct {
 	Choices []struct {
 		Message struct {
 			Content string `json:"content"`
@@ -99,46 +101,46 @@ type pickResult struct {
 	ID uint `json:"id"`
 }
 
-// Chat sends a single-turn prompt to DeepSeek and returns the raw
-// response content string. AskToPick and job extraction both build on
-// this instead of duplicating request/response handling.
-func (c *DeepSeekClient) Chat(ctx context.Context, prompt string) (string, error) {
-	reqBody, err := json.Marshal(deepSeekRequest{
-		Model:          "deepseek-chat",
-		Messages:       []deepSeekMessage{{Role: "user", Content: prompt}},
+// Chat sends a single-turn prompt to the LLM and returns the raw response
+// content string. AskToPick and job extraction both build on this instead
+// of duplicating request/response handling.
+func (c *LLMClient) Chat(ctx context.Context, prompt string) (string, error) {
+	reqBody, err := json.Marshal(llmRequest{
+		Model:          c.model,
+		Messages:       []llmMessage{{Role: "user", Content: prompt}},
 		Temperature:    0.0,
 		ResponseFormat: &responseFormat{Type: "json_object"},
 	})
 	if err != nil {
-		return "", fmt.Errorf("marshaling deepseek request: %w", err)
+		return "", fmt.Errorf("marshaling llm request: %w", err)
 	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.apiURL, bytes.NewReader(reqBody))
 	if err != nil {
-		return "", fmt.Errorf("building deepseek request: %w", err)
+		return "", fmt.Errorf("building llm request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+c.apiKey)
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("%w: calling deepseek: %v", ErrTransientExtractionFailure, err)
+		return "", fmt.Errorf("%w: calling llm: %v", ErrTransientExtractionFailure, err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode == http.StatusRequestTimeout || resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode >= 500 {
-		return "", fmt.Errorf("%w: deepseek returned status %d", ErrTransientExtractionFailure, resp.StatusCode)
+		return "", fmt.Errorf("%w: llm returned status %d", ErrTransientExtractionFailure, resp.StatusCode)
 	}
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("deepseek returned status %d", resp.StatusCode)
+		return "", fmt.Errorf("llm returned status %d", resp.StatusCode)
 	}
 
-	var parsed deepSeekResponse
+	var parsed llmResponse
 	if err := json.NewDecoder(resp.Body).Decode(&parsed); err != nil {
-		return "", fmt.Errorf("%w: decoding deepseek response: %v", ErrTransientExtractionFailure, err)
+		return "", fmt.Errorf("%w: decoding llm response: %v", ErrTransientExtractionFailure, err)
 	}
 	if len(parsed.Choices) == 0 {
-		return "", fmt.Errorf("%w: deepseek response had no choices", ErrTransientExtractionFailure)
+		return "", fmt.Errorf("%w: llm response had no choices", ErrTransientExtractionFailure)
 	}
 
 	return parsed.Choices[0].Message.Content, nil
@@ -162,9 +164,9 @@ func stripJSONFences(s string) string {
 	return strings.TrimSpace(s)
 }
 
-// AskToPick asks DeepSeek to choose the single best matching option and
+// AskToPick asks the LLM to choose the single best matching option and
 // returns its id (0 if there were no options to choose from).
-func (c *DeepSeekClient) AskToPick(ctx context.Context, jobText string, options []Option, levelName string) (uint, error) {
+func (c *LLMClient) AskToPick(ctx context.Context, jobText string, options []Option, levelName string) (uint, error) {
 	if len(options) == 0 {
 		return 0, nil
 	}
@@ -193,7 +195,7 @@ func (c *DeepSeekClient) AskToPick(ctx context.Context, jobText string, options 
 
 	var result pickResult
 	if err := json.Unmarshal([]byte(stripJSONFences(content)), &result); err != nil {
-		return 0, fmt.Errorf("%w: parsing chosen id from deepseek content: %v", ErrTransientExtractionFailure, err)
+		return 0, fmt.Errorf("%w: parsing chosen id from llm content: %v", ErrTransientExtractionFailure, err)
 	}
 
 	for _, o := range options {
@@ -202,12 +204,12 @@ func (c *DeepSeekClient) AskToPick(ctx context.Context, jobText string, options 
 		}
 	}
 
-	// DeepSeek returned an id that wasn't actually one of the options it
+	// The LLM returned an id that wasn't actually one of the options it
 	// was given — a hallucination, not a valid pick. Treated the same
 	// as "no match" (0) rather than trusted, since a fabricated nonzero
 	// id would otherwise pass straight through as a plausible-looking
 	// but invalid foreign key.
-	log.Printf("deepseek returned id %d for %q, which was not among the %d offered options — treating as no match", result.ID, levelName, len(options))
+	log.Printf("llm returned id %d for %q, which was not among the %d offered options — treating as no match", result.ID, levelName, len(options))
 	return 0, nil
 }
 
@@ -224,7 +226,7 @@ type Level struct {
 // Walk asks the LLM to pick one option at each level in order, feeding
 // the chosen id into the next level's Fetch. Stops early and returns 0
 // the moment a level has no options or the LLM doesn't pick one.
-func Walk(ctx context.Context, llm *DeepSeekClient, jobText string, levels []Level) (uint, error) {
+func Walk(ctx context.Context, llm *LLMClient, jobText string, levels []Level) (uint, error) {
 	var parentID uint
 	for _, level := range levels {
 		options, err := level.Fetch(parentID)

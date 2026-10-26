@@ -11,14 +11,14 @@ import (
 )
 
 // Responder decides what content string to return for a given prompt.
-// Tests provide this to control DeepSeek's simulated behavior.
+// Tests provide this to control the LLM's simulated behavior.
 type Responder func(prompt string) string
 
-// NewMockDeepSeek starts an httptest.Server that mimics DeepSeek's
-// response shape, and returns a *ingestion.DeepSeekClient wired to call
-// it instead of the real API. The server is registered for cleanup via
-// t.Cleanup, so tests don't need to close it themselves.
-func NewMockDeepSeek(t *testing.T, respond Responder) *ingestion.DeepSeekClient {
+// NewMockLLM starts an httptest.Server that mimics the LLM API's response
+// shape, and returns a *ingestion.LLMClient wired to call it instead of the
+// real API. The server is registered for cleanup via t.Cleanup, so tests
+// don't need to close it themselves.
+func NewMockLLM(t *testing.T, respond Responder) *ingestion.LLMClient {
 	t.Helper()
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -44,7 +44,7 @@ func NewMockDeepSeek(t *testing.T, respond Responder) *ingestion.DeepSeekClient 
 	}))
 	t.Cleanup(server.Close)
 
-	return ingestion.NewDeepSeekClientWithURL(server.Client(), server.URL)
+	return ingestion.NewLLMClientWithURL(server.Client(), server.URL)
 }
 
 // FirstListedID scans a classifier prompt (built by AskToPick) for the

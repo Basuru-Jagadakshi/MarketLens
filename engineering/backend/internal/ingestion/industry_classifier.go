@@ -15,7 +15,7 @@ type IndustryClassifier struct {
 	industryGroups     *service.CRUDService[models.IndustryGroup]
 	industryClasses    *service.CRUDService[models.IndustryClass]
 	industrySubclasses *service.CRUDService[models.IndustrySubclass]
-	llm                *DeepSeekClient
+	llm                *LLMClient
 }
 
 func NewIndustryClassifier(
@@ -24,7 +24,7 @@ func NewIndustryClassifier(
 	industryGroups *service.CRUDService[models.IndustryGroup],
 	industryClasses *service.CRUDService[models.IndustryClass],
 	industrySubclasses *service.CRUDService[models.IndustrySubclass],
-	llm *DeepSeekClient,
+	llm *LLMClient,
 ) *IndustryClassifier {
 	return &IndustryClassifier{
 		industrySectors:    industrySectors,

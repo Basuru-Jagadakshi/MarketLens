@@ -16,7 +16,7 @@ type OccupationClassifier struct {
 	minorGroups      *service.CRUDService[models.MinorGroup]
 	unitGroups       *service.CRUDService[models.UnitGroup]
 	occupationGroups *service.CRUDService[models.OccupationGroup]
-	llm              *DeepSeekClient
+	llm              *LLMClient
 }
 
 func NewOccupationClassifier(
@@ -25,7 +25,7 @@ func NewOccupationClassifier(
 	minorGroups *service.CRUDService[models.MinorGroup],
 	unitGroups *service.CRUDService[models.UnitGroup],
 	occupationGroups *service.CRUDService[models.OccupationGroup],
-	llm *DeepSeekClient,
+	llm *LLMClient,
 ) *OccupationClassifier {
 	return &OccupationClassifier{
 		majorGroups:      majorGroups,
