@@ -41,6 +41,9 @@ func main() {
 	services := service.NewServices(store)
 
 	llmClient := ingestion.NewLLMClient(http.DefaultClient)
+	if err := llmClient.Validate(); err != nil {
+		log.Fatalf("llm client misconfigured: %v", err)
+	}
 	industryClassifier := ingestion.NewIndustryClassifier(
 		services.IndustrySectors,
 		services.IndustryDivisions,

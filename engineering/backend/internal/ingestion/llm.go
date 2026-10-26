@@ -69,6 +69,27 @@ func NewLLMClientWithURL(httpClient *http.Client, apiURL string) *LLMClient {
 	return c
 }
 
+// Validate reports which required environment variables are missing.
+// Call this once at startup so a misconfigured deployment fails fast
+// instead of every extraction/classification call failing at request
+// time with an opaque "unauthorized" or "connection refused" error.
+func (c *LLMClient) Validate() error {
+	var missing []string
+	if c.apiKey == "" {
+		missing = append(missing, "LLM_API_KEY")
+	}
+	if c.apiURL == "" {
+		missing = append(missing, "LLM_API_URL")
+	}
+	if c.model == "" {
+		missing = append(missing, "LLM_MODEL")
+	}
+	if len(missing) > 0 {
+		return fmt.Errorf("missing required environment variable(s): %s", strings.Join(missing, ", "))
+	}
+	return nil
+}
+
 type llmRequest struct {
 	Model       string       `json:"model"`
 	Messages    []llmMessage `json:"messages"`
