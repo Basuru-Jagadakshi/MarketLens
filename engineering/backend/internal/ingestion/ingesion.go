@@ -190,9 +190,7 @@ func (s *IngestionService) extractAndClassify(ctx context.Context, raw RawJobInp
 		raw.Employer, raw.JobRole, raw.Location, raw.Source, raw.Description,
 	)
 
-	prompt := instruction +
-		"\n\nThe JSON you return MUST conform to this JSON Schema:\n" + string(schemaJSON) +
-		"\n\nJob posting to extract from:\n" + jobText
+	prompt := buildExtractionPrompt(instruction, schemaJSON, jobText)
 
 	content, err := s.llm.Chat(ctx, prompt)
 	if err != nil {

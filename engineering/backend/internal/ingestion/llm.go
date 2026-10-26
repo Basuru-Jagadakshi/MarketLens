@@ -192,22 +192,7 @@ func (c *LLMClient) AskToPick(ctx context.Context, jobText string, options []Opt
 		return 0, nil
 	}
 
-	var optionLines strings.Builder
-	for _, o := range options {
-		fmt.Fprintf(&optionLines, "%d: %s\n", o.ID, o.Name)
-	}
-
-	prompt := fmt.Sprintf(
-		"You are classifying a job posting into a %s.\n\n"+
-			"Job details:\n%s\n\n"+
-			"Choose the single best matching %s from this list:\n%s\n"+
-			"IMPORTANT: The id you return MUST be exactly one of the ids "+
-			"listed above — do not invent, guess, or modify an id. If none "+
-			"of the options are a good fit, choose the closest match rather "+
-			"than fabricating a new id.\n"+
-			`Respond ONLY with JSON in this exact format: {"id": <chosen id as integer>}`,
-		levelName, jobText, levelName, optionLines.String(),
-	)
+	prompt := buildAskToPickPrompt(jobText, options, levelName)
 
 	content, err := c.Chat(ctx, prompt)
 	if err != nil {
