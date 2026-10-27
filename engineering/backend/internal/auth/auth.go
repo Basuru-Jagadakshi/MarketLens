@@ -119,10 +119,14 @@ func fetchJWKSLocked() ([]jwk, error) {
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("ThunderID JWKS returned status %d", resp.StatusCode)
+	}
+
 	var doc struct {
 		Keys []jwk `json:"keys"`
 	}
-	if json.NewDecoder(resp.Body).Decode(&doc) != nil {
+	if json.NewDecoder(resp.Body).Decode(&doc) != nil || len(doc.Keys) == 0 {
 		return nil, errors.New("bad JWKS document")
 	}
 	jwksCache = doc.Keys
