@@ -30,6 +30,17 @@ var (
 	thunderInsecureTLS = os.Getenv("THUNDER_INSECURE_TLS") == "true"
 )
 
+const (
+	// jwksRefreshCooldown limits how often a cache-miss (an unrecognized
+	// kid) can trigger a real HTTP fetch, so a token with a bogus kid
+	// can't be used to hammer ThunderID's JWKS endpoint on every request.
+	jwksRefreshCooldown = 10 * time.Second
+	// httpClientTimeout bounds outbound HTTP calls to ThunderID.
+	httpClientTimeout = 10 * time.Second
+	// jwtClockLeeway tolerates clock skew when validating exp/nbf.
+	jwtClockLeeway = 30 * time.Second
+)
+
 // ValidateConfig reports which required environment variables are
 // missing. THUNDER_INSECURE_TLS is intentionally excluded — unset
 // means "use real TLS verification", which is a valid, safe default.
@@ -71,13 +82,8 @@ var (
 	jwksLastRefresh time.Time
 )
 
-// jwksRefreshCooldown limits how often a cache-miss (an unrecognized kid)
-// can trigger a real HTTP fetch, so a token with a bogus kid can't be used
-// to hammer ThunderID's JWKS endpoint on every request.
-const jwksRefreshCooldown = 10 * time.Second
-
 func newHTTPClient() *http.Client {
-	client := &http.Client{Timeout: 10 * time.Second}
+	client := &http.Client{Timeout: httpClientTimeout}
 
 	if thunderInsecureTLS {
 		client.Transport = &http.Transport{
@@ -190,7 +196,7 @@ func verifyToken(raw string) (*customClaims, error) {
 		jwt.WithValidMethods([]string{"RS256"}), // algorithm pinning: the server decides, never the token.
 		jwt.WithIssuer(thunderIssuer),
 		jwt.WithExpirationRequired(), // a token with no exp claim is rejected, not treated as never-expiring.
-		jwt.WithLeeway(30 * time.Second),
+		jwt.WithLeeway(jwtClockLeeway),
 		jwt.WithAudience(thunderAudience),
 	}
 
