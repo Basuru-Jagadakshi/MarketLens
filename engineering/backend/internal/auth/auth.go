@@ -7,6 +7,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math/big"
 	"net/http"
 	"os"
@@ -17,6 +18,37 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 )
+
+// ThunderID configuration, read once at startup. Call ValidateConfig
+// before serving any requests — a missing THUNDER_ISSUER in particular
+// must fail fast here, since jwt/v5 silently accepts a token with ANY
+// issuer when WithIssuer is given an empty string.
+var (
+	thunderBaseURL     = os.Getenv("THUNDER_BASE_URL")
+	thunderIssuer      = os.Getenv("THUNDER_ISSUER")
+	thunderAudience    = os.Getenv("THUNDER_AUDIENCE")
+	thunderInsecureTLS = os.Getenv("THUNDER_INSECURE_TLS") == "true"
+)
+
+// ValidateConfig reports which required environment variables are
+// missing. THUNDER_INSECURE_TLS is intentionally excluded — unset
+// means "use real TLS verification", which is a valid, safe default.
+func ValidateConfig() error {
+	var missing []string
+	if thunderBaseURL == "" {
+		missing = append(missing, "THUNDER_BASE_URL")
+	}
+	if thunderIssuer == "" {
+		missing = append(missing, "THUNDER_ISSUER")
+	}
+	if thunderAudience == "" {
+		missing = append(missing, "THUNDER_AUDIENCE")
+	}
+	if len(missing) > 0 {
+		return fmt.Errorf("missing required environment variable(s): %s", strings.Join(missing, ", "))
+	}
+	return nil
+}
 
 // customClaims adds the space-delimited "scope" claim ThunderID issues
 // (e.g. "openid book:create book:update") on top of the standard
@@ -47,7 +79,7 @@ const jwksRefreshCooldown = 10 * time.Second
 func newHTTPClient() *http.Client {
 	client := &http.Client{Timeout: 10 * time.Second}
 
-	if os.Getenv("THUNDER_INSECURE_TLS") == "true" {
+	if thunderInsecureTLS {
 		client.Transport = &http.Transport{
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 		}
@@ -81,7 +113,7 @@ func refreshJWKS() ([]jwk, error) {
 func fetchJWKSLocked() ([]jwk, error) {
 	client := newHTTPClient()
 
-	resp, err := client.Get(os.Getenv("THUNDER_BASE_URL") + "/oauth2/jwks")
+	resp, err := client.Get(thunderBaseURL + "/oauth2/jwks")
 	if err != nil {
 		return nil, errors.New("cannot reach ThunderID JWKS")
 	}
@@ -152,12 +184,10 @@ func findJWK(keys []jwk, kid string) (jwk, bool) {
 func verifyToken(raw string) (*customClaims, error) {
 	opts := []jwt.ParserOption{
 		jwt.WithValidMethods([]string{"RS256"}), // algorithm pinning: the server decides, never the token.
-		jwt.WithIssuer(os.Getenv("THUNDER_ISSUER")),
+		jwt.WithIssuer(thunderIssuer),
 		jwt.WithExpirationRequired(), // a token with no exp claim is rejected, not treated as never-expiring.
 		jwt.WithLeeway(30 * time.Second),
-	}
-	if audience := os.Getenv("THUNDER_AUDIENCE"); audience != "" {
-		opts = append(opts, jwt.WithAudience(audience))
+		jwt.WithAudience(thunderAudience),
 	}
 
 	var claims customClaims

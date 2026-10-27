@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"marketlens-go-backend/internal/api"
+	"marketlens-go-backend/internal/auth"
 	"marketlens-go-backend/internal/config"
 	"marketlens-go-backend/internal/ingestion"
 	"marketlens-go-backend/internal/repositories"
@@ -39,6 +40,10 @@ func main() {
 
 	store := repositories.NewStore(db)
 	services := service.NewServices(store)
+
+	if err := auth.ValidateConfig(); err != nil {
+		log.Fatalf("auth misconfigured: %v", err)
+	}
 
 	llmClient := ingestion.NewLLMClient(http.DefaultClient)
 	if err := llmClient.Validate(); err != nil {
