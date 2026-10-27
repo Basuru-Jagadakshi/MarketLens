@@ -135,7 +135,7 @@ func fetchJWKSLocked() ([]jwk, error) {
 }
 
 // Build an *rsa.PublicKey from a JWK's modulus (n) and exponent (e).
-func publicKeyFromJWK(k jwk) (*rsa.PublicKey, error) {
+func translatePublicKeyFromJWK(k jwk) (*rsa.PublicKey, error) {
 	nBytes, err1 := base64.RawURLEncoding.DecodeString(k.N)
 	eBytes, err2 := base64.RawURLEncoding.DecodeString(k.E)
 	if err1 != nil || err2 != nil || len(eBytes) > 8 {
@@ -163,7 +163,7 @@ func jwksKeyfunc(t *jwt.Token) (any, error) {
 		return nil, err
 	}
 	if key, ok := findJWK(keys, kid); ok {
-		return publicKeyFromJWK(key)
+		return translatePublicKeyFromJWK(key)
 	}
 
 	keys, err = refreshJWKS()
@@ -171,7 +171,7 @@ func jwksKeyfunc(t *jwt.Token) (any, error) {
 		return nil, err
 	}
 	if key, ok := findJWK(keys, kid); ok {
-		return publicKeyFromJWK(key)
+		return translatePublicKeyFromJWK(key)
 	}
 	return nil, errors.New("signing key not found")
 }
