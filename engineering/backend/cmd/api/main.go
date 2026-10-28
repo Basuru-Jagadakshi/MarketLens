@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"net/http"
+	"time"
 
 	"marketlens-go-backend/internal/api"
 	"marketlens-go-backend/internal/auth"
@@ -14,6 +15,11 @@ import (
 
 	"github.com/gin-gonic/gin"
 )
+
+// llmHTTPTimeout bounds how long a single LLM call can take — generous
+// enough for normal completion latency, finite enough that a hung
+// upstream response can't hold a request open indefinitely.
+const llmHTTPTimeout = 60 * time.Second
 
 // resolveGinMode falls back to release mode unless raw is explicitly one
 // of gin's debug/test modes.
@@ -44,7 +50,7 @@ func main() {
 	if err := cfg.LLM.Validate(); err != nil {
 		log.Fatalf("llm client misconfigured: %v", err)
 	}
-	llmClient := llm.NewClient(cfg.LLM, http.DefaultClient)
+	llmClient := llm.NewClient(cfg.LLM, &http.Client{Timeout: llmHTTPTimeout})
 	industryClassifier := ingestion.NewIndustryClassifier(
 		services.IndustrySectors,
 		services.IndustryDivisions,
