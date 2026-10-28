@@ -3,7 +3,6 @@ package main
 import (
 	"log"
 	"net/http"
-	"time"
 
 	"marketlens-go-backend/internal/api"
 	"marketlens-go-backend/internal/auth"
@@ -68,7 +67,7 @@ func main() {
 		services.EmploymentSectors,
 		services.EducationLevels,
 		services.Experiences,
-		30*time.Minute,
+		cfg.Ingestion.MetadataCacheTTL,
 	)
 	ingestionSvc := ingestion.NewIngestionService(
 		services.JobPosts,
@@ -76,7 +75,7 @@ func main() {
 		industryClassifier,
 		occupationClassifier,
 		metadataBuilder,
-		0.65,
+		cfg.Ingestion.DedupThreshold,
 	)
 
 	h := api.NewHandler(store, services, ingestionSvc)

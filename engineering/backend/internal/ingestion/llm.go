@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"time"
 )
 
 // ErrTransientExtractionFailure marks a failure in the extract/classify
@@ -66,6 +67,12 @@ func (c LLMConfig) Validate() error {
 		return fmt.Errorf("missing required environment variable(s): %s", strings.Join(missing, ", "))
 	}
 	return nil
+}
+
+// PipelineConfig holds tunable ingestion-pipeline settings.
+type PipelineConfig struct {
+	DedupThreshold   float64       // Jaccard similarity cutoff for duplicate job detection
+	MetadataCacheTTL time.Duration // how long MetadataBuilder caches reference-data options
 }
 
 // LLMClient asks a chat-completion model either to pick one option from a

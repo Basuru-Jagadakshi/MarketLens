@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"strconv"
+	"time"
 
 	"marketlens-go-backend/internal/auth"
 	"marketlens-go-backend/internal/ingestion"
@@ -28,10 +29,11 @@ type ServerConfig struct {
 // Config bundles every environment-driven setting the app uses, read once
 // at startup and passed down explicitly from there.
 type Config struct {
-	DB     DBConfig
-	Auth   auth.Config
-	LLM    ingestion.LLMConfig
-	Server ServerConfig
+	DB        DBConfig
+	Auth      auth.Config
+	LLM       ingestion.LLMConfig
+	Ingestion ingestion.PipelineConfig
+	Server    ServerConfig
 }
 
 // LoadConfig reads every environment variable the app uses into one
@@ -65,6 +67,10 @@ func LoadConfig() *Config {
 			APIURL: os.Getenv("LLM_API_URL"),
 			Model:  os.Getenv("LLM_MODEL"),
 		},
+		Ingestion: ingestion.PipelineConfig{
+			DedupThreshold:   envFloatOrDefault("INGESTION_DEDUP_THRESHOLD", 0.65),
+			MetadataCacheTTL: time.Duration(envIntOrDefault("INGESTION_METADATA_CACHE_TTL_MINUTES", 30)) * time.Minute,
+		},
 		Server: ServerConfig{
 			Port:       envOrDefault("PORT", "8080"),
 			GinModeEnv: os.Getenv("GIN_MODE"),
@@ -88,6 +94,20 @@ func envIntOrDefault(key string, def int) int {
 		return def
 	}
 	n, err := strconv.Atoi(val)
+	if err != nil {
+		return def
+	}
+	return n
+}
+
+// envFloatOrDefault reads a float env var, falling back to def if it's
+// unset or not a valid float.
+func envFloatOrDefault(key string, def float64) float64 {
+	val := os.Getenv(key)
+	if val == "" {
+		return def
+	}
+	n, err := strconv.ParseFloat(val, 64)
 	if err != nil {
 		return def
 	}
