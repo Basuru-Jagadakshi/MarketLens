@@ -4,8 +4,6 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
-	"os"
-	"strconv"
 	"time"
 
 	"gorm.io/driver/postgres"
@@ -16,19 +14,13 @@ import (
 // reachable, and returns the configured *gorm.DB. Callers own the result —
 // there is no package-level global, since config.DB previously had exactly
 // one consumer (the binary's main.go).
-func ConnectDatabase() (*gorm.DB, error) {
-	dbHost := os.Getenv("DB_HOST")
-	dbUser := os.Getenv("DB_USER")
-	dbPassword := os.Getenv("DB_PASSWORD")
-	dbName := os.Getenv("DB_NAME")
-	dbPort := os.Getenv("DB_PORT")
-
+func ConnectDatabase(cfg DBConfig) (*gorm.DB, error) {
 	required := map[string]string{
-		"DB_HOST":     dbHost,
-		"DB_USER":     dbUser,
-		"DB_PASSWORD": dbPassword,
-		"DB_NAME":     dbName,
-		"DB_PORT":     dbPort,
+		"DB_HOST":     cfg.Host,
+		"DB_USER":     cfg.User,
+		"DB_PASSWORD": cfg.Password,
+		"DB_NAME":     cfg.Name,
+		"DB_PORT":     cfg.Port,
 	}
 	for name, val := range required {
 		if val == "" {
@@ -36,19 +28,9 @@ func ConnectDatabase() (*gorm.DB, error) {
 		}
 	}
 
-	sslMode := os.Getenv("DB_SSLMODE")
-	if sslMode == "" {
-		sslMode = "disable"
-	}
-
-	timezone := os.Getenv("DB_TIMEZONE")
-	if timezone == "" {
-		timezone = "UTC"
-	}
-
 	dsn := fmt.Sprintf(
 		"host=%s user=%s password=%s dbname=%s port=%s sslmode=%s TimeZone=%s",
-		dbHost, dbUser, dbPassword, dbName, dbPort, sslMode, timezone,
+		cfg.Host, cfg.User, cfg.Password, cfg.Name, cfg.Port, cfg.SSLMode, cfg.Timezone,
 	)
 
 	const maxAttempts = 10
@@ -79,25 +61,11 @@ func ConnectDatabase() (*gorm.DB, error) {
 		return nil, fmt.Errorf("could not connect to database after %d attempts: %w", maxAttempts, err)
 	}
 
-	sqlDB.SetMaxOpenConns(envIntOrDefault("DB_MAX_OPEN_CONNS", 30))
-	sqlDB.SetMaxIdleConns(envIntOrDefault("DB_MAX_IDLE_CONNS", 10))
-	sqlDB.SetConnMaxLifetime(time.Duration(envIntOrDefault("DB_CONN_MAX_LIFETIME_MINUTES", 30)) * time.Minute)
-	sqlDB.SetConnMaxIdleTime(time.Duration(envIntOrDefault("DB_CONN_MAX_IDLE_TIME_MINUTES", 5)) * time.Minute)
+	sqlDB.SetMaxOpenConns(cfg.MaxOpenConns)
+	sqlDB.SetMaxIdleConns(cfg.MaxIdleConns)
+	sqlDB.SetConnMaxLifetime(time.Duration(cfg.ConnMaxLifetimeMinutes) * time.Minute)
+	sqlDB.SetConnMaxIdleTime(time.Duration(cfg.ConnMaxIdleTimeMinutes) * time.Minute)
 
 	log.Println("Database connected successfully!")
 	return database, nil
-}
-
-// envIntOrDefault reads an integer env var, falling back to def if it's
-// unset or not a valid integer.
-func envIntOrDefault(key string, def int) int {
-	val := os.Getenv(key)
-	if val == "" {
-		return def
-	}
-	n, err := strconv.Atoi(val)
-	if err != nil {
-		return def
-	}
-	return n
 }

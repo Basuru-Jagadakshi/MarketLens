@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"os"
 	"strings"
 )
 
@@ -38,11 +37,39 @@ func toOptions[T any](items []T, extract func(T) (uint, string)) []Option {
 	return options
 }
 
+// LLMConfig holds the chat-completion provider's settings, loaded once
+// from the environment in main.go and passed in explicitly — see
+// NewLLMClient. This package has no knowledge of which vendor is behind
+// APIURL.
+type LLMConfig struct {
+	APIKey string
+	APIURL string
+	Model  string
+}
+
+// Validate reports which required fields are missing. Call this once at
+// startup so a misconfigured deployment fails fast instead of every
+// extraction/classification call failing at request time with an opaque
+// "unauthorized" or "connection refused" error.
+func (c LLMConfig) Validate() error {
+	var missing []string
+	if c.APIKey == "" {
+		missing = append(missing, "LLM_API_KEY")
+	}
+	if c.APIURL == "" {
+		missing = append(missing, "LLM_API_URL")
+	}
+	if c.Model == "" {
+		missing = append(missing, "LLM_MODEL")
+	}
+	if len(missing) > 0 {
+		return fmt.Errorf("missing required environment variable(s): %s", strings.Join(missing, ", "))
+	}
+	return nil
+}
+
 // LLMClient asks a chat-completion model either to pick one option from a
-// list (AskToPick) or to answer a free-form prompt (Chat). The provider,
-// endpoint, and model are configured entirely through environment
-// variables — this package has no knowledge of which vendor is behind
-// LLM_API_URL.
+// list (AskToPick) or to answer a free-form prompt (Chat).
 type LLMClient struct {
 	httpClient *http.Client
 	apiKey     string
@@ -50,44 +77,14 @@ type LLMClient struct {
 	model      string
 }
 
-// NewLLMClient builds a client reading LLM_API_KEY, LLM_API_URL, and
-// LLM_MODEL from the environment.
-func NewLLMClient(httpClient *http.Client) *LLMClient {
+// NewLLMClient builds a client from cfg.
+func NewLLMClient(cfg LLMConfig, httpClient *http.Client) *LLMClient {
 	return &LLMClient{
 		httpClient: httpClient,
-		apiKey:     os.Getenv("LLM_API_KEY"),
-		apiURL:     os.Getenv("LLM_API_URL"),
-		model:      os.Getenv("LLM_MODEL"),
+		apiKey:     cfg.APIKey,
+		apiURL:     cfg.APIURL,
+		model:      cfg.Model,
 	}
-}
-
-// NewLLMClientWithURL is the same as NewLLMClient but lets the endpoint be
-// overridden — useful for pointing at a mock server in tests.
-func NewLLMClientWithURL(httpClient *http.Client, apiURL string) *LLMClient {
-	c := NewLLMClient(httpClient)
-	c.apiURL = apiURL
-	return c
-}
-
-// Validate reports which required environment variables are missing.
-// Call this once at startup so a misconfigured deployment fails fast
-// instead of every extraction/classification call failing at request
-// time with an opaque "unauthorized" or "connection refused" error.
-func (c *LLMClient) Validate() error {
-	var missing []string
-	if c.apiKey == "" {
-		missing = append(missing, "LLM_API_KEY")
-	}
-	if c.apiURL == "" {
-		missing = append(missing, "LLM_API_URL")
-	}
-	if c.model == "" {
-		missing = append(missing, "LLM_MODEL")
-	}
-	if len(missing) > 0 {
-		return fmt.Errorf("missing required environment variable(s): %s", strings.Join(missing, ", "))
-	}
-	return nil
 }
 
 type llmRequest struct {

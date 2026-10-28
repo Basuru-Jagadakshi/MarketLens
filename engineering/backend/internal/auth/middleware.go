@@ -12,7 +12,7 @@ import (
 // AuthRequired: AUTHENTICATION. Verifies the JWT and stores the verified
 // identity (sub) and permissions (scopes) in the request context.
 // Failure → 401: we don't know who you are.
-func AuthRequired() gin.HandlerFunc {
+func AuthRequired(v *Verifier) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
 		if !strings.HasPrefix(authHeader, "Bearer ") {
@@ -20,7 +20,7 @@ func AuthRequired() gin.HandlerFunc {
 			return
 		}
 
-		claims, err := verifyToken(strings.TrimPrefix(authHeader, "Bearer "))
+		claims, err := v.verifyToken(strings.TrimPrefix(authHeader, "Bearer "))
 		if err != nil {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 			return

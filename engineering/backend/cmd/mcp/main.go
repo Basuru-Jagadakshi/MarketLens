@@ -13,7 +13,9 @@ import (
 // startup failure no longer takes the customer-facing REST API down with
 // it — it just exits this process.
 func main() {
-	db, err := config.ConnectDatabase()
+	cfg := config.LoadConfig()
+
+	db, err := config.ConnectDatabase(cfg.DB)
 	if err != nil {
 		log.Fatalf("database connection failed: %v", err)
 	}

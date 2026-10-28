@@ -44,7 +44,7 @@ func NewMockLLM(t *testing.T, respond Responder) *ingestion.LLMClient {
 	}))
 	t.Cleanup(server.Close)
 
-	return ingestion.NewLLMClientWithURL(server.Client(), server.URL)
+	return ingestion.NewLLMClient(ingestion.LLMConfig{APIKey: "test", Model: "test", APIURL: server.URL}, server.Client())
 }
 
 // FirstListedID scans a classifier prompt (built by AskToPick) for the

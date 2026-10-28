@@ -11,7 +11,8 @@ import (
 func TestAuthRequired_MissingHeader(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
-	r.GET("/x", AuthRequired(), func(c *gin.Context) { c.Status(http.StatusOK) })
+	// nil verifier: the missing-header check aborts before it would ever be used.
+	r.GET("/x", AuthRequired(nil), func(c *gin.Context) { c.Status(http.StatusOK) })
 
 	req := httptest.NewRequest(http.MethodGet, "/x", nil)
 	w := httptest.NewRecorder()
@@ -25,7 +26,8 @@ func TestAuthRequired_MissingHeader(t *testing.T) {
 func TestAuthRequired_NonBearerHeader(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
-	r.GET("/x", AuthRequired(), func(c *gin.Context) { c.Status(http.StatusOK) })
+	// nil verifier: the non-bearer check aborts before it would ever be used.
+	r.GET("/x", AuthRequired(nil), func(c *gin.Context) { c.Status(http.StatusOK) })
 
 	req := httptest.NewRequest(http.MethodGet, "/x", nil)
 	req.Header.Set("Authorization", "Basic dXNlcjpwYXNz")
@@ -38,12 +40,11 @@ func TestAuthRequired_NonBearerHeader(t *testing.T) {
 }
 
 func TestAuthRequired_InvalidToken(t *testing.T) {
-	resetJWKSCache(t)
-	withThunderConfig(t, "http://unused.invalid", "issuer", "aud")
+	v := newTestVerifier("http://unused.invalid", "issuer", "aud")
 
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
-	r.GET("/x", AuthRequired(), func(c *gin.Context) { c.Status(http.StatusOK) })
+	r.GET("/x", AuthRequired(v), func(c *gin.Context) { c.Status(http.StatusOK) })
 
 	req := httptest.NewRequest(http.MethodGet, "/x", nil)
 	req.Header.Set("Authorization", "Bearer not-a-real-jwt")
@@ -56,10 +57,9 @@ func TestAuthRequired_InvalidToken(t *testing.T) {
 }
 
 func TestAuthRequired_ValidToken_SetsContext(t *testing.T) {
-	resetJWKSCache(t)
 	key := generateTestKey(t)
 	srv := newJWKSServer(t, []jwk{jwkFromPublicKey("kid1", &key.PublicKey)})
-	withThunderConfig(t, srv.URL, "issuer", "aud")
+	v := newTestVerifier(srv.URL, "issuer", "aud")
 
 	raw := signTestToken(t, key, "kid1", validTestClaims("issuer", "aud", "user-42", "book:create"))
 
@@ -67,7 +67,7 @@ func TestAuthRequired_ValidToken_SetsContext(t *testing.T) {
 	r := gin.New()
 	var gotSub string
 	var gotScopes []string
-	r.GET("/x", AuthRequired(), func(c *gin.Context) {
+	r.GET("/x", AuthRequired(v), func(c *gin.Context) {
 		gotSub = CurrentSub(c)
 		v, _ := c.Get("scopes")
 		gotScopes, _ = v.([]string)

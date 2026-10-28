@@ -3,7 +3,6 @@ package main
 import (
 	"log"
 	"net/http"
-	"os"
 	"time"
 
 	"marketlens-go-backend/internal/api"
@@ -16,39 +15,36 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-
-func ginMode() string {
-	if m := os.Getenv("GIN_MODE"); m == gin.DebugMode || m == gin.TestMode {
-		return m
+// resolveGinMode falls back to release mode unless raw is explicitly one
+// of gin's debug/test modes.
+func resolveGinMode(raw string) string {
+	if raw == gin.DebugMode || raw == gin.TestMode {
+		return raw
 	}
 	return gin.ReleaseMode
 }
 
-func apiAddr() string {
-	if p := os.Getenv("PORT"); p != "" {
-		return ":" + p
-	}
-	return ":8080"
-}
-
 func main() {
-	db, err := config.ConnectDatabase()
+	cfg := config.LoadConfig()
+
+	db, err := config.ConnectDatabase(cfg.DB)
 	if err != nil {
 		log.Fatalf("database connection failed: %v", err)
 	}
-	gin.SetMode(ginMode())
+	gin.SetMode(resolveGinMode(cfg.Server.GinModeEnv))
 
 	store := repositories.NewStore(db)
 	services := service.NewServices(store)
 
-	if err := auth.ValidateConfig(); err != nil {
+	if err := cfg.Auth.Validate(); err != nil {
 		log.Fatalf("auth misconfigured: %v", err)
 	}
+	verifier := auth.NewVerifier(cfg.Auth)
 
-	llmClient := ingestion.NewLLMClient(http.DefaultClient)
-	if err := llmClient.Validate(); err != nil {
+	if err := cfg.LLM.Validate(); err != nil {
 		log.Fatalf("llm client misconfigured: %v", err)
 	}
+	llmClient := ingestion.NewLLMClient(cfg.LLM, http.DefaultClient)
 	industryClassifier := ingestion.NewIndustryClassifier(
 		services.IndustrySectors,
 		services.IndustryDivisions,
@@ -87,9 +83,9 @@ func main() {
 
 	r := gin.New()
 	r.Use(gin.Logger(), gin.Recovery())
-	api.RegisterRoutes(r, h)
+	api.RegisterRoutes(r, h, verifier)
 
-	if err := r.Run(apiAddr()); err != nil {
+	if err := r.Run(":" + cfg.Server.Port); err != nil {
 		log.Fatalf("API server failed: %v", err)
 	}
 }

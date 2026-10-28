@@ -10,23 +10,11 @@ import (
 	"fmt"
 	"math/big"
 	"net/http"
-	"os"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
-)
-
-// ThunderID configuration, read once at startup. Call ValidateConfig
-// before serving any requests — a missing THUNDER_ISSUER in particular
-// must fail fast here, since jwt/v5 silently accepts a token with ANY
-// issuer when WithIssuer is given an empty string.
-var (
-	thunderBaseURL     = os.Getenv("THUNDER_BASE_URL")
-	thunderIssuer      = os.Getenv("THUNDER_ISSUER")
-	thunderAudience    = os.Getenv("THUNDER_AUDIENCE")
-	thunderInsecureTLS = os.Getenv("THUNDER_INSECURE_TLS") == "true"
 )
 
 const (
@@ -39,18 +27,29 @@ const (
 	jwtClockLeeway = 30 * time.Second
 )
 
-// ValidateConfig reports which required environment variables are
-// missing. THUNDER_INSECURE_TLS is intentionally excluded — unset
-// means "use real TLS verification", which is a valid, safe default.
-func ValidateConfig() error {
+// Config holds ThunderID settings, loaded once from the environment in
+// main.go and passed in explicitly — see NewVerifier.
+type Config struct {
+	BaseURL     string
+	Issuer      string
+	Audience    string
+	InsecureTLS bool
+}
+
+// Validate reports which required fields are missing. InsecureTLS is
+// intentionally excluded — unset means "use real TLS verification",
+// which is a valid, safe default. A missing Issuer in particular must
+// fail fast here, since jwt/v5 silently accepts a token with ANY issuer
+// when WithIssuer is given an empty string.
+func (c Config) Validate() error {
 	var missing []string
-	if thunderBaseURL == "" {
+	if c.BaseURL == "" {
 		missing = append(missing, "THUNDER_BASE_URL")
 	}
-	if thunderIssuer == "" {
+	if c.Issuer == "" {
 		missing = append(missing, "THUNDER_ISSUER")
 	}
-	if thunderAudience == "" {
+	if c.Audience == "" {
 		missing = append(missing, "THUNDER_AUDIENCE")
 	}
 	if len(missing) > 0 {
@@ -74,50 +73,54 @@ type jwk struct {
 	E   string `json:"e"`
 }
 
-var (
-	jwksMu          sync.Mutex
-	jwksCache       []jwk
-	jwksLastRefresh time.Time
-)
+// Verifier verifies ThunderID-issued JWTs against a cached JWKS. Build one
+// with NewVerifier at startup and share it across requests.
+type Verifier struct {
+	cfg        Config
+	httpClient *http.Client
 
-func newHTTPClient() *http.Client {
+	mu          sync.Mutex
+	cache       []jwk
+	lastRefresh time.Time
+}
+
+// NewVerifier builds a Verifier from cfg, configuring the HTTP client's
+// TLS verification per cfg.InsecureTLS.
+func NewVerifier(cfg Config) *Verifier {
 	client := &http.Client{Timeout: httpClientTimeout}
-
-	if thunderInsecureTLS {
+	if cfg.InsecureTLS {
 		client.Transport = &http.Transport{
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 		}
 	}
-	return client
+	return &Verifier{cfg: cfg, httpClient: client}
 }
 
-func getJWKS() ([]jwk, error) {
-	jwksMu.Lock()
-	defer jwksMu.Unlock()
-	if jwksCache != nil {
-		return jwksCache, nil
+func (v *Verifier) getJWKS() ([]jwk, error) {
+	v.mu.Lock()
+	defer v.mu.Unlock()
+	if v.cache != nil {
+		return v.cache, nil
 	}
-	return fetchJWKSLocked()
+	return v.fetchJWKSLocked()
 }
 
 // refreshJWKS re-fetches the JWKS unconditionally, replacing the cache —
 // called when a token's kid isn't found in the cached set, which usually
 // means ThunderID rotated its signing keys since the last fetch.
-func refreshJWKS() ([]jwk, error) {
-	jwksMu.Lock()
-	defer jwksMu.Unlock()
-	if time.Since(jwksLastRefresh) < jwksRefreshCooldown {
-		return jwksCache, nil
+func (v *Verifier) refreshJWKS() ([]jwk, error) {
+	v.mu.Lock()
+	defer v.mu.Unlock()
+	if time.Since(v.lastRefresh) < jwksRefreshCooldown {
+		return v.cache, nil
 	}
-	return fetchJWKSLocked()
+	return v.fetchJWKSLocked()
 }
 
 // fetchJWKSLocked does the actual HTTP fetch and cache update. Callers must
-// hold jwksMu.
-func fetchJWKSLocked() ([]jwk, error) {
-	client := newHTTPClient()
-
-	resp, err := client.Get(thunderBaseURL + "/oauth2/jwks")
+// hold v.mu.
+func (v *Verifier) fetchJWKSLocked() ([]jwk, error) {
+	resp, err := v.httpClient.Get(v.cfg.BaseURL + "/oauth2/jwks")
 	if err != nil {
 		return nil, errors.New("cannot reach ThunderID JWKS")
 	}
@@ -133,9 +136,9 @@ func fetchJWKSLocked() ([]jwk, error) {
 	if json.NewDecoder(resp.Body).Decode(&doc) != nil || len(doc.Keys) == 0 {
 		return nil, errors.New("bad JWKS document")
 	}
-	jwksCache = doc.Keys
-	jwksLastRefresh = time.Now()
-	return jwksCache, nil
+	v.cache = doc.Keys
+	v.lastRefresh = time.Now()
+	return v.cache, nil
 }
 
 // Build an *rsa.PublicKey from a JWK's modulus (n) and exponent (e).
@@ -159,10 +162,10 @@ func translatePublicKeyFromJWK(k jwk) (*rsa.PublicKey, error) {
 // with, by looking up its "kid" header in ThunderID's JWKS. An unrecognized
 // kid triggers one refresh before giving up, in case ThunderID rotated its
 // signing keys since the cache was last populated.
-func jwksKeyfunc(t *jwt.Token) (any, error) {
+func (v *Verifier) jwksKeyfunc(t *jwt.Token) (any, error) {
 	kid, _ := t.Header["kid"].(string)
 
-	keys, err := getJWKS()
+	keys, err := v.getJWKS()
 	if err != nil {
 		return nil, err
 	}
@@ -170,7 +173,7 @@ func jwksKeyfunc(t *jwt.Token) (any, error) {
 		return translatePublicKeyFromJWK(key)
 	}
 
-	keys, err = refreshJWKS()
+	keys, err = v.refreshJWKS()
 	if err != nil {
 		return nil, err
 	}
@@ -189,17 +192,17 @@ func findJWK(keys []jwk, kid string) (jwk, bool) {
 	return jwk{}, false
 }
 
-func verifyToken(raw string) (*customClaims, error) {
+func (v *Verifier) verifyToken(raw string) (*customClaims, error) {
 	opts := []jwt.ParserOption{
 		jwt.WithValidMethods([]string{"RS256"}), // algorithm pinning: the server decides, never the token.
-		jwt.WithIssuer(thunderIssuer),
+		jwt.WithIssuer(v.cfg.Issuer),
 		jwt.WithExpirationRequired(), // a token with no exp claim is rejected, not treated as never-expiring.
 		jwt.WithLeeway(jwtClockLeeway),
-		jwt.WithAudience(thunderAudience),
+		jwt.WithAudience(v.cfg.Audience),
 	}
 
 	var claims customClaims
-	if _, err := jwt.ParseWithClaims(raw, &claims, jwksKeyfunc, opts...); err != nil {
+	if _, err := jwt.ParseWithClaims(raw, &claims, v.jwksKeyfunc, opts...); err != nil {
 		return nil, err
 	}
 	return &claims, nil

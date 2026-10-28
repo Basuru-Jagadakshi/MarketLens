@@ -55,35 +55,15 @@ func signTestToken(t *testing.T, key *rsa.PrivateKey, kid string, claims customC
 	return signed
 }
 
-// withThunderConfig overrides the package-level ThunderID config for the
-// duration of the test, restoring the original values afterward.
-func withThunderConfig(t *testing.T, baseURL, issuer, audience string) {
-	t.Helper()
-	origBase, origIssuer, origAudience := thunderBaseURL, thunderIssuer, thunderAudience
-	thunderBaseURL, thunderIssuer, thunderAudience = baseURL, issuer, audience
-	t.Cleanup(func() {
-		thunderBaseURL, thunderIssuer, thunderAudience = origBase, origIssuer, origAudience
-	})
+// newTestVerifier builds a Verifier with its own private config and JWKS
+// cache — no shared package state, so no cleanup is needed between tests.
+func newTestVerifier(baseURL, issuer, audience string) *Verifier {
+	return NewVerifier(Config{BaseURL: baseURL, Issuer: issuer, Audience: audience})
 }
 
-// resetJWKSCache clears the package-level JWKS cache before and after the
-// test, since it's global singleton state shared across every test in
-// this package.
-func resetJWKSCache(t *testing.T) {
-	t.Helper()
-	clear := func() {
-		jwksMu.Lock()
-		jwksCache = nil
-		jwksLastRefresh = time.Time{}
-		jwksMu.Unlock()
-	}
-	clear()
-	t.Cleanup(clear)
-}
+// Config.Validate
 
-// ValidateConfig 
-
-func TestValidateConfig(t *testing.T) {
+func TestConfigValidate(t *testing.T) {
 	tests := []struct {
 		name                      string
 		baseURL, issuer, audience string
@@ -96,9 +76,9 @@ func TestValidateConfig(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			withThunderConfig(t, tt.baseURL, tt.issuer, tt.audience)
+			cfg := Config{BaseURL: tt.baseURL, Issuer: tt.issuer, Audience: tt.audience}
 
-			err := ValidateConfig()
+			err := cfg.Validate()
 			if tt.wantErrContains == "" {
 				if err != nil {
 					t.Fatalf("expected no error, got %v", err)
@@ -166,13 +146,11 @@ func TestFindJWK(t *testing.T) {
 // fetchJWKSLocked / getJWKS / refreshJWKS
 
 func TestGetJWKS_Success(t *testing.T) {
-	resetJWKSCache(t)
-
 	key := generateTestKey(t)
 	srv := newJWKSServer(t, []jwk{jwkFromPublicKey("kid1", &key.PublicKey)})
-	withThunderConfig(t, srv.URL, "issuer", "aud")
+	v := newTestVerifier(srv.URL, "issuer", "aud")
 
-	keys, err := getJWKS()
+	keys, err := v.getJWKS()
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -182,58 +160,40 @@ func TestGetJWKS_Success(t *testing.T) {
 }
 
 func TestFetchJWKSLocked_NonOKStatus_DoesNotUpdateCache(t *testing.T) {
-	resetJWKSCache(t)
-	jwksMu.Lock()
-	jwksCache = []jwk{{Kid: "existing"}}
-	jwksMu.Unlock()
-
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		_, _ = w.Write([]byte(`{}`))
 	}))
 	t.Cleanup(srv.Close)
-	withThunderConfig(t, srv.URL, "issuer", "aud")
+	v := newTestVerifier(srv.URL, "issuer", "aud")
+	v.cache = []jwk{{Kid: "existing"}}
 
-	jwksMu.Lock()
-	_, err := fetchJWKSLocked()
-	jwksMu.Unlock()
+	_, err := v.fetchJWKSLocked()
 	if err == nil {
 		t.Fatal("expected an error for a non-200 response")
 	}
 
-	jwksMu.Lock()
-	defer jwksMu.Unlock()
-	if len(jwksCache) != 1 || jwksCache[0].Kid != "existing" {
-		t.Errorf("cache should be untouched after a failed fetch, got %+v", jwksCache)
+	if len(v.cache) != 1 || v.cache[0].Kid != "existing" {
+		t.Errorf("cache should be untouched after a failed fetch, got %+v", v.cache)
 	}
 }
 
 func TestFetchJWKSLocked_EmptyKeys_Rejected(t *testing.T) {
-	resetJWKSCache(t)
-	jwksMu.Lock()
-	jwksCache = []jwk{{Kid: "existing"}}
-	jwksMu.Unlock()
-
 	srv := newJWKSServer(t, []jwk{})
-	withThunderConfig(t, srv.URL, "issuer", "aud")
+	v := newTestVerifier(srv.URL, "issuer", "aud")
+	v.cache = []jwk{{Kid: "existing"}}
 
-	jwksMu.Lock()
-	_, err := fetchJWKSLocked()
-	jwksMu.Unlock()
+	_, err := v.fetchJWKSLocked()
 	if err == nil {
 		t.Fatal("expected an error for an empty keys list")
 	}
 
-	jwksMu.Lock()
-	defer jwksMu.Unlock()
-	if len(jwksCache) != 1 || jwksCache[0].Kid != "existing" {
-		t.Errorf("cache should be untouched after a rejected fetch, got %+v", jwksCache)
+	if len(v.cache) != 1 || v.cache[0].Kid != "existing" {
+		t.Errorf("cache should be untouched after a rejected fetch, got %+v", v.cache)
 	}
 }
 
 func TestRefreshJWKS_RespectsCooldown(t *testing.T) {
-	resetJWKSCache(t)
-
 	var hits int
 	key := generateTestKey(t)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -241,12 +201,12 @@ func TestRefreshJWKS_RespectsCooldown(t *testing.T) {
 		_ = json.NewEncoder(w).Encode(map[string]any{"keys": []jwk{jwkFromPublicKey("kid1", &key.PublicKey)}})
 	}))
 	t.Cleanup(srv.Close)
-	withThunderConfig(t, srv.URL, "issuer", "aud")
+	v := newTestVerifier(srv.URL, "issuer", "aud")
 
-	if _, err := refreshJWKS(); err != nil {
+	if _, err := v.refreshJWKS(); err != nil {
 		t.Fatalf("unexpected error on first refresh: %v", err)
 	}
-	if _, err := refreshJWKS(); err != nil {
+	if _, err := v.refreshJWKS(); err != nil {
 		t.Fatalf("unexpected error on second refresh: %v", err)
 	}
 	if hits != 1 {
@@ -271,14 +231,13 @@ func validTestClaims(issuer, audience, subject, scope string) customClaims {
 }
 
 func TestVerifyToken_Valid(t *testing.T) {
-	resetJWKSCache(t)
 	key := generateTestKey(t)
 	srv := newJWKSServer(t, []jwk{jwkFromPublicKey("kid1", &key.PublicKey)})
-	withThunderConfig(t, srv.URL, "test-issuer", "test-audience")
+	v := newTestVerifier(srv.URL, "test-issuer", "test-audience")
 
 	raw := signTestToken(t, key, "kid1", validTestClaims("test-issuer", "test-audience", "user-1", "book:create book:update"))
 
-	claims, err := verifyToken(raw)
+	claims, err := v.verifyToken(raw)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -291,71 +250,66 @@ func TestVerifyToken_Valid(t *testing.T) {
 }
 
 func TestVerifyToken_Expired(t *testing.T) {
-	resetJWKSCache(t)
 	key := generateTestKey(t)
 	srv := newJWKSServer(t, []jwk{jwkFromPublicKey("kid1", &key.PublicKey)})
-	withThunderConfig(t, srv.URL, "test-issuer", "test-audience")
+	v := newTestVerifier(srv.URL, "test-issuer", "test-audience")
 
 	claims := validTestClaims("test-issuer", "test-audience", "user-1", "")
 	claims.ExpiresAt = jwt.NewNumericDate(time.Now().Add(-time.Hour))
 	raw := signTestToken(t, key, "kid1", claims)
 
-	if _, err := verifyToken(raw); err == nil {
+	if _, err := v.verifyToken(raw); err == nil {
 		t.Fatal("expected an error for an expired token")
 	}
 }
 
 func TestVerifyToken_WrongIssuer(t *testing.T) {
-	resetJWKSCache(t)
 	key := generateTestKey(t)
 	srv := newJWKSServer(t, []jwk{jwkFromPublicKey("kid1", &key.PublicKey)})
-	withThunderConfig(t, srv.URL, "test-issuer", "test-audience")
+	v := newTestVerifier(srv.URL, "test-issuer", "test-audience")
 
 	raw := signTestToken(t, key, "kid1", validTestClaims("someone-else", "test-audience", "user-1", ""))
 
-	if _, err := verifyToken(raw); err == nil {
+	if _, err := v.verifyToken(raw); err == nil {
 		t.Fatal("expected an error for a mismatched issuer")
 	}
 }
 
 func TestVerifyToken_WrongAudience(t *testing.T) {
-	resetJWKSCache(t)
 	key := generateTestKey(t)
 	srv := newJWKSServer(t, []jwk{jwkFromPublicKey("kid1", &key.PublicKey)})
-	withThunderConfig(t, srv.URL, "test-issuer", "test-audience")
+	v := newTestVerifier(srv.URL, "test-issuer", "test-audience")
 
 	raw := signTestToken(t, key, "kid1", validTestClaims("test-issuer", "someone-else", "user-1", ""))
 
-	if _, err := verifyToken(raw); err == nil {
+	if _, err := v.verifyToken(raw); err == nil {
 		t.Fatal("expected an error for a mismatched audience")
 	}
 }
 
 func TestVerifyToken_UnknownKid(t *testing.T) {
-	resetJWKSCache(t)
 	key := generateTestKey(t)
 	srv := newJWKSServer(t, []jwk{jwkFromPublicKey("kid1", &key.PublicKey)})
-	withThunderConfig(t, srv.URL, "test-issuer", "test-audience")
+	v := newTestVerifier(srv.URL, "test-issuer", "test-audience")
 
 	raw := signTestToken(t, key, "kid-does-not-exist", validTestClaims("test-issuer", "test-audience", "user-1", ""))
 
-	if _, err := verifyToken(raw); err == nil {
+	if _, err := v.verifyToken(raw); err == nil {
 		t.Fatal("expected an error for an unrecognized kid")
 	}
 }
 
 func TestVerifyToken_BadSignature(t *testing.T) {
-	resetJWKSCache(t)
 	realKey := generateTestKey(t)
 	wrongKey := generateTestKey(t)
 	srv := newJWKSServer(t, []jwk{jwkFromPublicKey("kid1", &realKey.PublicKey)})
-	withThunderConfig(t, srv.URL, "test-issuer", "test-audience")
+	v := newTestVerifier(srv.URL, "test-issuer", "test-audience")
 
 	// Signed with wrongKey but claims kid1, whose published JWK is realKey's
 	// public key — the signature must not verify.
 	raw := signTestToken(t, wrongKey, "kid1", validTestClaims("test-issuer", "test-audience", "user-1", ""))
 
-	if _, err := verifyToken(raw); err == nil {
+	if _, err := v.verifyToken(raw); err == nil {
 		t.Fatal("expected an error for a signature that doesn't match the published key")
 	}
 }
