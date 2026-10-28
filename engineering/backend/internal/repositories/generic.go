@@ -115,13 +115,13 @@ func (c crudRepository[T]) delete(ctx context.Context, id uint, cascade []cascad
 		parentIDs := []uint{id}
 		for _, step := range cascade {
 			var ids []uint
-			if err := tx.Table(step.table).Where(step.fkColumn+" IN (?)", parentIDs).Pluck("id", &ids).Error; err != nil {
+			if err := tx.Table(step.table).Where("deleted_at IS NULL").Where(step.fkColumn+" IN (?)", parentIDs).Pluck("id", &ids).Error; err != nil {
 				return fmt.Errorf("finding %s for cascade delete: %w", step.table, err)
 			}
 			if len(ids) == 0 {
 				break
 			}
-			if err := tx.Table(step.table).Where("id IN (?)", ids).Update("deleted_at", time.Now()).Error; err != nil {
+			if err := tx.Table(step.table).Where("id IN (?) AND deleted_at IS NULL", ids).Update("deleted_at", time.Now()).Error; err != nil {
 				return fmt.Errorf("cascade deleting %s: %w", step.table, err)
 			}
 			parentIDs = ids
