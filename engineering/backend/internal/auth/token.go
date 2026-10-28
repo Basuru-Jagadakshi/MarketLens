@@ -105,21 +105,29 @@ func (v *Verifier) getJWKS() ([]jwk, error) {
 	return v.fetchJWKSLocked()
 }
 
-// refreshJWKS re-fetches the JWKS unconditionally, replacing the cache —
-// called when a token's kid isn't found in the cached set, which usually
-// means ThunderID rotated its signing keys since the last fetch.
+// refreshJWKS re-fetches the JWKS, replacing the cache — called when a
+// token's kid isn't found in the cached set, which usually means
+// ThunderID rotated its signing keys since the last fetch.
+// fetchJWKSLocked's own cooldown gate limits how often this actually hits
+// the network.
 func (v *Verifier) refreshJWKS() ([]jwk, error) {
 	v.mu.Lock()
 	defer v.mu.Unlock()
-	if time.Since(v.lastRefresh) < jwksRefreshCooldown {
-		return v.cache, nil
-	}
 	return v.fetchJWKSLocked()
 }
 
-// fetchJWKSLocked does the actual HTTP fetch and cache update. Callers must
-// hold v.mu.
+// fetchJWKSLocked does the actual HTTP fetch and cache update, skipping
+// the request if an attempt (successful or not) was made less than
+// jwksRefreshCooldown ago
 func (v *Verifier) fetchJWKSLocked() ([]jwk, error) {
+	if time.Since(v.lastRefresh) < jwksRefreshCooldown {
+		if v.cache != nil {
+			return v.cache, nil
+		}
+		return nil, errors.New("ThunderID JWKS unavailable, retry cooldown active")
+	}
+	v.lastRefresh = time.Now()
+
 	resp, err := v.httpClient.Get(v.cfg.BaseURL + "/oauth2/jwks")
 	if err != nil {
 		return nil, errors.New("cannot reach ThunderID JWKS")
@@ -137,7 +145,6 @@ func (v *Verifier) fetchJWKSLocked() ([]jwk, error) {
 		return nil, errors.New("bad JWKS document")
 	}
 	v.cache = doc.Keys
-	v.lastRefresh = time.Now()
 	return v.cache, nil
 }
 

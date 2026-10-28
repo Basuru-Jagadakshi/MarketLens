@@ -193,6 +193,46 @@ func TestFetchJWKSLocked_EmptyKeys_Rejected(t *testing.T) {
 	}
 }
 
+func TestFetchJWKSLocked_FailureRespectsCooldown(t *testing.T) {
+	var hits int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hits++
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	t.Cleanup(srv.Close)
+	v := newTestVerifier(srv.URL, "issuer", "aud")
+
+	if _, err := v.fetchJWKSLocked(); err == nil {
+		t.Fatal("expected an error on first attempt")
+	}
+	if _, err := v.fetchJWKSLocked(); err == nil {
+		t.Fatal("expected an error on second attempt (still within cooldown)")
+	}
+	if hits != 1 {
+		t.Errorf("expected the cooldown to prevent a second fetch after a failure, got %d hits", hits)
+	}
+}
+
+func TestGetJWKS_EmptyCache_RespectsCooldownAfterFailure(t *testing.T) {
+	var hits int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hits++
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	t.Cleanup(srv.Close)
+	v := newTestVerifier(srv.URL, "issuer", "aud")
+
+	if _, err := v.getJWKS(); err == nil {
+		t.Fatal("expected an error on first call (IdP down)")
+	}
+	if _, err := v.getJWKS(); err == nil {
+		t.Fatal("expected an error on second call (still within cooldown)")
+	}
+	if hits != 1 {
+		t.Errorf("expected the cooldown to prevent a second fetch from getJWKS on an empty cache, got %d hits", hits)
+	}
+}
+
 func TestRefreshJWKS_RespectsCooldown(t *testing.T) {
 	var hits int
 	key := generateTestKey(t)
