@@ -25,6 +25,8 @@ const (
 	httpClientTimeout = 10 * time.Second
 	// jwtClockLeeway tolerates clock skew when validating exp/nbf.
 	jwtClockLeeway = 30 * time.Second
+	// jwksCacheMaxAge bounds how long a revoked key stays trusted.
+	jwksCacheMaxAge = time.Hour
 )
 
 // Config holds ThunderID settings, loaded once from the environment in
@@ -83,11 +85,12 @@ type Verifier struct {
 	cfg        Config
 	httpClient *http.Client
 
-	cacheMu sync.RWMutex // guards cache
-	cache   []jwk
+	cacheMu  sync.RWMutex // guards cache and cachedAt
+	cache    []jwk
+	cachedAt time.Time
 
 	fetchMu     sync.Mutex // serializes JWKS fetches
-	lastRefresh time.Time
+	lastAttempt time.Time
 }
 
 // NewVerifier builds a Verifier from cfg, configuring the HTTP client's
@@ -104,9 +107,9 @@ func NewVerifier(cfg Config) *Verifier {
 
 func (v *Verifier) getJWKS() ([]jwk, error) {
 	v.cacheMu.RLock()
-	cache := v.cache
+	cache, cachedAt := v.cache, v.cachedAt
 	v.cacheMu.RUnlock()
-	if cache != nil {
+	if cache != nil && time.Since(cachedAt) < jwksCacheMaxAge {
 		return cache, nil
 	}
 	return v.fetchJWKS()
@@ -124,7 +127,7 @@ func (v *Verifier) fetchJWKS() ([]jwk, error) {
 	v.fetchMu.Lock()
 	defer v.fetchMu.Unlock()
 
-	if time.Since(v.lastRefresh) < jwksRefreshCooldown {
+	if time.Since(v.lastAttempt) < jwksRefreshCooldown {
 		v.cacheMu.RLock()
 		cache := v.cache
 		v.cacheMu.RUnlock()
@@ -133,7 +136,7 @@ func (v *Verifier) fetchJWKS() ([]jwk, error) {
 		}
 		return nil, fmt.Errorf("%w: retry cooldown active", ErrJWKSUnavailable)
 	}
-	v.lastRefresh = time.Now()
+	v.lastAttempt = time.Now()
 
 	resp, err := v.httpClient.Get(v.cfg.BaseURL + "/oauth2/jwks")
 	if err != nil {
@@ -154,6 +157,7 @@ func (v *Verifier) fetchJWKS() ([]jwk, error) {
 
 	v.cacheMu.Lock()
 	v.cache = doc.Keys
+	v.cachedAt = time.Now()
 	v.cacheMu.Unlock()
 	return doc.Keys, nil
 }

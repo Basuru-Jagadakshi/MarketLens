@@ -159,6 +159,59 @@ func TestGetJWKS_Success(t *testing.T) {
 	}
 }
 
+func TestGetJWKS_FreshCache_DoesNotRefetch(t *testing.T) {
+	var hits int
+	key := generateTestKey(t)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hits++
+		_ = json.NewEncoder(w).Encode(map[string]any{"keys": []jwk{jwkFromPublicKey("kid1", &key.PublicKey)}})
+	}))
+	t.Cleanup(srv.Close)
+	v := newTestVerifier(srv.URL, "issuer", "aud")
+
+	if _, err := v.getJWKS(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if _, err := v.getJWKS(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if hits != 1 {
+		t.Errorf("expected the warm, fresh cache to be reused, got %d hits", hits)
+	}
+}
+
+func TestGetJWKS_StaleCache_ForcesRefresh(t *testing.T) {
+	var hits int
+	key := generateTestKey(t)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hits++
+		_ = json.NewEncoder(w).Encode(map[string]any{"keys": []jwk{jwkFromPublicKey("kid1", &key.PublicKey)}})
+	}))
+	t.Cleanup(srv.Close)
+	v := newTestVerifier(srv.URL, "issuer", "aud")
+
+	if _, err := v.getJWKS(); err != nil {
+		t.Fatalf("unexpected error on first call: %v", err)
+	}
+	if hits != 1 {
+		t.Fatalf("expected 1 hit after first call, got %d", hits)
+	}
+
+	// Simulate the cache having aged past jwksCacheMaxAge, and the
+	// refresh cooldown no longer blocking a new attempt.
+	v.cacheMu.Lock()
+	v.cachedAt = time.Now().Add(-jwksCacheMaxAge - time.Second)
+	v.cacheMu.Unlock()
+	v.lastAttempt = time.Now().Add(-jwksRefreshCooldown - time.Second)
+
+	if _, err := v.getJWKS(); err != nil {
+		t.Fatalf("unexpected error on second call: %v", err)
+	}
+	if hits != 2 {
+		t.Errorf("expected a stale cache to force a second fetch, got %d hits", hits)
+	}
+}
+
 func TestFetchJWKSLocked_NonOKStatus_DoesNotUpdateCache(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
