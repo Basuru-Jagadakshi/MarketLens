@@ -30,9 +30,8 @@ var (
 )
 
 const (
-	// jwksRefreshCooldown limits how often a cache-miss (an unrecognized
-	// kid) can trigger a real HTTP fetch, so a token with a bogus kid
-	// can't be used to hammer ThunderID's JWKS endpoint on every request.
+	// jwksRefreshCooldown limits how often a cache-miss
+	// can trigger a real HTTP fetch.
 	jwksRefreshCooldown = 10 * time.Second
 	// httpClientTimeout bounds outbound HTTP calls to ThunderID.
 	httpClientTimeout = 10 * time.Second
