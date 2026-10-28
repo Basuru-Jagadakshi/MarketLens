@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"time"
 
@@ -184,7 +185,7 @@ type extractedJob struct {
 // employer/job_role/location/description/source come directly from the
 // raw crawled input rather than being re-derived by the LLM.
 func (s *IngestionService) extractAndClassify(ctx context.Context, raw RawJobInput, sig []uint32) (models.JobPost, error) {
-	schema, instruction, err := s.metadataBuilder.Build(ctx)
+	schema, instruction, options, err := s.metadataBuilder.Build(ctx)
 	if err != nil {
 		return models.JobPost{}, fmt.Errorf("building extraction schema: %w", err)
 	}
@@ -232,12 +233,12 @@ func (s *IngestionService) extractAndClassify(ctx context.Context, raw RawJobInp
 		}
 	}
 
-	formalityID := extracted.MetaData.FormalityID
-	genderID := extracted.MetaData.GenderID
-	vocationalEducationID := extracted.MetaData.VocationalEducationID
-	employmentSectorID := extracted.MetaData.EmploymentSectorID
-	educationLevelID := extracted.MetaData.EducationLevelID
-	experienceID := extracted.MetaData.ExperienceID
+	formalityID := validateID("formality_id", extracted.MetaData.FormalityID, options.validFormalities)
+	genderID := validateID("gender_id", extracted.MetaData.GenderID, options.validGenders)
+	vocationalEducationID := validateID("vocational_education_id", extracted.MetaData.VocationalEducationID, options.validVocationalEducations)
+	employmentSectorID := validateID("employment_sector_id", extracted.MetaData.EmploymentSectorID, options.validEmploymentSectors)
+	educationLevelID := validateID("education_level_id", extracted.MetaData.EducationLevelID, options.validEducationLevels)
+	experienceID := validateID("experience_id", extracted.MetaData.ExperienceID, options.validExperiences)
 	crawlerRunID := raw.CrawlerRunID
 
 	workMode := extracted.WorkMode
@@ -272,6 +273,20 @@ func (s *IngestionService) extractAndClassify(ctx context.Context, raw RawJobInp
 			MinhashSignature:      ToPQArray(sig),
 		},
 	}, nil
+}
+
+// validateID zeroes out id if it isn't one of the options actually
+// offered to the LLM, so a hallucinated id becomes "not set" instead of
+// a foreign-key violation at save time.
+func validateID(field string, id uint, valid map[uint]struct{}) uint {
+	if id == 0 {
+		return 0
+	}
+	if _, ok := valid[id]; !ok {
+		log.Printf("llm returned %s=%d, which was not among the offered options — treating as not set", field, id)
+		return 0
+	}
+	return id
 }
 
 func nilIfZero(id uint) *uint {

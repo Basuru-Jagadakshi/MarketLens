@@ -38,6 +38,13 @@ type optionSet struct {
 	employmentSectors    string
 	educationLevels      string
 	experiences          string
+
+	validFormalities          map[uint]struct{}
+	validGenders              map[uint]struct{}
+	validVocationalEducations map[uint]struct{}
+	validEmploymentSectors    map[uint]struct{}
+	validEducationLevels      map[uint]struct{}
+	validExperiences          map[uint]struct{}
 }
 
 // NewMetadataBuilder creates a schema builder that refreshes its cached
@@ -62,12 +69,14 @@ func NewMetadataBuilder(
 	}
 }
 
-// Build returns the static extraction schema and the instruction text
-// with the current reference option lists filled in.
-func (b *MetadataBuilder) Build(ctx context.Context) (map[string]any, string, error) {
+// Build returns the static extraction schema, the instruction text with
+// the current reference option lists filled in, and the optionSet those
+// lists were built from — so the caller can validate the LLM's chosen
+// IDs against exactly what it was offered.
+func (b *MetadataBuilder) Build(ctx context.Context) (map[string]any, string, *optionSet, error) {
 	options, err := b.getOptions(ctx)
 	if err != nil {
-		return nil, "", err
+		return nil, "", nil, err
 	}
 
 	instruction := fmt.Sprintf(
@@ -80,7 +89,7 @@ func (b *MetadataBuilder) Build(ctx context.Context) (map[string]any, string, er
 		options.experiences,
 	)
 
-	return Schema, instruction, nil
+	return Schema, instruction, options, nil
 }
 
 func (b *MetadataBuilder) getOptions(ctx context.Context) (*optionSet, error) {
@@ -140,6 +149,13 @@ func (b *MetadataBuilder) refresh(ctx context.Context) (*optionSet, error) {
 		experiences: formatOptions(experiences, func(e models.Experience) (uint, string) {
 			return e.ID, e.Name
 		}),
+
+		validFormalities:          toIDSet(formalities, func(f models.Formality) uint { return f.ID }),
+		validGenders:              toIDSet(genders, func(g models.Gender) uint { return g.ID }),
+		validVocationalEducations: toIDSet(vocationalEducations, func(v models.VocationalEducation) uint { return v.ID }),
+		validEmploymentSectors:    toIDSet(employmentSectors, func(e models.EmploymentSector) uint { return e.ID }),
+		validEducationLevels:      toIDSet(educationLevels, func(e models.EducationLevel) uint { return e.ID }),
+		validExperiences:          toIDSet(experiences, func(e models.Experience) uint { return e.ID }),
 	}
 
 	b.mu.Lock()
@@ -159,4 +175,15 @@ func formatOptions[T any](items []T, extract func(T) (uint, string)) string {
 		lines[i] = fmt.Sprintf("%d: %s", id, label)
 	}
 	return strings.Join(lines, "\n")
+}
+
+// toIDSet collects the ids of a list of items, for validating that a
+// value picked from outside this package (e.g. an LLM response) is
+// actually one of the options offered.
+func toIDSet[T any](items []T, id func(T) uint) map[uint]struct{} {
+	set := make(map[uint]struct{}, len(items))
+	for _, item := range items {
+		set[id(item)] = struct{}{}
+	}
+	return set
 }
