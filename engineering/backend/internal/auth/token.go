@@ -79,8 +79,10 @@ type Verifier struct {
 	cfg        Config
 	httpClient *http.Client
 
-	mu          sync.Mutex
-	cache       []jwk
+	cacheMu sync.RWMutex // guards cache
+	cache   []jwk
+
+	fetchMu     sync.Mutex // serializes JWKS fetches
 	lastRefresh time.Time
 }
 
@@ -97,32 +99,33 @@ func NewVerifier(cfg Config) *Verifier {
 }
 
 func (v *Verifier) getJWKS() ([]jwk, error) {
-	v.mu.Lock()
-	defer v.mu.Unlock()
-	if v.cache != nil {
-		return v.cache, nil
+	v.cacheMu.RLock()
+	cache := v.cache
+	v.cacheMu.RUnlock()
+	if cache != nil {
+		return cache, nil
 	}
-	return v.fetchJWKSLocked()
+	return v.fetchJWKS()
 }
 
-// refreshJWKS re-fetches the JWKS, replacing the cache — called when a
-// token's kid isn't found in the cached set, which usually means
-// ThunderID rotated its signing keys since the last fetch.
-// fetchJWKSLocked's own cooldown gate limits how often this actually hits
-// the network.
+// refreshJWKS re-fetches the JWKS, called when a token's kid isn't found
+// in the cached set (ThunderID likely rotated its signing keys).
 func (v *Verifier) refreshJWKS() ([]jwk, error) {
-	v.mu.Lock()
-	defer v.mu.Unlock()
-	return v.fetchJWKSLocked()
+	return v.fetchJWKS()
 }
 
-// fetchJWKSLocked does the actual HTTP fetch and cache update, skipping
-// the request if an attempt (successful or not) was made less than
-// jwksRefreshCooldown ago
-func (v *Verifier) fetchJWKSLocked() ([]jwk, error) {
+// fetchJWKS does the actual HTTP fetch, skipping it if an attempt
+// (successful or not) was made less than jwksRefreshCooldown ago.
+func (v *Verifier) fetchJWKS() ([]jwk, error) {
+	v.fetchMu.Lock()
+	defer v.fetchMu.Unlock()
+
 	if time.Since(v.lastRefresh) < jwksRefreshCooldown {
-		if v.cache != nil {
-			return v.cache, nil
+		v.cacheMu.RLock()
+		cache := v.cache
+		v.cacheMu.RUnlock()
+		if cache != nil {
+			return cache, nil
 		}
 		return nil, errors.New("ThunderID JWKS unavailable, retry cooldown active")
 	}
@@ -144,8 +147,11 @@ func (v *Verifier) fetchJWKSLocked() ([]jwk, error) {
 	if json.NewDecoder(resp.Body).Decode(&doc) != nil || len(doc.Keys) == 0 {
 		return nil, errors.New("bad JWKS document")
 	}
+
+	v.cacheMu.Lock()
 	v.cache = doc.Keys
-	return v.cache, nil
+	v.cacheMu.Unlock()
+	return doc.Keys, nil
 }
 
 // Build an *rsa.PublicKey from a JWK's modulus (n) and exponent (e).

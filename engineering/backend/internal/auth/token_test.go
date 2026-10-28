@@ -143,7 +143,7 @@ func TestFindJWK(t *testing.T) {
 	}
 }
 
-// fetchJWKSLocked / getJWKS / refreshJWKS
+// fetchJWKS / getJWKS / refreshJWKS
 
 func TestGetJWKS_Success(t *testing.T) {
 	key := generateTestKey(t)
@@ -168,7 +168,7 @@ func TestFetchJWKSLocked_NonOKStatus_DoesNotUpdateCache(t *testing.T) {
 	v := newTestVerifier(srv.URL, "issuer", "aud")
 	v.cache = []jwk{{Kid: "existing"}}
 
-	_, err := v.fetchJWKSLocked()
+	_, err := v.fetchJWKS()
 	if err == nil {
 		t.Fatal("expected an error for a non-200 response")
 	}
@@ -183,7 +183,7 @@ func TestFetchJWKSLocked_EmptyKeys_Rejected(t *testing.T) {
 	v := newTestVerifier(srv.URL, "issuer", "aud")
 	v.cache = []jwk{{Kid: "existing"}}
 
-	_, err := v.fetchJWKSLocked()
+	_, err := v.fetchJWKS()
 	if err == nil {
 		t.Fatal("expected an error for an empty keys list")
 	}
@@ -202,10 +202,10 @@ func TestFetchJWKSLocked_FailureRespectsCooldown(t *testing.T) {
 	t.Cleanup(srv.Close)
 	v := newTestVerifier(srv.URL, "issuer", "aud")
 
-	if _, err := v.fetchJWKSLocked(); err == nil {
+	if _, err := v.fetchJWKS(); err == nil {
 		t.Fatal("expected an error on first attempt")
 	}
-	if _, err := v.fetchJWKSLocked(); err == nil {
+	if _, err := v.fetchJWKS(); err == nil {
 		t.Fatal("expected an error on second attempt (still within cooldown)")
 	}
 	if hits != 1 {
