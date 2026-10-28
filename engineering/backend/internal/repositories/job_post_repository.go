@@ -140,24 +140,15 @@ func (r *Store) ReconcileStaleVacancies(ctx context.Context, currentRunID uint) 
 
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 
-		var staleJobIDs []uint
-		err := tx.Model(&models.JobMetaData{}).
-			Where("crawler_run_id <> ? AND end_date IS NULL", currentRunID).
-			Pluck("job_post_id", &staleJobIDs).Error
-		if err != nil {
-			return err
-		}
+		const staleCond = "(crawler_run_id IS NULL OR crawler_run_id <> ?) AND end_date IS NULL"
+		stale := tx.Model(&models.JobMetaData{}).Select("job_post_id").Where(staleCond, currentRunID)
 
-		if len(staleJobIDs) == 0 {
-			return nil
-		}
-
-		if err := tx.Where("job_post_id IN ?", staleJobIDs).Delete(&models.LshIndex{}).Error; err != nil {
+		if err := tx.Where("job_post_id IN (?)", stale).Delete(&models.LshIndex{}).Error; err != nil {
 			return err
 		}
 
 		result := tx.Model(&models.JobMetaData{}).
-			Where("job_post_id IN ?", staleJobIDs).
+			Where(staleCond, currentRunID).
 			Updates(map[string]interface{}{
 				"end_date": &now,
 			})
