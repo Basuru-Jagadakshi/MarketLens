@@ -5,6 +5,7 @@ import (
 	"crypto/md5"
 	"encoding/binary"
 	"encoding/hex"
+	"fmt"
 	"hash/fnv"
 	"log"
 	"strconv"
@@ -160,9 +161,9 @@ func FromPQArray(arr pq.Int64Array) []uint32 {
 // CheckDuplicate looks up candidate jobs sharing any of the given LSH
 // bucket keys and returns whether the current signature is a near-
 // duplicate of one of them (isDuplicate, matchedJobID — 0 if none).
-// Errors from the service layer are logged and treated as "no duplicate
-// found" rather than propagated, matching the original Python
-// try/except behavior.
+// A lookup failure is returned as an error rather than treated as "no
+// duplicate found" — silently continuing past it could let a transient
+// DB blip insert a genuine near-duplicate as a brand-new row.
 func CheckDuplicate(
 	ctx context.Context,
 	jobPosts *service.JobPostService,
@@ -170,7 +171,7 @@ func CheckDuplicate(
 	currentSig []uint32,
 	incomingLocation string,
 	jaccardThreshold float64,
-) (bool, int64) {
+) (bool, int64, error) {
 	bucketKeys := make([]string, len(lshIndexes))
 	for i, idx := range lshIndexes {
 		bucketKeys[i] = idx.BucketKey
@@ -178,8 +179,7 @@ func CheckDuplicate(
 
 	jobs, err := jobPosts.GetJobsByBucketKeys(ctx, bucketKeys)
 	if err != nil {
-		log.Printf("duplicate lookup failed: %v", err)
-		return false, 0
+		return false, 0, fmt.Errorf("duplicate lookup: %w", err)
 	}
 
 	incLoc := strings.ToLower(strings.TrimSpace(incomingLocation))
@@ -209,9 +209,9 @@ func CheckDuplicate(
 
 		if jaccardValue >= jaccardThreshold {
 			log.Printf("duplicate found: jaccard=%.2f matched_job_id=%d", jaccardValue, job.ID)
-			return true, int64(job.ID)
+			return true, int64(job.ID), nil
 		}
 	}
 
-	return false, 0
+	return false, 0, nil
 }

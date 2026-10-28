@@ -510,6 +510,7 @@ type updateIndustrySubclassInput struct {
 
 type industrySubclassPaginatedResponse struct {
 	Count              int                       `json:"count"`
+	Total              int64                     `json:"total"`
 	Limit              int                       `json:"limit"`
 	Offset             int                       `json:"offset"`
 	IndustrySubclasses []models.IndustrySubclass `json:"industry_subclasses"`
@@ -553,7 +554,7 @@ func (h *Handler) GetAllIndustrySubclassesHandler(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, industrySubclassPaginatedResponse{Count: int(total), Limit: limit, Offset: offset, IndustrySubclasses: items})
+	c.JSON(http.StatusOK, industrySubclassPaginatedResponse{Count: len(items), Total: total, Limit: limit, Offset: offset, IndustrySubclasses: items})
 }
 
 func (h *Handler) GetIndustrySubclassByIDHandler(c *gin.Context) {

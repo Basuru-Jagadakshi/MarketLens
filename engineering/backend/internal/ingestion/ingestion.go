@@ -94,7 +94,15 @@ func (s *IngestionService) ProcessBatch(ctx context.Context, rawJobs []RawJobInp
 		}
 		sig, lshIndexes := GenerateMinHashAndLSH(jobData, s.numPerm, s.numBands)
 
-		isDuplicate, matchedJobID := CheckDuplicate(ctx, s.jobPosts, lshIndexes, sig, raw.Location, s.jaccardThreshold)
+		isDuplicate, matchedJobID, err := CheckDuplicate(ctx, s.jobPosts, lshIndexes, sig, raw.Location, s.jaccardThreshold)
+		if err != nil {
+			failures = append(failures, FailedJob{
+				JobID:      raw.JobID,
+				StatusCode: http.StatusServiceUnavailable,
+				Error:      fmt.Sprintf("checking duplicate: %v", err),
+			})
+			continue
+		}
 		if isDuplicate {
 			if err := s.jobPosts.UpdateDuplicateJob(ctx, uint(matchedJobID), raw.CrawlerRunID); err != nil {
 				failures = append(failures, FailedJob{

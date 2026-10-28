@@ -505,6 +505,7 @@ type updateOccupationGroupInput struct {
 
 type occupationGroupPaginatedResponse struct {
 	Count            int                      `json:"count"`
+	Total            int64                    `json:"total"`
 	Limit            int                      `json:"limit"`
 	Offset           int                      `json:"offset"`
 	OccupationGroups []models.OccupationGroup `json:"occupation_groups"`
@@ -548,7 +549,7 @@ func (h *Handler) GetAllOccupationGroupsHandler(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, occupationGroupPaginatedResponse{Count: int(total), Limit: limit, Offset: offset, OccupationGroups: items})
+	c.JSON(http.StatusOK, occupationGroupPaginatedResponse{Count: len(items), Total: total, Limit: limit, Offset: offset, OccupationGroups: items})
 }
 
 func (h *Handler) GetOccupationGroupByIDHandler(c *gin.Context) {
