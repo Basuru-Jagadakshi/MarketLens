@@ -56,6 +56,27 @@ func TestAuthRequired_InvalidToken(t *testing.T) {
 	}
 }
 
+func TestAuthRequired_JWKSUnavailable_Returns503(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	srv.Close() // closed immediately so any request fails to connect
+	v := newTestVerifier(srv.URL, "issuer", "aud")
+	key := generateTestKey(t)
+	raw := signTestToken(t, key, "kid1", validTestClaims("issuer", "aud", "user-1", ""))
+
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.GET("/x", AuthRequired(v), func(c *gin.Context) { c.Status(http.StatusOK) })
+
+	req := httptest.NewRequest(http.MethodGet, "/x", nil)
+	req.Header.Set("Authorization", "Bearer "+raw)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusServiceUnavailable {
+		t.Errorf("expected %d, got %d", http.StatusServiceUnavailable, w.Code)
+	}
+}
+
 func TestAuthRequired_ValidToken_SetsContext(t *testing.T) {
 	key := generateTestKey(t)
 	srv := newJWKSServer(t, []jwk{jwkFromPublicKey("kid1", &key.PublicKey)})

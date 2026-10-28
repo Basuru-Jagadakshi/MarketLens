@@ -1,6 +1,8 @@
 package auth
 
 import (
+	"errors"
+	"log"
 	"net/http"
 	"strings"
 
@@ -22,7 +24,7 @@ func AuthRequired(v *Verifier) gin.HandlerFunc {
 
 		claims, err := v.verifyToken(strings.TrimPrefix(authHeader, "Bearer "))
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+			respondAuthError(c, err)
 			return
 		}
 
@@ -32,6 +34,18 @@ func AuthRequired(v *Verifier) gin.HandlerFunc {
 		c.Set("scopes", strings.Fields(claims.Scope))
 		c.Next()
 	}
+}
+
+// respondAuthError logs the real verification error and returns a
+// generic message — never the raw error — distinguishing a bad/expired
+// token (401) from a failure to reach ThunderID (503).
+func respondAuthError(c *gin.Context, err error) {
+	log.Printf("token verification failed: %v", err)
+	if errors.Is(err, ErrJWKSUnavailable) {
+		c.AbortWithStatusJSON(http.StatusServiceUnavailable, gin.H{"error": "authentication temporarily unavailable"})
+		return
+	}
+	c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid or expired token"})
 }
 
 // RequireScope: AUTHORIZATION. Must run AFTER AuthRequired. Checks that the

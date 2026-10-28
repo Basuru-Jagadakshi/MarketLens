@@ -73,6 +73,10 @@ type jwk struct {
 	E   string `json:"e"`
 }
 
+// ErrJWKSUnavailable wraps a failure to fetch ThunderID's JWKS — distinct
+// from an invalid token, so callers can respond 503 instead of 401.
+var ErrJWKSUnavailable = errors.New("JWKS unavailable")
+
 // Verifier verifies ThunderID-issued JWTs against a cached JWKS. Build one
 // with NewVerifier at startup and share it across requests.
 type Verifier struct {
@@ -127,25 +131,25 @@ func (v *Verifier) fetchJWKS() ([]jwk, error) {
 		if cache != nil {
 			return cache, nil
 		}
-		return nil, errors.New("ThunderID JWKS unavailable, retry cooldown active")
+		return nil, fmt.Errorf("%w: retry cooldown active", ErrJWKSUnavailable)
 	}
 	v.lastRefresh = time.Now()
 
 	resp, err := v.httpClient.Get(v.cfg.BaseURL + "/oauth2/jwks")
 	if err != nil {
-		return nil, errors.New("cannot reach ThunderID JWKS")
+		return nil, fmt.Errorf("%w: cannot reach ThunderID JWKS", ErrJWKSUnavailable)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("ThunderID JWKS returned status %d", resp.StatusCode)
+		return nil, fmt.Errorf("%w: ThunderID JWKS returned status %d", ErrJWKSUnavailable, resp.StatusCode)
 	}
 
 	var doc struct {
 		Keys []jwk `json:"keys"`
 	}
 	if json.NewDecoder(resp.Body).Decode(&doc) != nil || len(doc.Keys) == 0 {
-		return nil, errors.New("bad JWKS document")
+		return nil, fmt.Errorf("%w: bad JWKS document", ErrJWKSUnavailable)
 	}
 
 	v.cacheMu.Lock()
