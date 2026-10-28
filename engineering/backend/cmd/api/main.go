@@ -8,6 +8,7 @@ import (
 	"marketlens-go-backend/internal/auth"
 	"marketlens-go-backend/internal/config"
 	"marketlens-go-backend/internal/ingestion"
+	"marketlens-go-backend/internal/llm"
 	"marketlens-go-backend/internal/repositories"
 	"marketlens-go-backend/internal/service"
 
@@ -43,7 +44,7 @@ func main() {
 	if err := cfg.LLM.Validate(); err != nil {
 		log.Fatalf("llm client misconfigured: %v", err)
 	}
-	llmClient := ingestion.NewLLMClient(cfg.LLM, http.DefaultClient)
+	llmClient := llm.NewClient(cfg.LLM, http.DefaultClient)
 	industryClassifier := ingestion.NewIndustryClassifier(
 		services.IndustrySectors,
 		services.IndustryDivisions,

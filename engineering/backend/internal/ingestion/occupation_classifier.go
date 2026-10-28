@@ -3,6 +3,7 @@ package ingestion
 import (
 	"context"
 
+	"marketlens-go-backend/internal/llm"
 	"marketlens-go-backend/internal/models"
 	"marketlens-go-backend/internal/service"
 )
@@ -16,7 +17,7 @@ type OccupationClassifier struct {
 	minorGroups      *service.CRUDService[models.MinorGroup]
 	unitGroups       *service.CRUDService[models.UnitGroup]
 	occupationGroups *service.CRUDService[models.OccupationGroup]
-	llm              *LLMClient
+	llmClient        *llm.Client
 }
 
 func NewOccupationClassifier(
@@ -25,7 +26,7 @@ func NewOccupationClassifier(
 	minorGroups *service.CRUDService[models.MinorGroup],
 	unitGroups *service.CRUDService[models.UnitGroup],
 	occupationGroups *service.CRUDService[models.OccupationGroup],
-	llm *LLMClient,
+	llmClient *llm.Client,
 ) *OccupationClassifier {
 	return &OccupationClassifier{
 		majorGroups:      majorGroups,
@@ -33,7 +34,7 @@ func NewOccupationClassifier(
 		minorGroups:      minorGroups,
 		unitGroups:       unitGroups,
 		occupationGroups: occupationGroups,
-		llm:              llm,
+		llmClient:        llmClient,
 	}
 }
 
@@ -93,5 +94,5 @@ func (c *OccupationClassifier) Classify(ctx context.Context, jobText string) (ui
 		},
 	}
 
-	return Walk(ctx, c.llm, jobText, levels)
+	return Walk(ctx, c.llmClient, jobText, levels)
 }

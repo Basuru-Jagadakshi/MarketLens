@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"time"
 
+	"marketlens-go-backend/internal/llm"
 	"marketlens-go-backend/internal/models"
 	"marketlens-go-backend/internal/repositories"
 	"marketlens-go-backend/internal/service"
@@ -39,7 +40,7 @@ type FailedJob struct {
 // update (each new job extracted + classified first).
 type IngestionService struct {
 	jobPosts             *service.JobPostService
-	llm                  *LLMClient
+	llmClient            *llm.Client
 	metadataBuilder      *MetadataBuilder
 	industryClassifier   *IndustryClassifier
 	occupationClassifier *OccupationClassifier
@@ -55,7 +56,7 @@ type IngestionService struct {
 // services), same as llm.
 func NewIngestionService(
 	jobPosts *service.JobPostService,
-	llm *LLMClient,
+	llmClient *llm.Client,
 	industryClassifier *IndustryClassifier,
 	occupationClassifier *OccupationClassifier,
 	metadataBuilder *MetadataBuilder,
@@ -66,7 +67,7 @@ func NewIngestionService(
 
 	return &IngestionService{
 		jobPosts:             jobPosts,
-		llm:                  llm,
+		llmClient:            llmClient,
 		metadataBuilder:      metadataBuilder,
 		industryClassifier:   industryClassifier,
 		occupationClassifier: occupationClassifier,
@@ -192,9 +193,9 @@ func (s *IngestionService) extractAndClassify(ctx context.Context, raw RawJobInp
 
 	prompt := buildExtractionPrompt(instruction, schemaJSON, jobText)
 
-	content, err := s.llm.Chat(ctx, prompt)
+	content, err := s.llmClient.Chat(ctx, prompt)
 	if err != nil {
-		return models.JobPost{}, fmt.Errorf("llm extraction call: %w", err)
+		return models.JobPost{}, fmt.Errorf("llm extraction call: %w", wrapLLMErr(err))
 	}
 
 	var extracted extractedJob

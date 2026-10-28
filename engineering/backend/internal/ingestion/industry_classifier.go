@@ -3,6 +3,7 @@ package ingestion
 import (
 	"context"
 
+	"marketlens-go-backend/internal/llm"
 	"marketlens-go-backend/internal/models"
 	"marketlens-go-backend/internal/service"
 )
@@ -15,7 +16,7 @@ type IndustryClassifier struct {
 	industryGroups     *service.CRUDService[models.IndustryGroup]
 	industryClasses    *service.CRUDService[models.IndustryClass]
 	industrySubclasses *service.CRUDService[models.IndustrySubclass]
-	llm                *LLMClient
+	llmClient          *llm.Client
 }
 
 func NewIndustryClassifier(
@@ -24,7 +25,7 @@ func NewIndustryClassifier(
 	industryGroups *service.CRUDService[models.IndustryGroup],
 	industryClasses *service.CRUDService[models.IndustryClass],
 	industrySubclasses *service.CRUDService[models.IndustrySubclass],
-	llm *LLMClient,
+	llmClient *llm.Client,
 ) *IndustryClassifier {
 	return &IndustryClassifier{
 		industrySectors:    industrySectors,
@@ -32,7 +33,7 @@ func NewIndustryClassifier(
 		industryGroups:     industryGroups,
 		industryClasses:    industryClasses,
 		industrySubclasses: industrySubclasses,
-		llm:                llm,
+		llmClient:          llmClient,
 	}
 }
 
@@ -91,5 +92,5 @@ func (c *IndustryClassifier) Classify(ctx context.Context, jobText string) (uint
 		},
 	}
 
-	return Walk(ctx, c.llm, jobText, levels)
+	return Walk(ctx, c.llmClient, jobText, levels)
 }

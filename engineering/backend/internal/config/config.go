@@ -7,6 +7,7 @@ import (
 
 	"marketlens-go-backend/internal/auth"
 	"marketlens-go-backend/internal/ingestion"
+	"marketlens-go-backend/internal/llm"
 )
 
 // DBConfig holds Postgres connection settings for ConnectDatabase.
@@ -31,7 +32,7 @@ type ServerConfig struct {
 type Config struct {
 	DB        DBConfig
 	Auth      auth.Config
-	LLM       ingestion.LLMConfig
+	LLM       llm.Config
 	Ingestion ingestion.PipelineConfig
 	Server    ServerConfig
 }
@@ -62,7 +63,7 @@ func LoadConfig() *Config {
 			Audience:    os.Getenv("THUNDER_AUDIENCE"),
 			InsecureTLS: os.Getenv("THUNDER_INSECURE_TLS") == "true",
 		},
-		LLM: ingestion.LLMConfig{
+		LLM: llm.Config{
 			APIKey: os.Getenv("LLM_API_KEY"),
 			APIURL: os.Getenv("LLM_API_URL"),
 			Model:  os.Getenv("LLM_MODEL"),
