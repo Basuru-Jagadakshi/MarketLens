@@ -139,6 +139,10 @@ func (r *Store) ReconcileStaleVacancies(ctx context.Context, currentRunID uint) 
 	now := time.Now()
 
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var run models.CrawlerRun
+		if err := tx.First(&run, currentRunID).Error; err != nil {
+			return err
+		}
 
 		const staleCond = "(crawler_run_id IS NULL OR crawler_run_id <> ?) AND end_date IS NULL"
 		stale := tx.Model(&models.JobMetaData{}).Select("job_post_id").Where(staleCond, currentRunID)
