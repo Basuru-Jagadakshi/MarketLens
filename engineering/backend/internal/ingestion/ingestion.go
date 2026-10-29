@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"marketlens-go-backend/internal/llm"
@@ -25,6 +26,17 @@ type RawJobInput struct {
 	Description  string `json:"description"`
 	CrawlerRunID uint   `json:"crawler_run_id"`
 	Source       string `json:"source"`
+}
+
+// hasNoUsableText reports whether raw has no content in any text
+// field — such a job produces a degenerate MinHash signature (every
+// element stays at its max-value default), making it look identical
+// to every other such job.
+func hasNoUsableText(raw RawJobInput) bool {
+	return strings.TrimSpace(raw.Employer) == "" &&
+		strings.TrimSpace(raw.JobRole) == "" &&
+		strings.TrimSpace(raw.Location) == "" &&
+		strings.TrimSpace(raw.Description) == ""
 }
 
 // FailedJob reports one job's save failure, keyed by the crawler-generated
@@ -87,6 +99,15 @@ func (s *IngestionService) ProcessBatch(ctx context.Context, rawJobs []RawJobInp
 	var failures []FailedJob
 
 	for _, raw := range rawJobs {
+		if hasNoUsableText(raw) {
+			failures = append(failures, FailedJob{
+				JobID:      raw.JobID,
+				StatusCode: http.StatusBadRequest,
+				Error:      "job has no usable text content",
+			})
+			continue
+		}
+
 		jobData := JobData{
 			Employer:    raw.Employer,
 			JobRole:     raw.JobRole,
