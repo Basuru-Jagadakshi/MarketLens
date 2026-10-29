@@ -13,6 +13,11 @@ import (
 	"golang.org/x/sync/singleflight"
 )
 
+// refreshTimeout bounds the shared cache-refill operation independently
+// of any single caller's context, so one caller's cancellation can't
+// cut the refresh short for every other caller sharing it.
+const refreshTimeout = 30 * time.Second
+
 // MetadataBuilder fetches the six reference lists (formality, gender,
 // vocational education, employment sector, education level, experience)
 // and assembles the extraction schema + instruction text.
@@ -105,13 +110,21 @@ func (b *MetadataBuilder) getOptions(ctx context.Context) (*optionSet, error) {
 	}
 	b.mu.RUnlock()
 
-	v, err, _ := b.group.Do("refresh", func() (any, error) {
-		return b.refresh(ctx)
+	resultCh := b.group.DoChan("refresh", func() (any, error) {
+		refreshCtx, cancel := context.WithTimeout(context.Background(), refreshTimeout)
+		defer cancel()
+		return b.refresh(refreshCtx)
 	})
-	if err != nil {
-		return nil, err
+
+	select {
+	case res := <-resultCh:
+		if res.Err != nil {
+			return nil, res.Err
+		}
+		return res.Val.(*optionSet), nil
+	case <-ctx.Done():
+		return nil, ctx.Err()
 	}
-	return v.(*optionSet), nil
 }
 
 func (b *MetadataBuilder) refresh(ctx context.Context) (*optionSet, error) {
