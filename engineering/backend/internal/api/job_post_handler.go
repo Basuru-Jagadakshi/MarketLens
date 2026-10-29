@@ -14,16 +14,39 @@ type batchSaveJobsResponse struct {
 	FailedJobs  []ingestion.FailedJob `json:"failed_jobs"`
 }
 
+type batchSaveJobInput struct {
+	JobID        string `json:"job_id"`
+	Employer     string `json:"employer"`
+	JobRole      string `json:"job_role"`
+	Location     string `json:"location"`
+	Description  string `json:"description"`
+	CrawlerRunID uint   `json:"crawler_run_id"`
+	Source       string `json:"source"`
+}
+
 func (h *Handler) BatchSaveJobsHandler(c *gin.Context) {
-	var rawJobs []ingestion.RawJobInput
-	if err := c.ShouldBindJSON(&rawJobs); err != nil {
+	var in []batchSaveJobInput
+	if err := c.ShouldBindJSON(&in); err != nil {
 		respondError(c, http.StatusBadRequest, "Invalid request body structural mapping", err)
 		return
 	}
 
-	if len(rawJobs) == 0 {
+	if len(in) == 0 {
 		respondError(c, http.StatusBadRequest, "The job batch cannot be empty", nil)
 		return
+	}
+
+	rawJobs := make([]ingestion.RawJobInput, len(in))
+	for i, j := range in {
+		rawJobs[i] = ingestion.RawJobInput{
+			JobID:        j.JobID,
+			Employer:     j.Employer,
+			JobRole:      j.JobRole,
+			Location:     j.Location,
+			Description:  j.Description,
+			CrawlerRunID: j.CrawlerRunID,
+			Source:       j.Source,
+		}
 	}
 
 	failedJobs := h.ingestion.ProcessBatch(c.Request.Context(), rawJobs)

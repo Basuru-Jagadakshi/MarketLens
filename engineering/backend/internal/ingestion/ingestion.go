@@ -16,16 +16,15 @@ import (
 	"marketlens-go-backend/internal/service"
 )
 
-// RawJobInput is one crawled job as it arrives in a batch request:
-// {"job_id":, "employer":, "job_role":, "location":, "description":, "crawler_run_id":, "source":}
+// RawJobInput is one crawled job to run through ProcessBatch.
 type RawJobInput struct {
-	JobID        string `json:"job_id"`
-	Employer     string `json:"employer"`
-	JobRole      string `json:"job_role"`
-	Location     string `json:"location"`
-	Description  string `json:"description"`
-	CrawlerRunID uint   `json:"crawler_run_id"`
-	Source       string `json:"source"`
+	JobID        string
+	Employer     string
+	JobRole      string
+	Location     string
+	Description  string
+	CrawlerRunID uint
+	Source       string
 }
 
 // hasNoUsableText reports whether raw has no content in any text
