@@ -9,6 +9,8 @@ import (
 
 	"marketlens-go-backend/internal/models"
 	"marketlens-go-backend/internal/service"
+
+	"golang.org/x/sync/singleflight"
 )
 
 // MetadataBuilder fetches the six reference lists (formality, gender,
@@ -29,6 +31,8 @@ type MetadataBuilder struct {
 	mu       sync.RWMutex
 	cached   *optionSet
 	cachedAt time.Time
+
+	group singleflight.Group
 }
 
 type optionSet struct {
@@ -101,7 +105,13 @@ func (b *MetadataBuilder) getOptions(ctx context.Context) (*optionSet, error) {
 	}
 	b.mu.RUnlock()
 
-	return b.refresh(ctx)
+	v, err, _ := b.group.Do("refresh", func() (any, error) {
+		return b.refresh(ctx)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return v.(*optionSet), nil
 }
 
 func (b *MetadataBuilder) refresh(ctx context.Context) (*optionSet, error) {
