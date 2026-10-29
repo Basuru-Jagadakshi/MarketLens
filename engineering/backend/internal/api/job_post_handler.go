@@ -7,25 +7,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func (h *Handler) GetJobsByBucketKeysHandler(c *gin.Context) {
-	var req struct {
-		BucketKeys []string `json:"bucket_keys" binding:"required,min=1"`
-	}
-
-	if err := c.ShouldBindJSON(&req); err != nil {
-		respondError(c, http.StatusBadRequest, "Invalid request structure payload mapping", err)
-		return
-	}
-
-	matchingJobs, err := h.JobPosts.GetJobsByBucketKeys(c.Request.Context(), req.BucketKeys)
-	if err != nil {
-		respondError(c, http.StatusInternalServerError, "LSH bucket radar execution sequence encountered a processing exception", err)
-		return
-	}
-
-	c.JSON(http.StatusOK, matchingJobs)
-}
-
 type batchSaveJobsResponse struct {
 	Message     string                `json:"message"`
 	Submitted   int                   `json:"submitted"`
